@@ -38,3 +38,8 @@ hs_err_*.log
 replay_*.log
 *.hprof
 *.jfr
+
+# ai
+
+AGENTS.md
+IMPLEMENTATION_LOG.md

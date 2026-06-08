@@ -11,7 +11,7 @@
     "sources": "https://github.com/kdgaming0/Enhanced-Storage"
   },
   "license": "MIT",
-  "icon": "assets/enhancedstorage/icon.png",
+  "icon": "assets/enhanced_storage/icon.png",
   "environment": "client",
   "entrypoints": {
     "client": [
