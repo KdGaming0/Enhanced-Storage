@@ -106,7 +106,7 @@ public class AbstractContainerScreenMixin<T extends AbstractContainerMenu> imple
     @Inject(method = "removed", at = @At("HEAD"))
     private void es$onRemoved(CallbackInfo ci) {
         if (es$overlay != null) {
-            es$overlay.saveState();
+            es$overlay.detach();
         }
         es$overlay = null;
     }

@@ -1,25 +1,56 @@
-# Stonecutter Fabric template
-## Setup
-1. Review the supported Minecraft versions in `settings.gradle.kts`.
-   For new entries, add `versions/.../gradle.properties` with the same keys as other versions.
-2. Change `mod.group`, `mod.id` and `mod.name` properties in `gradle.properties`.
-3. Rename `com.example` package in `src/main/java`.
-4. Rename `src/main/resources/template.mixins.json` to use your mod's id.
-5. Review the `LICENSE` file. 
-   See the [license decision diagram](https://docs.codeberg.org/getting-started/licensing/#license-decision-diagram) for common options.
-6. Review `src/main/resources/fabric.mod.json` to have up-to-date properties.
+<div align="center">
 
-## Usage
-- Use `"Set active project to ..."` Gradle tasks to update the Minecraft version
-  available in `src/` classes.
-- Use `buildAndCollect` Gradle task to store mod releases in `build/libs/`.
-- Enable `mod-publish-plugin` in `stonecutter.gradle.kts` and `build.gradle.kts`
-  and the corresponding code blocks to publish releases to Modrinth and Curseforge.
-- Enable `maven-publish` in `build.gradle.kts` and the corresponding code block
-  to publish releases to a personal maven repository.
+[![Available on Modrinth](https://raw.githubusercontent.com/intergrav/devins-badges/c7fd18efdadd1c3f12ae56b49afd834640d2d797/assets/cozy/available/modrinth_vector.svg)](https://modrinth.com/mod/enhanced-storage)
+[![Chat with us on Discord](https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/social/discord-plural_vector.svg)](https://discord.gg/FCPP2WPZ3U)
+[![Requires Fabric API](https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/requires/fabric-api_vector.svg)](https://modrinth.com/mod/fabric-api)
 
-## Useful links
-- [Stonecutter beginner's guide](https://stonecutter.kikugie.dev/wiki/start/): *spoiler: you* ***need*** *to understand how it works!*
-- [Fabric Discord server](https://discord.gg/v6v4pMv): for mod development help.
-- [Stonecutter Discord server](https://discord.kikugie.dev/): for Stonecutter and Gradle help.
-- [How To Ask Questions - the guide](http://www.catb.org/esr/faqs/smart-questions.html): also in [video form](https://www.youtube.com/results?search_query=How+To+Ask+Questions+The+Smart+Way).
+</div>
+<div align="center">
+
+[![Modrinth Downloads](https://img.shields.io/modrinth/dt/enhanced-storage?color=00AF5C&label=downloads&logo=modrinth&style=flat-square)](https://modrinth.com/mod/enhanced-storage)
+[![Join Fluxer](https://img.shields.io/badge/Join-Fluxer-5865F2?style=flat-square)](https://fluxer.gg/3jJy9cp6)
+
+# Enhanced Storage
+
+**A unified overlay for Hypixel SkyBlock storage — all your Ender Chests and Backpacks in one searchable view.**
+</div>
+
+## Unified Storage View
+
+Enhanced Storage replaces the vanilla chest GUI with a custom overlay that displays all **9 Ender Chest pages** and up to **18 Backpack pages** in a single, easy-to-navigate interface. No more memorizing which page holds what — everything is visible at a glance.
+
+## Smart Search
+
+Type in the search bar to filter items across **all pages simultaneously**. Whether you're hunting for a specific pet, armor piece, or crafting material, Enhanced Storage finds it in seconds without forcing you to check every chest individually.
+
+## Configuration
+
+Open the config via **Mod Menu → Enhanced Storage → Config**. Enhanced Storage uses MidnightLib, so all options are editable in-game with live saving.
+
+## Installation
+
+1. Install Minecraft with **Fabric Loader** for 26.1+.
+2. Download the latest `.jar` from [Modrinth](https://modrinth.com/mod/enhanced-storage).
+3. Place **Fabric API** in your `mods` folder. MidnightLib and HM-API are bundled inside the Enhanced Storage jar — no separate downloads needed.
+4. Launch the game. The overlay will activate automatically whenever you open a SkyBlock storage container.
+
+## Support & Community
+
+Found a bug or have a feature request? Come say hi.
+
+[![Chat with us on Discord](https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/social/discord-plural_vector.svg)](https://discord.gg/FCPP2WPZ3U)
+[![Join Fluxer](https://img.shields.io/badge/Join-Fluxer-5865F2?style=flat-square)](https://fluxer.gg/3jJy9cp6)
+
+## Support the Project
+
+If you'd like to support continued development, you can do so on **Ko-fi** — every contribution is appreciated.
+
+[**Support on Ko-fi →**](https://ko-fi.com/kdgaming1)
+
+---
+
+<div align="center">
+
+**Made with love for the SkyBlock community.**
+
+</div>

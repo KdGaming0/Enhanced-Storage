@@ -75,22 +75,31 @@ public final class StorageLifecycle {
     }
 
     public static @Nullable StorageOverlay createOverlay(AbstractContainerScreen<?> screen) {
-        if (!isFeatureEnabled()) return null;
+        if (!isFeatureEnabled()) {
+            StorageOverlay.destroyActive();
+            return null;
+        }
 
         String rawTitle = screen.getTitle().getString();
         Optional<StorageTitleParser.ParsedTitle> parsed = StorageTitleParser.parse(rawTitle);
-        if (parsed.isEmpty()) return null;
+        if (parsed.isEmpty()) {
+            StorageOverlay.destroyActive();
+            return null;
+        }
 
         if (parsed.get().isOverview()) {
             rememberOverview(screen);
-            return new StorageOverlay(screen, null);
+            return StorageOverlay.createOrAttach(screen, null);
         }
 
         StoragePage page = parsed.get().page();
-        if (page == null) return null;
+        if (page == null) {
+            StorageOverlay.destroyActive();
+            return null;
+        }
 
         rememberPage(screen, page, rawTitle);
-        return new StorageOverlay(screen, page);
+        return StorageOverlay.createOrAttach(screen, page);
     }
 
     public static void rememberPage(AbstractContainerScreen<?> screen, StoragePage page, String rawTitle) {
@@ -142,7 +151,7 @@ public final class StorageLifecycle {
         StorageData.INSTANCE.clear();
         STORAGE_REF.set(null);
         cachedProfileId = "unknown";
-        StorageOverlay.clearState();
+        StorageOverlay.destroyActive();
     }
 
     private static String resolveProfileId() {

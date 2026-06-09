@@ -2,6 +2,7 @@ package com.github.kdgaming0.enhancedstorage.gui;
 
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.mixin.AbstractContainerScreenAccessor;
+import com.github.kdgaming0.enhancedstorage.mixin.ScreenAccessor;
 import com.github.kdgaming0.enhancedstorage.mixin.SlotAccessor;
 import com.github.kdgaming0.enhancedstorage.storage.StorageData;
 import com.github.kdgaming0.enhancedstorage.storage.StoragePage;
@@ -72,6 +73,9 @@ public class StorageOverlay {
 
     private static final int BOTTOM_PADDING = 20;
 
+    /** Base scroll distance per mouse-wheel notch (multiplied by config scrollSpeed). */
+    private static final float SCROLL_BASE_AMOUNT = 30f;
+
     private static final int OVERVIEW_TEXTURE_W = 176;
     private static final int OVERVIEW_TEXTURE_H = 85;
     private static final int OVERVIEW_SLOT_START_X = 8;
@@ -86,10 +90,10 @@ public class StorageOverlay {
     private static final int COL_PLACEHOLDER  = 0xFF505868;
 
     // ── References ────────────────────────────────────────────────────────────
-    private final AbstractContainerScreen<?> screen;
-    private final AbstractContainerScreenAccessor accessor;
-    private final StoragePage activePage;
-    private final Minecraft mc;
+    private AbstractContainerScreen<?> screen;
+    private AbstractContainerScreenAccessor accessor;
+    private StoragePage activePage;
+    private Minecraft mc;
 
     private int baseTopPos;
     private int[] originalPlayerSlotRelY;
@@ -100,7 +104,7 @@ public class StorageOverlay {
     private int overviewX, overviewWidth, overviewHeight;
     private int innerScrollPanelWidth, innerScrollPanelHeight;
     private int invPanelX, invPanelY, invPanelW, invPanelH;
-    private final boolean isOverview;
+    private boolean isOverview;
     private int overviewTextureX, overviewTextureY;
 
     // ── Scroll state ──────────────────────────────────────────────────────────
@@ -108,9 +112,8 @@ public class StorageOverlay {
     private int lastRenderedContentH;
     private boolean knobGrabbed;
 
-    // Persistent UI state across overlay instances
-    private static float lastScroll = 0f;
-    private static String lastSearchQuery = "";
+    /** Active overlay instance that persists across container screen transitions. */
+    private static StorageOverlay activeInstance;
 
     // ── Search state ──────────────────────────────────────────────────────────
     private EditBox searchField;
@@ -120,14 +123,52 @@ public class StorageOverlay {
 
     // ─────────────────────────────────────────────────────────────────────────
 
-    public StorageOverlay(AbstractContainerScreen<?> screen, StoragePage activePage) {
-        this.screen     = screen;
-        this.accessor   = (AbstractContainerScreenAccessor) screen;
+    private StorageOverlay(AbstractContainerScreen<?> screen, StoragePage activePage) {
+        attach(screen, activePage);
+    }
+
+    /**
+     * Returns the existing overlay if one is active, otherwise creates a new one.
+     * The overlay survives across container screen transitions.
+     */
+    public static StorageOverlay createOrAttach(AbstractContainerScreen<?> screen, StoragePage activePage) {
+        if (activeInstance == null) {
+            activeInstance = new StorageOverlay(screen, activePage);
+        } else {
+            activeInstance.attach(screen, activePage);
+        }
+        return activeInstance;
+    }
+
+    /** Detaches and discards the active overlay. Called when leaving storage context. */
+    public static void destroyActive() {
+        if (activeInstance != null) {
+            activeInstance.detach();
+            activeInstance = null;
+        }
+    }
+
+    /** Re-targets this overlay to a new screen and page without losing scroll/search state. */
+    public void attach(AbstractContainerScreen<?> screen, StoragePage activePage) {
+        detach();
+        this.screen = screen;
+        this.accessor = (AbstractContainerScreenAccessor) screen;
         this.activePage = activePage;
-        this.mc         = Minecraft.getInstance();
-        this.scroll     = lastScroll;
-        this.searchQuery = lastSearchQuery;
+        this.mc = Minecraft.getInstance();
         this.isOverview = activePage == null;
+    }
+
+    /** Removes the search field from the old screen and clears transient references. */
+    public void detach() {
+        if (this.screen != null && this.searchField != null) {
+            ((ScreenAccessor) this.screen).es$removeWidget(this.searchField);
+        }
+        if (this.searchField != null) {
+            this.searchField.setFocused(false);
+        }
+        this.screen = null;
+        this.accessor = null;
+        this.activePage = null;
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -138,6 +179,21 @@ public class StorageOverlay {
         originalPlayerSlotRelY = capturePlayerSlotRelY();
         recalculateMeasurements();
         scroll = clampScroll(scroll);
+
+        // Auto-scroll to the active page only when it is completely off-screen.
+        if (activePage != null) {
+            Rect pageRect = findPageRect(activePage);
+            if (pageRect != null) {
+                Rect panel = getScrollPanel();
+                int pageTop     = pageRect.y - (int) scroll;
+                int pageBottom  = pageTop + pageRect.height;
+                int panelBottom = panel.y + panel.height;
+                if (pageTop >= panelBottom || pageBottom <= panel.y) {
+                    scroll = clampScroll(pageRect.y - panel.y);
+                }
+            }
+        }
+
         initSearchField();
         computeOverviewLayout();
     }
@@ -176,16 +232,6 @@ public class StorageOverlay {
 
     public EditBox getSearchField() { return searchField; }
 
-    public void saveState() {
-        lastScroll = scroll;
-        lastSearchQuery = searchQuery;
-    }
-
-    public static void clearState() {
-        lastScroll = 0f;
-        lastSearchQuery = "";
-    }
-
     // ── Input delegation ──────────────────────────────────────────────────────
 
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
@@ -209,7 +255,7 @@ public class StorageOverlay {
     public boolean mouseScrolled(double x, double y, double scrollX, double scrollY) {
         if (!getScrollPanel().contains(x, y)) return false;
         float dir = EnhancedStorageConfig.inverseScroll ? 1f : -1f;
-        scroll = clampScroll(scroll + (float) (scrollY * EnhancedStorageConfig.scrollSpeed * dir));
+        scroll = clampScroll(scroll + (float) (scrollY * EnhancedStorageConfig.scrollSpeed * SCROLL_BASE_AMOUNT * dir));
         return true;
     }
 
@@ -700,7 +746,6 @@ public class StorageOverlay {
         searchField.setX(invPanelX + STORAGE_INV_W - searchW - 8);
         searchField.setY(invPanelY + 1);
         searchField.setWidth(searchW);
-        searchField.setValue(searchQuery);
     }
 
     private void onSearchChanged(String query) {

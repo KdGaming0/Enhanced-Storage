@@ -15,4 +15,7 @@ public interface ScreenAccessor {
 
     @Invoker("addRenderableWidget")
     <T extends GuiEventListener & Renderable & NarratableEntry> T es$addRenderableWidget(T widget);
+
+    @Invoker("removeWidget")
+    void es$removeWidget(GuiEventListener widget);
 }

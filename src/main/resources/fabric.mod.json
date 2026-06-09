@@ -3,11 +3,12 @@
   "id": "${id}",
   "version": "${version}",
   "name": "${name}",
-  "description": "To be added.",
+  "description": "A unified overlay for Hypixel SkyBlock storage — all your Ender Chests and Backpacks in one searchable view.",
   "authors": [
     "Kd_Gaming1"
   ],
   "contact": {
+    "homepage": "https://modrinth.com/mod/enhanced-storage",
     "sources": "https://github.com/kdgaming0/Enhanced-Storage"
   },
   "license": "MIT",
