@@ -16,18 +16,11 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public final class StorageData {
 
     public static final StorageData INSTANCE = new StorageData();
-
-    public record StorageInventory(
-            String title,
-            StoragePage page,
-            @Nullable VirtualInventory inventory,
-            @Nullable ItemStack icon) {}
-
     private final ConcurrentSkipListMap<StoragePage, StorageInventory> inventories = new ConcurrentSkipListMap<>();
     private final List<Runnable> dirtyListeners = new CopyOnWriteArrayList<>();
     private volatile boolean dirty = false;
-
-    private StorageData() {}
+    private StorageData() {
+    }
 
     public void updateInventory(StoragePage page, String title, @Nullable VirtualInventory inventory) {
         updateInventory(page, title, inventory, null);
@@ -40,7 +33,7 @@ public final class StorageData {
         String resolvedTitle = (title != null && !title.isBlank()) ? title
                 : (existing != null && existing.title() != null) ? existing.title()
                   : page.defaultName();
-        VirtualInventory resolvedInv  = inventory != null ? inventory
+        VirtualInventory resolvedInv = inventory != null ? inventory
                 : (existing != null ? existing.inventory() : null);
         ItemStack resolvedIcon = icon != null ? icon
                 : (existing != null ? existing.icon() : null);
@@ -67,7 +60,9 @@ public final class StorageData {
         markDirty();
     }
 
-    /** Returns a read-only view of all cached inventories, sorted by page index. */
+    /**
+     * Returns a read-only view of all cached inventories, sorted by page index.
+     */
     public Map<StoragePage, StorageInventory> getInventories() {
         return Collections.unmodifiableMap(inventories);
     }
@@ -83,7 +78,18 @@ public final class StorageData {
         dirtyListeners.add(listener);
     }
 
-    public boolean isDirty() { return dirty; }
+    public boolean isDirty() {
+        return dirty;
+    }
 
-    public void clearDirty() { dirty = false; }
+    public void clearDirty() {
+        dirty = false;
+    }
+
+    public record StorageInventory(
+            String title,
+            StoragePage page,
+            @Nullable VirtualInventory inventory,
+            @Nullable ItemStack icon) {
+    }
 }

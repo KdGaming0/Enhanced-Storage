@@ -23,19 +23,27 @@ public class EnhancedStorageConfig extends MidnightConfig {
     @Entry(category = "storage", isSlider = true, min = 0.5, max = 5.0, precision = 1)
     public static double scrollSpeed = 2.0;
 
-    /** Show/hide pages that have not been visited yet. */
+    /**
+     * Show/hide pages that have not been visited yet.
+     */
     @Entry(category = "storage")
     public static boolean showEmptyPages = true;
 
-    /** Auto-scroll the page list so the currently open page is visible on screen init. */
+    /**
+     * Auto-scroll the page list so the currently open page is visible on screen init.
+     */
     @Entry(category = "storage")
     public static boolean autoScrollToActivePage = true;
 
-    /** Show item tooltips when hovering over items in non-active page previews. */
+    /**
+     * Show item tooltips when hovering over items in non-active page previews.
+     */
     @Entry(category = "storage")
     public static boolean showPreviewTooltips = true;
 
-    /** Colour applied to matching items during search (format: #RRGGBBAA or #RRGGBB). */
+    /**
+     * Colour applied to matching items during search (format: #RRGGBBAA or #RRGGBB).
+     */
     @Entry(category = "storage", isColor = true)
     public static String searchHighlightColor = "#55FF5540";
 }

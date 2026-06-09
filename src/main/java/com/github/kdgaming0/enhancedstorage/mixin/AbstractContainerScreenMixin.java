@@ -32,10 +32,10 @@ public class AbstractContainerScreenMixin<T extends AbstractContainerMenu> imple
     @Inject(method = "init()V", at = @At("TAIL"))
     private void es$onInit(CallbackInfo ci) {
         if (es$overlay == null) {
-            es$overlay = StorageLifecycle.createOverlay((AbstractContainerScreen<?>)(Object)this);
+            es$overlay = StorageLifecycle.createOverlay((AbstractContainerScreen<?>) (Object) this);
         }
         if (es$overlay != null) {
-            es$overlay.onInit(((Screen)(Object)this).width, ((Screen)(Object)this).height);
+            es$overlay.onInit(((Screen) (Object) this).width, ((Screen) (Object) this).height);
             EditBox searchField = es$overlay.getSearchField();
             if (searchField != null) {
                 ((ScreenAccessor) this).es$addWidget(searchField);
@@ -61,7 +61,9 @@ public class AbstractContainerScreenMixin<T extends AbstractContainerMenu> imple
         es$overlay.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
 
-    /** Cancel vanilla label rendering; our panels draw all labels. */
+    /**
+     * Cancel vanilla label rendering; our panels draw all labels.
+     */
     @Inject(method = "extractLabels", at = @At("HEAD"), cancellable = true)
     private void es$onExtractLabels(GuiGraphicsExtractor graphics, int mouseX, int mouseY, CallbackInfo ci) {
         if (es$overlay != null) ci.cancel();

@@ -1,11 +1,7 @@
 package com.github.kdgaming0.enhancedstorage.storage;
 
 import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtAccounter;
-import net.minecraft.nbt.NbtIo;
-import net.minecraft.nbt.NbtOps;
-import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.*;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
@@ -20,7 +16,8 @@ import java.util.Optional;
  */
 public final class ItemStackCodec {
 
-    private ItemStackCodec() {}
+    private ItemStackCodec() {
+    }
 
     public static @Nullable String encode(ItemStack stack, HolderLookup.Provider lookup) {
         if (stack == null || stack.isEmpty()) return null;

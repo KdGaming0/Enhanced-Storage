@@ -1,13 +1,12 @@
 package com.github.kdgaming0.enhancedstorage.storage;
 
-import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlay;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import net.azureaaron.hmapi.events.HypixelPacketEvents;
+import net.azureaaron.hmapi.network.HypixelNetworking;
 import net.azureaaron.hmapi.network.packet.s2c.HypixelS2CPacket;
 import net.azureaaron.hmapi.network.packet.v1.s2c.LocationUpdateS2CPacket;
-import net.azureaaron.hmapi.network.HypixelNetworking;
 import net.azureaaron.hmapi.utils.Utils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
@@ -23,13 +22,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Feature lifecycle manager. Handles:
- * <ul>
- *   <li>Registering for Hypixel location updates via HM-API</li>
- *   <li>Loading/saving storage snapshots on server join/disconnect and client stop</li>
- *   <li>Detecting storage screens and creating the overlay delegate</li>
- *   <li>Capturing live inventory data from open containers</li>
- * </ul>
+ * Manages feature lifecycle: server detection, snapshot persistence, and overlay creation.
  */
 public final class StorageLifecycle {
 
@@ -37,18 +30,19 @@ public final class StorageLifecycle {
     private static volatile String cachedProfileId = "unknown";
     private static volatile boolean onSkyBlock = false;
 
-    private StorageLifecycle() {}
+    private StorageLifecycle() {
+    }
 
     public static void init() {
-        // Register for HM-API location updates
-        Object2IntOpenHashMap<net.minecraft.network.protocol.common.custom.CustomPacketPayload.Type<net.azureaaron.hmapi.network.packet.s2c.HypixelS2CPacket>> events =
+        Object2IntOpenHashMap<net.minecraft.network.protocol.common.custom.CustomPacketPayload.Type<HypixelS2CPacket>> events =
                 new Object2IntOpenHashMap<>();
         events.put(LocationUpdateS2CPacket.ID, 1);
         HypixelNetworking.registerToEvents(events);
-
         HypixelPacketEvents.LOCATION_UPDATE.register(StorageLifecycle::onLocationUpdate);
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+            // Profile ID uses the Minecraft account UUID, not the Hypixel profile UUID.
+            // Players with multiple SkyBlock profiles share one snapshot file per MC account.
             cachedProfileId = resolveProfileId();
             StorageSnapshotStorage storage = new StorageSnapshotStorage();
             storage.load(cachedProfileId, StorageData.INSTANCE);
@@ -56,7 +50,6 @@ public final class StorageLifecycle {
         });
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> save());
-
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> save());
     }
 
@@ -69,9 +62,9 @@ public final class StorageLifecycle {
     }
 
     public static boolean isFeatureEnabled() {
-        if (!EnhancedStorageConfig.enableStorageOverlay) return false;
-        if (!Utils.isOnHypixel()) return false;
-        return onSkyBlock;
+        return EnhancedStorageConfig.enableStorageOverlay
+                && Utils.isOnHypixel()
+                && onSkyBlock;
     }
 
     public static @Nullable StorageOverlay createOverlay(AbstractContainerScreen<?> screen) {
@@ -103,22 +96,9 @@ public final class StorageLifecycle {
     }
 
     public static void rememberPage(AbstractContainerScreen<?> screen, StoragePage page, String rawTitle) {
-        List<ItemStack> stacks = new ArrayList<>();
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null) return;
-        for (Slot slot : screen.getMenu().slots) {
-            if (slot.container != mc.player.getInventory()) {
-                while (stacks.size() <= slot.index) stacks.add(ItemStack.EMPTY);
-                stacks.set(slot.index, slot.getItem().copy());
-            }
-        }
-        int rows = Math.clamp((stacks.size() + 8) / 9, 1, 6);
-        int target = rows * 9;
-        while (stacks.size() < target) stacks.add(ItemStack.EMPTY);
-        if (stacks.size() > target) stacks = stacks.subList(0, target);
-
-        VirtualInventory vinv = new VirtualInventory(stacks);
-        StorageData.INSTANCE.updateInventory(page, rawTitle, vinv);
+        List<ItemStack> stacks = collectContainerStacks(screen);
+        if (stacks.isEmpty()) return;
+        StorageData.INSTANCE.updateInventory(page, rawTitle, new VirtualInventory(stacks));
         StorageData.INSTANCE.markDirty();
     }
 
@@ -126,18 +106,43 @@ public final class StorageLifecycle {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
         for (Slot slot : screen.getMenu().slots) {
-            if (slot.container != mc.player.getInventory()) {
-                StoragePage page = StoragePage.fromOverviewSlotIndex(slot.index);
-                if (page == null) continue;
-                ItemStack stack = slot.getItem();
-                String title = stack.isEmpty() ? page.defaultName() : stack.getHoverName().getString();
-                StorageData.INSTANCE.updateInventory(page, title, null, stack.copy());
-            }
+            if (slot.container == mc.player.getInventory()) continue;
+            StoragePage page = StoragePage.fromOverviewSlotIndex(slot.index);
+            if (page == null) continue;
+            ItemStack stack = slot.getItem();
+            String title = stack.isEmpty() ? page.defaultName() : stack.getHoverName().getString();
+            StorageData.INSTANCE.updateInventory(page, title, null, stack.copy());
         }
     }
 
     public static void onOverviewPacketReceived(AbstractContainerScreen<?> screen) {
         rememberOverview(screen);
+    }
+
+    /**
+     * Collects all non-player-inventory slot items from the given container screen,
+     * padded to a full row count (max 6 rows × 9 columns).
+     * Returns an empty list if the player reference is unavailable.
+     */
+    public static List<ItemStack> collectContainerStacks(AbstractContainerScreen<?> screen) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return List.of();
+
+        List<ItemStack> stacks = new ArrayList<>();
+        for (Slot slot : screen.getMenu().slots) {
+            if (slot.container != mc.player.getInventory()) {
+                while (stacks.size() <= slot.index) stacks.add(ItemStack.EMPTY);
+                stacks.set(slot.index, slot.getItem().copy());
+            }
+        }
+        return normalizeToRows(stacks);
+    }
+
+    private static List<ItemStack> normalizeToRows(List<ItemStack> stacks) {
+        int rows = Math.clamp((stacks.size() + 8) / 9, 1, 6);
+        int target = rows * 9;
+        while (stacks.size() < target) stacks.add(ItemStack.EMPTY);
+        return stacks.size() > target ? stacks.subList(0, target) : stacks;
     }
 
     public static void save() {
@@ -156,9 +161,6 @@ public final class StorageLifecycle {
 
     private static String resolveProfileId() {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player != null) {
-            return mc.player.getUUID().toString();
-        }
-        return "unknown";
+        return mc.player != null ? mc.player.getUUID().toString() : "unknown";
     }
 }

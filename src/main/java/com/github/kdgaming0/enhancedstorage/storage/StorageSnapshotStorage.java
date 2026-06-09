@@ -8,7 +8,6 @@ import com.google.gson.JsonObject;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.item.ItemStack;
-import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -43,6 +42,10 @@ public final class StorageSnapshotStorage {
         } catch (IOException e) {
             EnhancedStorage.LOGGER.error("Failed to create storage directory", e);
         }
+    }
+
+    private static String sanitize(String id) {
+        return id.replaceAll("[^a-zA-Z0-9_-]", "_");
     }
 
     public void save(String profileId, StorageData data) {
@@ -163,9 +166,5 @@ public final class StorageSnapshotStorage {
         } catch (IOException e) {
             EnhancedStorage.LOGGER.error("Failed to backup broken snapshot file", e);
         }
-    }
-
-    private static String sanitize(String id) {
-        return id.replaceAll("[^a-zA-Z0-9_-]", "_");
     }
 }
