@@ -1,13 +1,13 @@
 <div align="center">
 
-[![Available on Modrinth](https://raw.githubusercontent.com/intergrav/devins-badges/c7fd18efdadd1c3f12ae56b49afd834640d2d797/assets/cozy/available/modrinth_vector.svg)](https://modrinth.com/mod/enhanced-storage)
+[![Available on Modrinth](https://raw.githubusercontent.com/intergrav/devins-badges/c7fd18efdadd1c3f12ae56b49afd834640d2d797/assets/cozy/available/modrinth_vector.svg)](https://modrinth.com/project/ICyROmSc)
 [![Chat with us on Discord](https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/social/discord-plural_vector.svg)](https://discord.gg/FCPP2WPZ3U)
 [![Requires Fabric API](https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/requires/fabric-api_vector.svg)](https://modrinth.com/mod/fabric-api)
 
 </div>
 <div align="center">
 
-[![Modrinth Downloads](https://img.shields.io/modrinth/dt/enhanced-storage?color=00AF5C&label=downloads&logo=modrinth&style=flat-square)](https://modrinth.com/mod/enhanced-storage)
+[![Modrinth Downloads](https://img.shields.io/modrinth/dt/enhanced-storage?color=00AF5C&label=downloads&logo=modrinth&style=flat-square)](https://modrinth.com/project/ICyROmSc)
 [![Join Fluxer](https://img.shields.io/badge/Join-Fluxer-5865F2?style=flat-square)](https://fluxer.gg/3jJy9cp6)
 
 # Enhanced Storage

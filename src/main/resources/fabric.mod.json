@@ -8,10 +8,10 @@
     "Kd_Gaming1"
   ],
   "contact": {
-    "homepage": "https://modrinth.com/mod/enhanced-storage",
+    "homepage": "https://modrinth.com/project/ICyROmSc",
     "sources": "https://github.com/kdgaming0/Enhanced-Storage"
   },
-  "license": "MIT",
+  "license": "GPL-3.0-only",
   "icon": "assets/enhanced_storage/icon.png",
   "environment": "client",
   "entrypoints": {
