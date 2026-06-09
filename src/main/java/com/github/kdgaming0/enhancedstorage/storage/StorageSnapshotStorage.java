@@ -7,6 +7,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
+import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
@@ -59,19 +60,27 @@ public final class StorageSnapshotStorage {
         for (Map.Entry<StoragePage, StorageData.StorageInventory> entry : data.getInventories().entrySet()) {
             StoragePage page = entry.getKey();
             StorageData.StorageInventory inv = entry.getValue();
-            if (inv.inventory() == null) continue;
-
-            byte[] bytes = inv.inventory().serializeToBytes(lookup);
-            if (bytes == null || bytes.length == 0) {
-                EnhancedStorage.LOGGER.warn("Skipping page {} because serialization produced empty bytes", page);
-                continue;
-            }
-            String base64 = java.util.Base64.getEncoder().encodeToString(bytes);
+            if (inv.inventory() == null && (inv.icon() == null || inv.icon().isEmpty())) continue;
 
             JsonObject pageObj = new JsonObject();
             pageObj.addProperty("slotIndex", page.index());
             pageObj.addProperty("title", inv.title());
-            pageObj.addProperty("inventoryBase64", base64);
+
+            if (inv.inventory() != null) {
+                byte[] bytes = inv.inventory().serializeToBytes(lookup);
+                if (bytes != null && bytes.length > 0) {
+                    pageObj.addProperty("inventoryBase64",
+                            java.util.Base64.getEncoder().encodeToString(bytes));
+                }
+            }
+
+            if (inv.icon() != null && !inv.icon().isEmpty()) {
+                String iconBase64 = ItemStackCodec.encode(inv.icon(), lookup);
+                if (iconBase64 != null) {
+                    pageObj.addProperty("iconBase64", iconBase64);
+                }
+            }
+
             pages.add(pageObj);
         }
         root.add("pages", pages);
@@ -132,7 +141,13 @@ public final class StorageSnapshotStorage {
                     vinv = null;
                 }
 
-                data.updateInventory(page, title, vinv);
+                ItemStack icon = null;
+                if (pageObj.has("iconBase64")) {
+                    icon = ItemStackCodec.decode(pageObj.get("iconBase64").getAsString(), lookup);
+                    if (icon.isEmpty()) icon = null;
+                }
+
+                data.updateInventory(page, title, vinv, icon);
             }
         } catch (IOException e) {
             EnhancedStorage.LOGGER.error("Failed to load storage snapshot for {}", profileId, e);

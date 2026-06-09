@@ -122,9 +122,7 @@ public final class StorageLifecycle {
                 if (page == null) continue;
                 ItemStack stack = slot.getItem();
                 String title = stack.isEmpty() ? page.defaultName() : stack.getHoverName().getString();
-                if (!StorageData.INSTANCE.hasInventory(page)) {
-                    StorageData.INSTANCE.updateInventory(page, title, null);
-                }
+                StorageData.INSTANCE.updateInventory(page, title, null, stack.copy());
             }
         }
     }
@@ -144,6 +142,7 @@ public final class StorageLifecycle {
         StorageData.INSTANCE.clear();
         STORAGE_REF.set(null);
         cachedProfileId = "unknown";
+        StorageOverlay.clearState();
     }
 
     private static String resolveProfileId() {

@@ -1,5 +1,6 @@
 package com.github.kdgaming0.enhancedstorage.storage;
 
+import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -16,7 +17,7 @@ public final class StorageData {
 
     public static final StorageData INSTANCE = new StorageData();
 
-    public record StorageInventory(String title, StoragePage page, @Nullable VirtualInventory inventory) {}
+    public record StorageInventory(String title, StoragePage page, @Nullable VirtualInventory inventory, @Nullable ItemStack icon) {}
 
     private final ConcurrentSkipListMap<StoragePage, StorageInventory> inventories = new ConcurrentSkipListMap<>();
     private final List<Runnable> dirtyListeners = new CopyOnWriteArrayList<>();
@@ -25,6 +26,10 @@ public final class StorageData {
     private StorageData() {}
 
     public void updateInventory(StoragePage page, String title, @Nullable VirtualInventory inventory) {
+        updateInventory(page, title, inventory, null);
+    }
+
+    public void updateInventory(StoragePage page, String title, @Nullable VirtualInventory inventory, @Nullable ItemStack icon) {
         StorageInventory existing = inventories.get(page);
         String resolvedTitle = (title != null && !title.isBlank()) ? title
                 : (existing != null && existing.title() != null) ? existing.title()
@@ -32,7 +37,10 @@ public final class StorageData {
         VirtualInventory resolvedInventory = (inventory != null) ? inventory
                 : (existing != null) ? existing.inventory()
                 : null;
-        inventories.put(page, new StorageInventory(resolvedTitle, page, resolvedInventory));
+        ItemStack resolvedIcon = (icon != null) ? icon
+                : (existing != null) ? existing.icon()
+                : null;
+        inventories.put(page, new StorageInventory(resolvedTitle, page, resolvedInventory, resolvedIcon));
         markDirty();
     }
 

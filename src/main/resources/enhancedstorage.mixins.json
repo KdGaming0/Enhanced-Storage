@@ -6,6 +6,7 @@
     "AbstractContainerScreenAccessor",
     "AbstractContainerScreenMixin",
     "ClientPacketListenerMixin",
+    "ContainerBackgroundMixin",
     "ScreenAccessor",
     "SlotAccessor"
   ],

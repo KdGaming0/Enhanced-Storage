@@ -12,7 +12,9 @@ import net.minecraft.client.gui.components.events.ContainerEventHandler;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
@@ -30,15 +32,39 @@ import java.util.TreeSet;
  */
 public class StorageOverlay {
 
+    // ── Sprite identifiers ────────────────────────────────────────────────────
+    private static final Identifier MAIN_PANEL_SPRITE =
+            Identifier.fromNamespaceAndPath("enhanced_storage", "main_panel");
+    private static final Identifier PAGE_CARD_IDLE_SPRITE =
+            Identifier.fromNamespaceAndPath("enhanced_storage", "page_card_idle");
+    private static final Identifier PAGE_CARD_ACTIVE_SPRITE =
+            Identifier.fromNamespaceAndPath("enhanced_storage", "page_card_active");
+    private static final Identifier STORAGE_INVENTORY_SPRITE =
+            Identifier.fromNamespaceAndPath("enhanced_storage", "storage_inventory");
+    private static final Identifier STORAGE_SLOT_SPRITE =
+            Identifier.fromNamespaceAndPath("enhanced_storage", "storage_slot");
+    private static final Identifier SLOT_HIGHLIGHT_BACK_SPRITE =
+            Identifier.fromNamespaceAndPath("enhanced_storage", "storage_slot_highlight_back");
+    private static final Identifier SLOT_HIGHLIGHT_FRONT_SPRITE =
+            Identifier.fromNamespaceAndPath("enhanced_storage", "storage_slot_highlight_front");
+    private static final Identifier SCROLLER_SPRITE =
+            Identifier.withDefaultNamespace("widget/scroller");
+    private static final Identifier SCROLLER_BACKGROUND_SPRITE =
+            Identifier.withDefaultNamespace("widget/scroller_background");
+    private static final Identifier STORAGE_OVERVIEW_SPRITE =
+            Identifier.fromNamespaceAndPath("enhanced_storage", "storage_overview");
+
     // ── Layout constants ──────────────────────────────────────────────────────
-    private static final int SLOT_SIZE     = 18;
-    private static final int PAGE_WIDTH    = SLOT_SIZE * 9 + 4;
-    private static final int PADDING       = 8;
-    private static final int TOP_BAR_H     = 26;
-    private static final int SCROLL_BAR_W  = 6;
-    private static final int MIN_OVERLAY_H = 60;
-    private static final int OVERVIEW_TOP  = SLOT_SIZE;
-    private static final int INV_SLOTS_TOP = 18;
+    private static final int SLOT_SIZE           = 18;
+    private static final int PAGE_WIDTH          = SLOT_SIZE * 9 + 6;
+    private static final int PADDING             = 8;
+    private static final int SCROLL_BAR_W        = 6;
+    private static final int SCROLL_KNOB_MIN_H   = 32;
+    private static final int MIN_OVERLAY_H       = 60;
+    private static final int OVERVIEW_TOP        = SLOT_SIZE;
+    private static final int INV_SLOTS_TOP       = 15;
+    private static final int STORAGE_INV_W       = 176;
+    private static final int STORAGE_INV_H       = 97;
 
     /** Hypixel puts navigation buttons in the first row of every storage page — skip it. */
     private static final int SKIP_ROWS  = 1;
@@ -46,18 +72,18 @@ public class StorageOverlay {
 
     private static final int BOTTOM_PADDING = 20;
 
-    // ── Colours — Dark Glass theme ────────────────────────────────────────────
-    private static final int COL_OVERLAY_BG       = 0xF0080C18;
-    private static final int COL_PANEL_BORDER      = 0xFF1A3060;
-    private static final int COL_PAGE_BG           = 0xFF0C1020;
-    private static final int COL_PAGE_BG_ACTIVE    = 0xFF0F1A36;
-    private static final int COL_SLOT_ITEM         = 0xFF131828;
-    private static final int COL_SLOT_TL           = 0xFF07090F;
-    private static final int COL_SLOT_BR           = 0xFF1E2840;
-    private static final int COL_SLOT_HOVER        = 0x60FFFFFF;
-    private static final int COL_TITLE_ACTIVE      = 0xFF7AB4FF;
-    private static final int COL_TITLE_IDLE        = 0xFFA0AABB;
-    private static final int COL_PLACEHOLDER       = 0xFF505868;
+    private static final int OVERVIEW_TEXTURE_W = 176;
+    private static final int OVERVIEW_TEXTURE_H = 85;
+    private static final int OVERVIEW_SLOT_START_X = 8;
+    private static final int OVERVIEW_EC_ROW_Y = 15;
+    private static final int OVERVIEW_BP_ROW1_Y = 43;
+    private static final int OVERVIEW_BP_ROW2_Y = 61;
+
+
+    // ── Colours — text only ───────────────────────────────────────────────────
+    private static final int COL_TITLE_ACTIVE = 0xFF7AB4FF;
+    private static final int COL_TITLE_IDLE   = 0xFFA0AABB;
+    private static final int COL_PLACEHOLDER  = 0xFF505868;
 
     // ── References ────────────────────────────────────────────────────────────
     private final AbstractContainerScreen<?> screen;
@@ -74,11 +100,17 @@ public class StorageOverlay {
     private int overviewX, overviewWidth, overviewHeight;
     private int innerScrollPanelWidth, innerScrollPanelHeight;
     private int invPanelX, invPanelY, invPanelW, invPanelH;
+    private final boolean isOverview;
+    private int overviewTextureX, overviewTextureY;
 
     // ── Scroll state ──────────────────────────────────────────────────────────
     private float scroll;
     private int lastRenderedContentH;
     private boolean knobGrabbed;
+
+    // Persistent UI state across overlay instances
+    private static float lastScroll = 0f;
+    private static String lastSearchQuery = "";
 
     // ── Search state ──────────────────────────────────────────────────────────
     private EditBox searchField;
@@ -93,6 +125,9 @@ public class StorageOverlay {
         this.accessor   = (AbstractContainerScreenAccessor) screen;
         this.activePage = activePage;
         this.mc         = Minecraft.getInstance();
+        this.scroll     = lastScroll;
+        this.searchQuery = lastSearchQuery;
+        this.isOverview = activePage == null;
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -104,6 +139,7 @@ public class StorageOverlay {
         recalculateMeasurements();
         scroll = clampScroll(scroll);
         initSearchField();
+        computeOverviewLayout();
     }
 
     /**
@@ -113,32 +149,49 @@ public class StorageOverlay {
      */
     public void preRender(int mouseX, int mouseY) {
         pushPlayerSlots();
-        repositionChestSlots();
+        if (isOverview) {
+            repositionOverviewSlots();
+        } else {
+            repositionChestSlots();
+        }
     }
 
     public void extractRenderState(GuiGraphicsExtractor gfx, int mouseX, int mouseY, float delta) {
-        drawPanel(gfx);
+        drawMainPanel(gfx);
+        drawScrollableContent(gfx, mouseX, mouseY);
+        drawScrollbar(gfx);
+        drawInventoryLabel(gfx);
         if (searchField != null) {
             searchField.extractWidgetRenderState(gfx, mouseX, mouseY, delta);
         }
-        drawScrollableContent(gfx, mouseX, mouseY);
-        drawScrollbar(gfx);
-        drawInventoryPanel(gfx);
+        drawOverviewTexture(gfx, mouseX, mouseY);
     }
 
     public List<Rect> getBounds() {
         return List.of(
                 new Rect(overviewX, OVERVIEW_TOP, overviewWidth, overviewHeight),
-                new Rect(invPanelX - 1, invPanelY, invPanelW + 2, invPanelH + 1));
+                new Rect(overviewTextureX, overviewTextureY, OVERVIEW_TEXTURE_W, OVERVIEW_TEXTURE_H),
+                new Rect(invPanelX, invPanelY, STORAGE_INV_W, STORAGE_INV_H));
     }
 
     public EditBox getSearchField() { return searchField; }
+
+    public void saveState() {
+        lastScroll = scroll;
+        lastSearchQuery = searchQuery;
+    }
+
+    public static void clearState() {
+        lastScroll = 0f;
+        lastSearchQuery = "";
+    }
 
     // ── Input delegation ──────────────────────────────────────────────────────
 
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
         if (handleSearchFieldClick(event, doubleClick)) return true;
         if (handleScrollbarClick(event)) return true;
+        if (!isOverview && handleOverviewNavigationClick(event)) return true;
         return handlePageClick(event);
     }
 
@@ -183,27 +236,34 @@ public class StorageOverlay {
         invPanelX = accessor.es$getLeftPos();
         invPanelW = accessor.es$getImageWidth();
 
-        int slotsH = originalPlayerSlotRelY[originalPlayerSlotRelY.length - 1]
-                - originalPlayerSlotRelY[0] + SLOT_SIZE;
-        invPanelH = INV_SLOTS_TOP + slotsH + 4;
+        invPanelH = STORAGE_INV_H;
         invPanelY = screen.height - BOTTOM_PADDING - invPanelH;
 
         overviewHeight         = Math.max(MIN_OVERLAY_H, invPanelY - OVERVIEW_TOP);
-        innerScrollPanelHeight = overviewHeight - TOP_BAR_H - PADDING * 2;
+        innerScrollPanelHeight = overviewHeight - PADDING * 2;
 
         int targetFirstSlotScreenY  = invPanelY + INV_SLOTS_TOP;
         int vanillaFirstSlotScreenY = baseTopPos + originalPlayerSlotRelY[0];
         playerPush = targetFirstSlotScreenY - vanillaFirstSlotScreenY;
     }
 
+    private void computeOverviewLayout() {
+        overviewTextureX = invPanelX - OVERVIEW_TEXTURE_W;
+        overviewTextureY = invPanelY;
+        if (overviewTextureX < 8) {
+            overviewTextureX = (screen.width - OVERVIEW_TEXTURE_W) / 2;
+            overviewTextureY = invPanelY - OVERVIEW_TEXTURE_H;
+        }
+    }
+
     private Rect getScrollPanel() {
-        return new Rect(overviewX + PADDING, OVERVIEW_TOP + TOP_BAR_H,
+        return new Rect(overviewX + PADDING, OVERVIEW_TOP + PADDING,
                 innerScrollPanelWidth, innerScrollPanelHeight);
     }
 
     private Rect getScrollbarTrack() {
         return new Rect(overviewX + overviewWidth - PADDING - SCROLL_BAR_W,
-                OVERVIEW_TOP + TOP_BAR_H, SCROLL_BAR_W, innerScrollPanelHeight);
+                OVERVIEW_TOP + PADDING, SCROLL_BAR_W, innerScrollPanelHeight);
     }
 
     // ── Slot repositioning ────────────────────────────────────────────────────
@@ -221,6 +281,7 @@ public class StorageOverlay {
         int leftPos     = accessor.es$getLeftPos();
 
         for (Slot slot : screen.getMenu().slots) {
+            assert mc.player != null;
             if (slot.container == mc.player.getInventory()) continue;
 
             if (activePage == null || activeRect == null || slot.index < SKIP_SLOTS) {
@@ -229,8 +290,8 @@ public class StorageOverlay {
             }
 
             int visIndex = slot.index - SKIP_SLOTS;
-            int screenX = activeRect.x + 2 + (visIndex % 9) * SLOT_SIZE;
-            int screenY = activeRect.y + mc.font.lineHeight + 6 + (visIndex / 9) * SLOT_SIZE - (int) scroll;
+            int screenX = activeRect.x + 4 + (visIndex % 9) * SLOT_SIZE;
+            int screenY = activeRect.y + mc.font.lineHeight + 7 + (visIndex / 9) * SLOT_SIZE - (int) scroll;
             boolean inPanel = screenY >= panel.y && screenY + SLOT_SIZE <= panel.y + panel.height;
 
             if (inPanel) {
@@ -247,17 +308,40 @@ public class StorageOverlay {
         ((SlotAccessor) slot).es$setY(-9999);
     }
 
+    private void repositionOverviewSlots() {
+        int leftPos = accessor.es$getLeftPos();
+        int slotStartX = overviewTextureX + OVERVIEW_SLOT_START_X;
+        int ecRowY = overviewTextureY + OVERVIEW_EC_ROW_Y;
+        int bp1RowY = overviewTextureY + OVERVIEW_BP_ROW1_Y;
+        int bp2RowY = overviewTextureY + OVERVIEW_BP_ROW2_Y;
+
+        for (Slot slot : screen.getMenu().slots) {
+            assert mc.player != null;
+            if (slot.container == mc.player.getInventory()) continue;
+
+            if (slot.index >= 9 && slot.index <= 17) {
+                ((SlotAccessor) slot).es$setX(slotStartX + (slot.index - 9) * SLOT_SIZE - leftPos);
+                ((SlotAccessor) slot).es$setY(ecRowY - baseTopPos);
+            } else if (slot.index >= 27 && slot.index <= 35) {
+                ((SlotAccessor) slot).es$setX(slotStartX + (slot.index - 27) * SLOT_SIZE - leftPos);
+                ((SlotAccessor) slot).es$setY(bp1RowY - baseTopPos);
+            } else if (slot.index >= 36 && slot.index <= 44) {
+                ((SlotAccessor) slot).es$setX(slotStartX + (slot.index - 36) * SLOT_SIZE - leftPos);
+                ((SlotAccessor) slot).es$setY(bp2RowY - baseTopPos);
+            } else {
+                hideSlot(slot);
+            }
+        }
+    }
+
     // ── Rendering ─────────────────────────────────────────────────────────────
 
-    private void drawPanel(GuiGraphicsExtractor gfx) {
-        gfx.fill(overviewX,     OVERVIEW_TOP,     overviewX + overviewWidth,     invPanelY + 1, COL_PANEL_BORDER);
-        gfx.fill(overviewX + 1, OVERVIEW_TOP + 1, overviewX + overviewWidth - 1, invPanelY,     COL_OVERLAY_BG);
+    private void drawMainPanel(GuiGraphicsExtractor gfx) {
+        gfx.blitSprite(RenderPipelines.GUI_TEXTURED, MAIN_PANEL_SPRITE,
+                overviewX, OVERVIEW_TOP, overviewWidth, overviewHeight);
 
-        int iL = invPanelX - 1;
-        int iR = invPanelX + invPanelW + 1;
-        int iB = invPanelY + invPanelH + 1;
-        gfx.fill(iL,     invPanelY, iR,     iB,     COL_PANEL_BORDER);
-        gfx.fill(iL + 1, invPanelY, iR - 1, iB - 1, COL_OVERLAY_BG);
+        gfx.blitSprite(RenderPipelines.GUI_TEXTURED, STORAGE_INVENTORY_SPRITE,
+                invPanelX, invPanelY, STORAGE_INV_W, STORAGE_INV_H);
     }
 
     private void drawScrollableContent(GuiGraphicsExtractor gfx, int mouseX, int mouseY) {
@@ -276,39 +360,35 @@ public class StorageOverlay {
     private void drawPage(GuiGraphicsExtractor gfx, Rect rect, StoragePage page,
                           StorageData.StorageInventory inv, boolean isActive,
                           int mouseX, int mouseY, Rect panel) {
-        int rows    = pageRows(page, inv, isActive);
-        int cardH   = rows * SLOT_SIZE + mc.font.lineHeight + 10;
-        int cardTop = rect.y + mc.font.lineHeight + 4;
+        int rows = pageRows(page, inv, isActive);
+        boolean hasInv = inv != null && inv.inventory() != null;
+        int cardH = pageCardHeight(rows, hasInv);
 
-        int borderColor = parseColor(isActive
-                ? EnhancedStorageConfig.activePageOutlineColor
-                : EnhancedStorageConfig.inactivePageBorderColor);
-        int bgColor = isActive ? COL_PAGE_BG_ACTIVE : COL_PAGE_BG;
-        gfx.fill(rect.x,     cardTop,     rect.x + PAGE_WIDTH,     rect.y + cardH,     borderColor);
-        gfx.fill(rect.x + 1, cardTop + 1, rect.x + PAGE_WIDTH - 1, rect.y + cardH - 1, bgColor);
+        Identifier cardSprite = isActive ? PAGE_CARD_ACTIVE_SPRITE : PAGE_CARD_IDLE_SPRITE;
+        gfx.blitSprite(RenderPipelines.GUI_TEXTURED, cardSprite, rect.x, rect.y, PAGE_WIDTH, cardH);
 
         String title = inv != null && inv.title() != null ? inv.title() : page.defaultName();
-        gfx.text(mc.font, title, rect.x + 4, rect.y + 2,
+        gfx.text(mc.font, title, rect.x + 6, rect.y + 5,
                 isActive ? COL_TITLE_ACTIVE : COL_TITLE_IDLE, true);
 
-        if (inv == null || inv.inventory() == null) {
-            gfx.centeredText(mc.font, "Not yet opened",
+        if (!hasInv) {
+            gfx.centeredText(mc.font, "Open Page",
                     rect.x + PAGE_WIDTH / 2, rect.y + cardH / 2, COL_PLACEHOLDER);
             return;
         }
 
-        drawSlotBackgrounds(gfx, rect, rows, isActive);
+        drawSlotBackgrounds(gfx, rect, rows);
 
         if (!isActive) {
             drawFakeItems(gfx, rect, inv.inventory().stacks(), rows, panel, mouseX, mouseY);
         }
     }
 
-    private void drawSlotBackgrounds(GuiGraphicsExtractor gfx, Rect pageRect, int rows, boolean vanillaRendered) {
+    private void drawSlotBackgrounds(GuiGraphicsExtractor gfx, Rect pageRect, int rows) {
         for (int i = 0; i < rows * 9; i++) {
-            int x = pageRect.x + 2 + (i % 9) * SLOT_SIZE;
+            int x = pageRect.x + 3 + (i % 9) * SLOT_SIZE;
             int y = pageRect.y + mc.font.lineHeight + 6 + (i / 9) * SLOT_SIZE;
-            drawSlotBackground(gfx, vanillaRendered ? x - 1 : x, vanillaRendered ? y - 1 : y);
+            gfx.blitSprite(RenderPipelines.GUI_TEXTURED, STORAGE_SLOT_SPRITE, x, y, SLOT_SIZE, SLOT_SIZE);
         }
     }
 
@@ -320,61 +400,142 @@ public class StorageOverlay {
 
         for (int i = startIdx; i < endIdx; i++) {
             ItemStack stack = stacks.get(i);
-            if (stack.isEmpty()) continue;
 
             int visIndex = i - startIdx;
-            int slotX = pageRect.x + 2 + (visIndex % 9) * SLOT_SIZE;
-            int slotY = pageRect.y + mc.font.lineHeight + 6 + (visIndex / 9) * SLOT_SIZE;
+            int slotX = pageRect.x + 4 + (visIndex % 9) * SLOT_SIZE;
+            int slotY = pageRect.y + mc.font.lineHeight + 7 + (visIndex / 9) * SLOT_SIZE;
 
-            gfx.fakeItem(stack, slotX + 1, slotY + 1);
-            gfx.itemDecorations(mc.font, stack, slotX + 1, slotY + 1);
+            boolean hovered = isSlotHovered(slotX, slotY, mouseX, contentMouseY, panel);
 
-            if (!searchQuery.isBlank() && matchesSearch(stack, searchQuery)) {
-                gfx.fill(slotX + 1, slotY + 1, slotX + SLOT_SIZE - 1, slotY + SLOT_SIZE - 1,
-                        parseColor(EnhancedStorageConfig.searchHighlightColor));
+            if (hovered) {
+                gfx.blitSprite(RenderPipelines.GUI_TEXTURED, SLOT_HIGHLIGHT_BACK_SPRITE,
+                        slotX - 4, slotY - 4, 24, 24);
             }
 
-            if (isSlotHovered(slotX, slotY, mouseX, contentMouseY, panel)) {
-                gfx.fill(slotX + 1, slotY + 1, slotX + SLOT_SIZE - 1, slotY + SLOT_SIZE - 1, COL_SLOT_HOVER);
+            if (!searchQuery.isBlank()) {
+                if (matchesSearch(stack, searchQuery)) {
+                    gfx.fill(slotX, slotY, slotX + SLOT_SIZE - 2, slotY + SLOT_SIZE - 2,
+                            parseColor(EnhancedStorageConfig.searchHighlightColor));
+                } else {
+                    gfx.fill(slotX, slotY, slotX + SLOT_SIZE - 2, slotY + SLOT_SIZE - 2, 0x88111111);
+                }
+            }
+
+            if (stack.isEmpty()) continue;
+
+            gfx.fakeItem(stack, slotX, slotY);
+            gfx.itemDecorations(mc.font, stack, slotX, slotY);
+
+            if (hovered) {
+                gfx.blitSprite(RenderPipelines.GUI_TEXTURED, SLOT_HIGHLIGHT_FRONT_SPRITE,
+                        slotX - 4, slotY - 4, 24, 24);
                 gfx.setTooltipForNextFrame(mc.font, stack, mouseX, mouseY);
             }
         }
     }
 
-    private void drawInventoryPanel(GuiGraphicsExtractor gfx) {
+    private void drawInventoryLabel(GuiGraphicsExtractor gfx) {
         gfx.text(mc.font, Component.translatable("container.inventory"),
-                invPanelX + PADDING, invPanelY + PADDING - 2, COL_TITLE_IDLE, false);
+                invPanelX + 8, invPanelY + 4, COL_TITLE_IDLE, false);
+    }
 
-        int leftPos = accessor.es$getLeftPos();
-        List<Slot> playerSlots = getPlayerSlots();
-        for (int i = 0; i < Math.min(playerSlots.size(), originalPlayerSlotRelY.length); i++) {
-            Slot slot = playerSlots.get(i);
-            int screenX = leftPos + slot.x;
-            int screenY = baseTopPos + slot.y;
-            drawSlotBackground(gfx, screenX - 1, screenY - 1);
+    private void drawOverviewTexture(GuiGraphicsExtractor gfx, int mouseX, int mouseY) {
+        gfx.blitSprite(RenderPipelines.GUI_TEXTURED, STORAGE_OVERVIEW_SPRITE,
+                overviewTextureX, overviewTextureY, OVERVIEW_TEXTURE_W, OVERVIEW_TEXTURE_H);
+
+        gfx.text(mc.font, "Ender Chest",
+                overviewTextureX + 8,
+                overviewTextureY + 4,
+                COL_TITLE_ACTIVE, false);
+        gfx.text(mc.font, "Backpacks",
+                overviewTextureX + 8,
+                overviewTextureY + 33,
+                COL_TITLE_ACTIVE, false);
+
+        if (!isOverview) {
+            drawOverviewFakeItems(gfx, mouseX, mouseY);
         }
     }
 
-    private void drawSlotBackground(GuiGraphicsExtractor gfx, int x, int y) {
-        gfx.fill(x,                 y,                 x + SLOT_SIZE,     y + 1,             COL_SLOT_TL);
-        gfx.fill(x,                 y,                 x + 1,             y + SLOT_SIZE,     COL_SLOT_TL);
-        gfx.fill(x,                 y + SLOT_SIZE - 1, x + SLOT_SIZE,     y + SLOT_SIZE,     COL_SLOT_BR);
-        gfx.fill(x + SLOT_SIZE - 1, y,                 x + SLOT_SIZE,     y + SLOT_SIZE,     COL_SLOT_BR);
-        gfx.fill(x + 1,             y + 1,             x + SLOT_SIZE - 1, y + SLOT_SIZE - 1, COL_SLOT_ITEM);
+    private void drawOverviewFakeItems(GuiGraphicsExtractor gfx, int mouseX, int mouseY) {
+        int slotStartX = overviewTextureX + OVERVIEW_SLOT_START_X;
+        int ecRowY = overviewTextureY + OVERVIEW_EC_ROW_Y;
+        int bp1RowY = overviewTextureY + OVERVIEW_BP_ROW1_Y;
+        int bp2RowY = overviewTextureY + OVERVIEW_BP_ROW2_Y;
+
+        for (int i = 0; i < StoragePage.ENDER_CHEST_COUNT; i++) {
+            StoragePage page = StoragePage.ofEnderChest(i + 1);
+            ItemStack stack = getRepresentativeStack(page);
+            int sx = slotStartX + i * SLOT_SIZE;
+            if (!stack.isEmpty()) {
+                boolean hovered = mouseX >= sx && mouseX < sx + SLOT_SIZE
+                        && mouseY >= ecRowY && mouseY < ecRowY + SLOT_SIZE;
+                if (hovered) {
+                    gfx.blitSprite(RenderPipelines.GUI_TEXTURED, SLOT_HIGHLIGHT_BACK_SPRITE,
+                            sx - 4, ecRowY - 4, 24, 24);
+                }
+                gfx.fakeItem(stack, sx, ecRowY);
+                gfx.itemDecorations(mc.font, stack, sx, ecRowY);
+                if (hovered) {
+                    gfx.blitSprite(RenderPipelines.GUI_TEXTURED, SLOT_HIGHLIGHT_FRONT_SPRITE,
+                            sx - 4, ecRowY - 4, 24, 24);
+                    gfx.setTooltipForNextFrame(mc.font, stack, mouseX, mouseY);
+                }
+            }
+        }
+
+        for (int i = 0; i < StoragePage.BACKPACK_COUNT; i++) {
+            StoragePage page = StoragePage.ofBackpack(i + 1);
+            ItemStack stack = getRepresentativeStack(page);
+            int col = i % 9;
+            int row = i / 9;
+            int sx = slotStartX + col * SLOT_SIZE;
+            int sy = (row == 0) ? bp1RowY : bp2RowY;
+            if (!stack.isEmpty()) {
+                boolean hovered = mouseX >= sx && mouseX < sx + SLOT_SIZE
+                        && mouseY >= sy && mouseY < sy + SLOT_SIZE;
+                if (hovered) {
+                    gfx.blitSprite(RenderPipelines.GUI_TEXTURED, SLOT_HIGHLIGHT_BACK_SPRITE,
+                            sx - 4, sy - 4, 24, 24);
+                }
+                gfx.fakeItem(stack, sx, sy);
+                gfx.itemDecorations(mc.font, stack, sx, sy);
+                if (hovered) {
+                    gfx.blitSprite(RenderPipelines.GUI_TEXTURED, SLOT_HIGHLIGHT_FRONT_SPRITE,
+                            sx - 4, sy - 4, 24, 24);
+                    gfx.setTooltipForNextFrame(mc.font, stack, mouseX, mouseY);
+                }
+            }
+        }
+    }
+
+    private ItemStack getRepresentativeStack(StoragePage page) {
+        StorageData.StorageInventory inv = StorageData.INSTANCE.getInventory(page);
+        if (inv == null) return ItemStack.EMPTY;
+        // Prefer the dedicated overview icon (saved from the Storage hub menu)
+        if (inv.icon() != null && !inv.icon().isEmpty()) return inv.icon();
+        if (inv.inventory() == null) return ItemStack.EMPTY;
+        java.util.List<ItemStack> stacks = inv.inventory().stacks();
+        // Skip Hypixel's navigation row (barrier blocks, arrows, etc.)
+        for (int i = SKIP_SLOTS; i < stacks.size(); i++) {
+            if (!stacks.get(i).isEmpty()) return stacks.get(i);
+        }
+        return ItemStack.EMPTY;
     }
 
     private void drawScrollbar(GuiGraphicsExtractor gfx) {
         Rect track = getScrollbarTrack();
-        gfx.fill(track.x, track.y, track.x + track.width, track.y + track.height, 0x30253560);
+        gfx.blitSprite(RenderPipelines.GUI_TEXTURED, SCROLLER_BACKGROUND_SPRITE,
+                track.x, track.y, track.width, track.height);
 
         float max = maxScroll();
         if (max <= 0) return;
 
         float ratio = (float) innerScrollPanelHeight / Math.max(lastRenderedContentH, 1);
-        int knobH   = Math.max(20, (int) (track.height * ratio));
+        int knobH   = Math.max(SCROLL_KNOB_MIN_H, (int) (track.height * ratio));
         int knobY   = track.y + (int) ((scroll / max) * (track.height - knobH));
-        gfx.fill(track.x,     knobY,     track.x + track.width,     knobY + knobH,     0xC04878CC);
-        gfx.fill(track.x + 1, knobY + 1, track.x + track.width - 1, knobY + knobH - 1, 0x80304E90);
+        gfx.blitSprite(RenderPipelines.GUI_TEXTURED, SCROLLER_SPRITE,
+                track.x, knobY, track.width, knobH);
     }
 
     // ── Hover guard ───────────────────────────────────────────────────────────
@@ -403,13 +564,13 @@ public class StorageOverlay {
             if (!filter.contains(entry.getKey())) continue;
             StorageData.StorageInventory inv = entry.getValue();
 
-            int pageH = pageRows(entry.getKey(), inv, entry.getKey().equals(activePage)) * SLOT_SIZE
-                    + mc.font.lineHeight + 10;
+            int rows = pageRows(entry.getKey(), inv, entry.getKey().equals(activePage));
+            int pageH = pageCardHeight(rows, inv != null && inv.inventory() != null);
             maxRowH = Math.max(maxRowH, pageH);
 
             consumer.accept(
                     new Rect(overviewX + PADDING + (PAGE_WIDTH + PADDING) * col,
-                            OVERVIEW_TOP + TOP_BAR_H + totalH, PAGE_WIDTH, pageH),
+                            OVERVIEW_TOP + PADDING + totalH, PAGE_WIDTH, pageH),
                     entry.getKey(), inv);
 
             if (++col >= pageWidthCount) {
@@ -424,7 +585,12 @@ public class StorageOverlay {
     private int pageRows(StoragePage page, StorageData.StorageInventory inv, boolean isActive) {
         if (isActive) return Math.max(1, (screen.getMenu().slots.size() - 36) / 9 - SKIP_ROWS);
         if (inv != null && inv.inventory() != null) return Math.max(1, inv.inventory().rows() - SKIP_ROWS);
-        return 1;
+        return 0;
+    }
+
+    private int pageCardHeight(int rows, boolean hasInventory) {
+        if (!hasInventory) return mc.font.lineHeight + 24;
+        return rows * SLOT_SIZE + mc.font.lineHeight + 10;
     }
 
     // ── Hit-testing ───────────────────────────────────────────────────────────
@@ -481,6 +647,41 @@ public class StorageOverlay {
         return false;
     }
 
+    private boolean handleOverviewNavigationClick(MouseButtonEvent event) {
+        if (event.x() < overviewTextureX || event.x() >= overviewTextureX + OVERVIEW_TEXTURE_W
+                || event.y() < overviewTextureY || event.y() >= overviewTextureY + OVERVIEW_TEXTURE_H) {
+            return false;
+        }
+
+        int slotStartX = overviewTextureX + OVERVIEW_SLOT_START_X;
+        int ecRowY = overviewTextureY + OVERVIEW_EC_ROW_Y;
+        int bp1RowY = overviewTextureY + OVERVIEW_BP_ROW1_Y;
+        int bp2RowY = overviewTextureY + OVERVIEW_BP_ROW2_Y;
+
+        for (int i = 0; i < StoragePage.ENDER_CHEST_COUNT; i++) {
+            int sx = slotStartX + i * SLOT_SIZE;
+            if (event.x() >= sx && event.x() < sx + SLOT_SIZE
+                    && event.y() >= ecRowY && event.y() < ecRowY + SLOT_SIZE) {
+                StoragePage.ofEnderChest(i + 1).navigateTo();
+                return true;
+            }
+        }
+
+        for (int i = 0; i < StoragePage.BACKPACK_COUNT; i++) {
+            int col = i % 9;
+            int row = i / 9;
+            int sx = slotStartX + col * SLOT_SIZE;
+            int sy = (row == 0) ? bp1RowY : bp2RowY;
+            if (event.x() >= sx && event.x() < sx + SLOT_SIZE
+                    && event.y() >= sy && event.y() < sy + SLOT_SIZE) {
+                StoragePage.ofBackpack(i + 1).navigateTo();
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private float scrollForKnobY(double mouseY) {
         Rect track = getScrollbarTrack();
         return clampScroll((float) ((mouseY - track.y) / track.height) * maxScroll());
@@ -490,14 +691,16 @@ public class StorageOverlay {
 
     private void initSearchField() {
         if (searchField == null) {
-            searchField = new EditBox(mc.font, 0, 0, 140, 16, Component.literal("Search items..."));
+            searchField = new EditBox(mc.font, 0, 0, 160, 12, Component.literal("Search items..."));
             searchField.setMaxLength(64);
             searchField.setResponder(this::onSearchChanged);
             searchField.setBordered(true);
         }
-        searchField.setX(overviewX + PADDING);
-        searchField.setY(OVERVIEW_TOP + 5);
-        searchField.setWidth(Math.max(80, overviewWidth - SCROLL_BAR_W - PADDING * 4));
+        int searchW = Math.max(80, STORAGE_INV_W - 80 - 16);
+        searchField.setX(invPanelX + STORAGE_INV_W - searchW - 8);
+        searchField.setY(invPanelY + 1);
+        searchField.setWidth(searchW);
+        searchField.setValue(searchQuery);
     }
 
     private void onSearchChanged(String query) {
@@ -555,7 +758,10 @@ public class StorageOverlay {
 
     private List<Slot> getPlayerSlots() {
         return screen.getMenu().slots.stream()
-                .filter(s -> s.container == mc.player.getInventory())
+                .filter(s -> {
+                    assert mc.player != null;
+                    return s.container == mc.player.getInventory();
+                })
                 .toList();
     }
 

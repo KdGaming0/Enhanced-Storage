@@ -24,11 +24,5 @@ public class EnhancedStorageConfig extends MidnightConfig {
     public static double scrollSpeed = 2.0;
 
     @Entry(category = "storage", isColor = true)
-    public static String activePageOutlineColor = "#7AB4FF";
-
-    @Entry(category = "storage", isColor = true)
-    public static String inactivePageBorderColor = "#1A3060";
-
-    @Entry(category = "storage", isColor = true)
-    public static String searchHighlightColor = "#48FF48";
+    public static String searchHighlightColor = "#55FF5540";
 }

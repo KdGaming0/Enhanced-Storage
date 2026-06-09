@@ -1,5 +1,6 @@
 package com.github.kdgaming0.enhancedstorage.mixin;
 
+import com.github.kdgaming0.enhancedstorage.OverlayHolder;
 import com.github.kdgaming0.enhancedstorage.gui.Rect;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlay;
 import com.github.kdgaming0.enhancedstorage.storage.StorageLifecycle;
@@ -18,10 +19,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(AbstractContainerScreen.class)
-public class AbstractContainerScreenMixin<T extends AbstractContainerMenu> {
+public class AbstractContainerScreenMixin<T extends AbstractContainerMenu> implements OverlayHolder {
 
     @Unique
     private StorageOverlay es$overlay;
+
+    @Override
+    public boolean es$hasOverlay() {
+        return es$overlay != null;
+    }
 
     @Inject(method = "init()V", at = @At("TAIL"))
     private void es$onInit(CallbackInfo ci) {
@@ -42,24 +48,6 @@ public class AbstractContainerScreenMixin<T extends AbstractContainerMenu> {
         if (es$overlay != null) es$overlay.preRender(mouseX, mouseY);
     }
 
-    /**
-     * Scissor the vanilla background draw to an off-screen strip so it doesn't show
-     * through our semi-transparent overlay.
-     */
-    @Inject(
-            method = "extractContents",
-            at = @At(
-                    value = "INVOKE",
-                    target = "Lnet/minecraft/client/gui/screens/Screen;extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V",
-                    shift = At.Shift.BEFORE
-            )
-    )
-    private void es$beforeSuperExtractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-        if (es$overlay == null) return;
-        int h = ((Screen)(Object)this).height;
-        graphics.enableScissor(0, h, ((Screen)(Object)this).width, h + 1);
-    }
-
     @Inject(
             method = "extractContents",
             at = @At(
@@ -70,7 +58,6 @@ public class AbstractContainerScreenMixin<T extends AbstractContainerMenu> {
     )
     private void es$afterSuperExtractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
         if (es$overlay == null) return;
-        graphics.disableScissor();
         es$overlay.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
 
@@ -118,6 +105,9 @@ public class AbstractContainerScreenMixin<T extends AbstractContainerMenu> {
 
     @Inject(method = "removed", at = @At("HEAD"))
     private void es$onRemoved(CallbackInfo ci) {
+        if (es$overlay != null) {
+            es$overlay.saveState();
+        }
         es$overlay = null;
     }
 }

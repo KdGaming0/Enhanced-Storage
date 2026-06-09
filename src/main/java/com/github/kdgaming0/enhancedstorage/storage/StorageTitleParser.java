@@ -14,7 +14,7 @@ public final class StorageTitleParser {
 
     private static final Pattern PATTERN_STORAGE_PAGE = Pattern.compile(".*[Ss]torage.*\\((\\d+)/(\\d+)\\)");
     private static final Pattern PATTERN_ENDER_CHEST = Pattern.compile(".*[Ee]nder [Cc]hest.*\\((\\d+)/(\\d+)\\)");
-    private static final Pattern PATTERN_BACKPACK = Pattern.compile(".*[Bb]ackpack.*\\((\\d+)\\)");
+    private static final Pattern PATTERN_BACKPACK = Pattern.compile(".*[Bb]ackpack.*\\s*[(#]\\s*(\\d+)\\s*\\)?");
     private static final Pattern PATTERN_BACKPACK_UNNAMED = Pattern.compile(".*[Bb]ackpack.*");
     private static final Pattern PATTERN_OVERVIEW = Pattern.compile("^[Ss]torage$");
     private static final Pattern FORMATTING_CODES = Pattern.compile("§.");
