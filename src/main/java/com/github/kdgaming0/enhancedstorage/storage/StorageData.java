@@ -19,6 +19,7 @@ public final class StorageData {
     private final ConcurrentSkipListMap<StoragePage, StorageInventory> inventories = new ConcurrentSkipListMap<>();
     private final List<Runnable> dirtyListeners = new CopyOnWriteArrayList<>();
     private volatile boolean dirty = false;
+
     private StorageData() {
     }
 

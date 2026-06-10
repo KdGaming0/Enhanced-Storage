@@ -44,14 +44,6 @@ public class StorageOverlay {
             Identifier.withDefaultNamespace("widget/scroller");
     private static final Identifier SCROLLER_BACKGROUND_SPRITE =
             Identifier.withDefaultNamespace("widget/scroller_background");
-
-    /**
-     * Resolves a themed sprite identifier based on the current {@link EnhancedStorageConfig#overlayTheme}.
-     */
-    private static Identifier sprite(String base) {
-        return Identifier.fromNamespaceAndPath("enhanced_storage", base + EnhancedStorageConfig.overlayTheme.suffix());
-    }
-
     // ── Layout ────────────────────────────────────────────────────────────────
     private static final int SLOT_SIZE = 18;
     private static final int PAGE_WIDTH = SLOT_SIZE * 9 + 6;
@@ -64,13 +56,11 @@ public class StorageOverlay {
     private static final int STORAGE_INV_W = 176;
     private static final int STORAGE_INV_H = 97;
     private static final int BOTTOM_PADDING = 20;
-
     /**
      * Hypixel adds a navigation row at the top of every storage page; skip it when rendering.
      */
     private static final int NAV_ROW_COUNT = 1;
     private static final int NAV_ROW_SKIP_SLOTS = NAV_ROW_COUNT * 9;
-
     /**
      * Pixel offset from the card left edge to where the slot grid begins.
      */
@@ -79,12 +69,10 @@ public class StorageOverlay {
      * Pixel offset from the card top edge (below title) to where the slot grid begins.
      */
     private static final int CARD_SLOTS_INSET_Y = 6;
-
     /**
      * Base scroll pixels per mouse-wheel notch; multiplied by config scrollSpeed.
      */
     private static final float SCROLL_BASE = 30f;
-
     // Navigation panel (overview texture to the left of the inventory panel)
     private static final int NAV_PANEL_W = 176;
     private static final int NAV_PANEL_H = 85;
@@ -94,13 +82,11 @@ public class StorageOverlay {
     private static final int NAV_PANEL_BP_LABEL_Y = 33;
     private static final int NAV_PANEL_BP_ROW1_Y = 43;
     private static final int NAV_PANEL_BP_ROW2_Y = 61;
-
     // ── Colors ────────────────────────────────────────────────────────────────
     private static final int COLOR_TITLE_ACTIVE = 0xFF7AB4FF;
     private static final int COLOR_TITLE_IDLE = 0xFFA0AABB;
     private static final int COLOR_PLACEHOLDER = 0xFF505868;
     private static final int COLOR_DIM_OVERLAY = 0x88111111;
-
     // ── Singleton ─────────────────────────────────────────────────────────────
     private static StorageOverlay activeInstance;
     // Cached layout rects — recomputed in recalculateMeasurements, avoids per-frame allocation.
@@ -125,19 +111,23 @@ public class StorageOverlay {
     private float scroll;
     private int lastRenderedContentH;
     private boolean knobGrabbed;
-
     // ── Search state ──────────────────────────────────────────────────────────
     private EditBox searchField;
     private String searchQuery = "";
-
     // ── Highlight color cache (avoids parsing the config hex string every frame) ──
     private String cachedHighlightHex;
     private int cachedHighlightColor;
+    private StorageOverlay(AbstractContainerScreen<?> screen, StoragePage activePage) {
+        attach(screen, activePage);
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
 
-    private StorageOverlay(AbstractContainerScreen<?> screen, StoragePage activePage) {
-        attach(screen, activePage);
+    /**
+     * Resolves a themed sprite identifier based on the current {@link EnhancedStorageConfig#overlayTheme}.
+     */
+    private static Identifier sprite(String base) {
+        return Identifier.fromNamespaceAndPath("enhanced_storage", base + EnhancedStorageConfig.overlayTheme.suffix());
     }
 
     /**
