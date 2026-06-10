@@ -45,5 +45,11 @@ public class EnhancedStorageConfig extends MidnightConfig {
      * Colour applied to matching items during search (format: #RRGGBBAA or #RRGGBB).
      */
     @Entry(category = "storage", isColor = true)
-    public static String searchHighlightColor = "#55FF5540";
+    public static String searchHighlightColor = "#00ff33";
+
+    /**
+     * Visual theme for the storage overlay sprites.
+     */
+    @Entry(category = "storage")
+    public static OverlayTheme overlayTheme = OverlayTheme.TRANSPARENT;
 }

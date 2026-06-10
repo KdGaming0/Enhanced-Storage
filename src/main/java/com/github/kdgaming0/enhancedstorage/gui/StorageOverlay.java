@@ -36,16 +36,6 @@ import java.util.TreeSet;
 public class StorageOverlay {
 
     // ── Sprites ───────────────────────────────────────────────────────────────
-    private static final Identifier MAIN_PANEL_SPRITE =
-            Identifier.fromNamespaceAndPath("enhanced_storage", "main_panel");
-    private static final Identifier PAGE_CARD_IDLE_SPRITE =
-            Identifier.fromNamespaceAndPath("enhanced_storage", "page_card_idle");
-    private static final Identifier PAGE_CARD_ACTIVE_SPRITE =
-            Identifier.fromNamespaceAndPath("enhanced_storage", "page_card_active");
-    private static final Identifier STORAGE_INVENTORY_SPRITE =
-            Identifier.fromNamespaceAndPath("enhanced_storage", "storage_inventory");
-    private static final Identifier STORAGE_SLOT_SPRITE =
-            Identifier.fromNamespaceAndPath("enhanced_storage", "storage_slot");
     private static final Identifier SLOT_HIGHLIGHT_BACK_SPRITE =
             Identifier.fromNamespaceAndPath("enhanced_storage", "storage_slot_highlight_back");
     private static final Identifier SLOT_HIGHLIGHT_FRONT_SPRITE =
@@ -54,8 +44,13 @@ public class StorageOverlay {
             Identifier.withDefaultNamespace("widget/scroller");
     private static final Identifier SCROLLER_BACKGROUND_SPRITE =
             Identifier.withDefaultNamespace("widget/scroller_background");
-    private static final Identifier STORAGE_OVERVIEW_SPRITE =
-            Identifier.fromNamespaceAndPath("enhanced_storage", "storage_overview");
+
+    /**
+     * Resolves a themed sprite identifier based on the current {@link EnhancedStorageConfig#overlayTheme}.
+     */
+    private static Identifier sprite(String base) {
+        return Identifier.fromNamespaceAndPath("enhanced_storage", base + EnhancedStorageConfig.overlayTheme.suffix());
+    }
 
     // ── Layout ────────────────────────────────────────────────────────────────
     private static final int SLOT_SIZE = 18;
@@ -428,9 +423,9 @@ public class StorageOverlay {
     }
 
     private void drawMainPanel(GuiGraphicsExtractor gfx) {
-        gfx.blitSprite(RenderPipelines.GUI_TEXTURED, MAIN_PANEL_SPRITE,
+        gfx.blitSprite(RenderPipelines.GUI_TEXTURED, sprite("main_panel"),
                 overviewX, PANEL_TOP, overviewWidth, overviewHeight);
-        gfx.blitSprite(RenderPipelines.GUI_TEXTURED, STORAGE_INVENTORY_SPRITE,
+        gfx.blitSprite(RenderPipelines.GUI_TEXTURED, sprite("storage_inventory"),
                 invPanelX, invPanelY, STORAGE_INV_W, STORAGE_INV_H);
     }
 
@@ -453,7 +448,7 @@ public class StorageOverlay {
         boolean hasInv = inv != null && inv.inventory() != null;
         int cardH = pageCardHeight(rows, hasInv);
 
-        Identifier cardSprite = isActive ? PAGE_CARD_ACTIVE_SPRITE : PAGE_CARD_IDLE_SPRITE;
+        Identifier cardSprite = isActive ? sprite("page_card_active") : sprite("page_card_idle");
         gfx.blitSprite(RenderPipelines.GUI_TEXTURED, cardSprite, rect.x, rect.y, PAGE_WIDTH, cardH);
 
         String title = inv != null && inv.title() != null ? inv.title() : page.defaultName();
@@ -476,7 +471,7 @@ public class StorageOverlay {
         for (int i = 0; i < rows * 9; i++) {
             int x = pageRect.x + CARD_SLOTS_INSET_X + (i % 9) * SLOT_SIZE;
             int y = pageRect.y + mc.font.lineHeight + CARD_SLOTS_INSET_Y + (i / 9) * SLOT_SIZE;
-            gfx.blitSprite(RenderPipelines.GUI_TEXTURED, STORAGE_SLOT_SPRITE, x, y, SLOT_SIZE, SLOT_SIZE);
+            gfx.blitSprite(RenderPipelines.GUI_TEXTURED, sprite("storage_slot"), x, y, SLOT_SIZE, SLOT_SIZE);
         }
     }
 
@@ -525,7 +520,7 @@ public class StorageOverlay {
     }
 
     private void drawNavigationPanel(GuiGraphicsExtractor gfx, int mouseX, int mouseY) {
-        gfx.blitSprite(RenderPipelines.GUI_TEXTURED, STORAGE_OVERVIEW_SPRITE,
+        gfx.blitSprite(RenderPipelines.GUI_TEXTURED, sprite("storage_overview"),
                 navPanelX, navPanelY, NAV_PANEL_W, NAV_PANEL_H);
         gfx.text(mc.font, "Ender Chest",
                 navPanelX + 8, navPanelY + NAV_PANEL_EC_LABEL_Y, COLOR_TITLE_ACTIVE, false);

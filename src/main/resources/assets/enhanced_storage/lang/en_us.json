@@ -1,0 +1,28 @@
+{
+  "enhanced_storage.midnightconfig.title": "Enhanced Storage",
+  "enhanced_storage.midnightconfig.category.storage": "Storage",
+
+  "enhanced_storage.midnightconfig.storageOverlayHeader": "Storage Overlay Settings",
+  "enhanced_storage.midnightconfig.enableStorageOverlay": "Enable Storage Overlay",
+  "enhanced_storage.midnightconfig.enableStorageOverlay.tooltip": "Toggle the custom storage dashboard on or off.",
+  "enhanced_storage.midnightconfig.overlayColumns": "Overlay Columns",
+  "enhanced_storage.midnightconfig.overlayColumns.tooltip": "Number of page columns displayed in the scroll panel (1–6).",
+  "enhanced_storage.midnightconfig.inverseScroll": "Inverse Scroll",
+  "enhanced_storage.midnightconfig.inverseScroll.tooltip": "Reverse the scroll direction.",
+  "enhanced_storage.midnightconfig.scrollSpeed": "Scroll Speed",
+  "enhanced_storage.midnightconfig.scrollSpeed.tooltip": "Mouse-wheel scroll multiplier (0.5–5.0).",
+  "enhanced_storage.midnightconfig.showEmptyPages": "Show Empty Pages",
+  "enhanced_storage.midnightconfig.showEmptyPages.tooltip": "Display pages that have not been visited yet.",
+  "enhanced_storage.midnightconfig.autoScrollToActivePage": "Auto-Scroll to Active Page",
+  "enhanced_storage.midnightconfig.autoScrollToActivePage.tooltip": "Automatically snap scroll so the open page is visible.",
+  "enhanced_storage.midnightconfig.showPreviewTooltips": "Show Preview Tooltips",
+  "enhanced_storage.midnightconfig.showPreviewTooltips.tooltip": "Display item tooltips when hovering over non-active page previews.",
+  "enhanced_storage.midnightconfig.searchHighlightColor": "Search Highlight Color",
+  "enhanced_storage.midnightconfig.searchHighlightColor.tooltip": "Colour applied to matching items during search (#RRGGBB or #RRGGBBAA).",
+  "enhanced_storage.midnightconfig.overlayTheme": "Overlay Theme",
+  "enhanced_storage.midnightconfig.overlayTheme.tooltip": "Visual style for the storage overlay sprites.",
+
+  "enhanced_storage.midnightconfig.enum.OverlayTheme.LIGHT": "Light",
+  "enhanced_storage.midnightconfig.enum.OverlayTheme.DARK": "Dark",
+  "enhanced_storage.midnightconfig.enum.OverlayTheme.TRANSPARENT": "Transparent"
+}
