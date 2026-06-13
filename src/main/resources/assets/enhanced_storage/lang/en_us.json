@@ -21,8 +21,14 @@
   "enhanced_storage.midnightconfig.searchHighlightColor.tooltip": "Colour applied to matching items during search (#RRGGBB or #RRGGBBAA).",
   "enhanced_storage.midnightconfig.overlayTheme": "Overlay Theme",
   "enhanced_storage.midnightconfig.overlayTheme.tooltip": "Visual style for the storage overlay sprites.",
+  "enhanced_storage.midnightconfig.storageOverviewVisibility": "Storage Overview Panel",
+  "enhanced_storage.midnightconfig.storageOverviewVisibility.tooltip": "When to show the storage overview panel left of the inventory. Hiding it re-centers the inventory.",
 
   "enhanced_storage.midnightconfig.enum.OverlayTheme.LIGHT": "Light",
   "enhanced_storage.midnightconfig.enum.OverlayTheme.DARK": "Dark",
-  "enhanced_storage.midnightconfig.enum.OverlayTheme.TRANSPARENT": "Transparent"
+  "enhanced_storage.midnightconfig.enum.OverlayTheme.TRANSPARENT": "Transparent",
+
+  "enhanced_storage.midnightconfig.enum.StorageOverviewVisibility.ALWAYS_SHOW": "Always Show",
+  "enhanced_storage.midnightconfig.enum.StorageOverviewVisibility.HIDE_ON_PAGES": "Hide on Storage Pages",
+  "enhanced_storage.midnightconfig.enum.StorageOverviewVisibility.ALWAYS_HIDE": "Always Hide"
 }

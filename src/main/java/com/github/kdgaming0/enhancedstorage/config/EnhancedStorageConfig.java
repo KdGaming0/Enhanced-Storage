@@ -14,7 +14,7 @@ public class EnhancedStorageConfig extends MidnightConfig {
     @Entry(category = "storage")
     public static boolean enableStorageOverlay = true;
 
-    @Entry(category = "storage", min = 1, max = 6)
+    @Entry(category = "storage", min = 1, max = 5, isSlider = true)
     public static int overlayColumns = 3;
 
     @Entry(category = "storage")
@@ -52,4 +52,10 @@ public class EnhancedStorageConfig extends MidnightConfig {
      */
     @Entry(category = "storage")
     public static OverlayTheme overlayTheme = OverlayTheme.TRANSPARENT;
+
+    /**
+     * When to display the storage overview (navigation) panel left of the inventory.
+     */
+    @Entry(category = "storage")
+    public static StorageOverviewVisibility storageOverviewVisibility = StorageOverviewVisibility.ALWAYS_SHOW;
 }

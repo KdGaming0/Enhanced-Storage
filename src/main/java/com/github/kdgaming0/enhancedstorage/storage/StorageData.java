@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Single in-memory source-of-truth cache for all known storage pages.
@@ -18,6 +19,7 @@ public final class StorageData {
     public static final StorageData INSTANCE = new StorageData();
     private final ConcurrentSkipListMap<StoragePage, StorageInventory> inventories = new ConcurrentSkipListMap<>();
     private final List<Runnable> dirtyListeners = new CopyOnWriteArrayList<>();
+    private final AtomicLong version = new AtomicLong();
     private volatile boolean dirty = false;
 
     private StorageData() {
@@ -70,9 +72,18 @@ public final class StorageData {
 
     public void markDirty() {
         dirty = true;
+        version.incrementAndGet();
         for (Runnable listener : dirtyListeners) {
             listener.run();
         }
+    }
+
+    /**
+     * Monotonic counter bumped on every mutation. Lets consumers cache derived state
+     * (e.g. search-match results) and recompute only when the underlying data changes.
+     */
+    public long getVersion() {
+        return version.get();
     }
 
     public void addDirtyListener(Runnable listener) {

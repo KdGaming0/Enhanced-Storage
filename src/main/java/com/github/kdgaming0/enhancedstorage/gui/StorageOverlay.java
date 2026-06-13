@@ -25,7 +25,9 @@ import net.minecraft.world.item.TooltipFlag;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -129,6 +131,12 @@ public class StorageOverlay {
     // ── Search state ──────────────────────────────────────────────────────────
     private EditBox searchField;
     private String searchQuery = "";
+    // ── Search match cache ────────────────────────────────────────────────────
+    // Per-page match flags (indexed by snapshot stack index) so the expensive
+    // tooltip-based matching runs once per query/data change instead of every frame.
+    private final Map<StoragePage, boolean[]> matchCache = new HashMap<>();
+    private String matchCacheQuery;
+    private long matchCacheVersion = -1;
     // ── Integration state ─────────────────────────────────────────────────────
     private boolean skyblockerChestValueHidden;
     // ── Highlight color cache (avoids parsing the config hex string every frame) ──
@@ -184,7 +192,8 @@ public class StorageOverlay {
             if (h.length() == 6) return 0xFF000000 | Integer.parseInt(h, 16);
             if (h.length() == 8) {
                 int v = (int) Long.parseLong(h, 16);
-                return (v >> 8) | ((v & 0xFF) << 24);
+                // Unsigned shift: an arithmetic >> sign-extends when red >= 0x80, corrupting alpha.
+                return (v >>> 8) | ((v & 0xFF) << 24);
             }
         } catch (NumberFormatException ignored) {
         }
@@ -285,8 +294,10 @@ public class StorageOverlay {
     public List<Rect> getBounds() {
         List<Rect> bounds = new ArrayList<>(List.of(
                 new Rect(overviewX, overlayTop, overviewWidth, overviewHeight),
-                new Rect(navPanelX, navPanelY, NAV_PANEL_W, NAV_PANEL_H),
                 new Rect(invPanelX, invPanelY, STORAGE_INV_W, STORAGE_INV_H)));
+        if (isNavPanelVisible()) {
+            bounds.add(new Rect(navPanelX, navPanelY, NAV_PANEL_W, NAV_PANEL_H));
+        }
         if (SkyblockerIntegration.isActive()) {
             int topX = overviewX + (overviewWidth - QUICK_NAV_ROW_WIDTH) / 2;
             int bottomX = invPanelX + (STORAGE_INV_W - QUICK_NAV_ROW_WIDTH) / 2;
@@ -306,7 +317,7 @@ public class StorageOverlay {
         if (handleSearchFieldClick(event, doubleClick)) return true;
         if (handleScrollbarClick(event)) return true;
         // On the overview screen, Hypixel's real slots handle nav-panel clicks.
-        if (!isOverview && handleNavPanelClick(event)) return true;
+        if (!isOverview && isNavPanelVisible() && handleNavPanelClick(event)) return true;
         return handlePageCardClick(event);
     }
 
@@ -374,9 +385,29 @@ public class StorageOverlay {
 
     // ── Slot repositioning ────────────────────────────────────────────────────
 
+    /**
+     * Whether the storage overview (navigation) panel should render in the current context.
+     * {@code HIDE_ON_PAGES} keeps it on the overview screen but hides it on individual pages.
+     */
+    private boolean isNavPanelVisible() {
+        return switch (EnhancedStorageConfig.storageOverviewVisibility) {
+            case ALWAYS_SHOW -> true;
+            case HIDE_ON_PAGES -> isOverview;
+            case ALWAYS_HIDE -> false;
+        };
+    }
+
     private void computeNavPanelLayout() {
         final int sideMargin = 8;
         int centeredInvX = screen.width / 2 - STORAGE_INV_W / 2;
+
+        if (!isNavPanelVisible()) {
+            // No panel to the left — center the inventory normally.
+            invPanelX = centeredInvX;
+            navPanelX = invPanelX;
+            navPanelY = invPanelY;
+            return;
+        }
 
         if (centeredInvX - NAV_PANEL_W >= sideMargin) {
             // Wide screen: keep the inventory centered and attach the overview to its left.
@@ -447,6 +478,14 @@ public class StorageOverlay {
 
     private void repositionOverviewSlots() {
         if (mc.player == null) return;
+        if (!isNavPanelVisible()) {
+            // Panel hidden on the overview screen: the real hub slots have nowhere to map, so hide
+            // them. Page navigation still works through the cards in the scroll panel.
+            for (Slot slot : screen.getMenu().slots) {
+                if (slot.container != mc.player.getInventory()) hideSlot(slot);
+            }
+            return;
+        }
         NavPanelCoords c = computeNavPanelCoords();
         int leftPos = accessor.es$getLeftPos();
 
@@ -514,8 +553,34 @@ public class StorageOverlay {
         }
 
         drawSlotBackgrounds(gfx, rect, rows);
-        if (!isActive) {
-            drawFakeItems(gfx, rect, inv.inventory().stacks(), rows, mouseX, mouseY);
+        if (isActive) {
+            // The open page renders real (repositioned) slots on top of this card, so it needs
+            // only the search tint drawn behind them — not fake items.
+            drawActivePageSearchTint(gfx, rect, rows);
+        } else {
+            drawFakeItems(gfx, rect, page, inv.inventory().stacks(), rows, mouseX, mouseY);
+        }
+    }
+
+    /**
+     * Tints the open page's slots to match the active search. Derived from live menu slots
+     * (single-slot updates never refresh the snapshot) and drawn behind the real items, so a
+     * matching item keeps the highlight color and the rest are dimmed — identical to fake items.
+     */
+    private void drawActivePageSearchTint(GuiGraphicsExtractor gfx, Rect pageRect, int rows) {
+        if (searchQuery.isBlank() || mc.player == null) return;
+        int highlightColor = getSearchHighlightColor();
+        int slotCount = rows * 9;
+        for (Slot slot : screen.getMenu().slots) {
+            if (slot.container == mc.player.getInventory() || slot.index < NAV_ROW_SKIP_SLOTS) continue;
+            int visIndex = slot.index - NAV_ROW_SKIP_SLOTS;
+            if (visIndex >= slotCount) continue;
+
+            int slotX = pageRect.x + CARD_SLOTS_INSET_X + 1 + (visIndex % 9) * SLOT_SIZE;
+            int slotY = pageRect.y + mc.font.lineHeight + CARD_SLOTS_INSET_Y + 1
+                    + (visIndex / 9) * SLOT_SIZE;
+            int tint = matchesSearch(slot.getItem(), searchQuery) ? highlightColor : COLOR_DIM_OVERLAY;
+            gfx.fill(slotX, slotY, slotX + SLOT_SIZE - 2, slotY + SLOT_SIZE - 2, tint);
         }
     }
 
@@ -527,13 +592,14 @@ public class StorageOverlay {
         }
     }
 
-    private void drawFakeItems(GuiGraphicsExtractor gfx, Rect pageRect, List<ItemStack> stacks,
-                               int rows, int mouseX, int mouseY) {
+    private void drawFakeItems(GuiGraphicsExtractor gfx, Rect pageRect, StoragePage page,
+                               List<ItemStack> stacks, int rows, int mouseX, int mouseY) {
         int startIdx = NAV_ROW_SKIP_SLOTS;
         int endIdx = Math.min(stacks.size(), startIdx + rows * 9);
         int contentMouseY = mouseY + (int) scroll;
         boolean searching = !searchQuery.isBlank();
         int highlightColor = searching ? getSearchHighlightColor() : 0;
+        boolean[] matches = searching ? matchCache.get(page) : null;
 
         for (int i = startIdx; i < endIdx; i++) {
             ItemStack stack = stacks.get(i);
@@ -549,7 +615,8 @@ public class StorageOverlay {
             }
 
             if (searching) {
-                int tint = matchesSearch(stack, searchQuery) ? highlightColor : COLOR_DIM_OVERLAY;
+                boolean matched = matches != null && i < matches.length && matches[i];
+                int tint = matched ? highlightColor : COLOR_DIM_OVERLAY;
                 gfx.fill(slotX, slotY, slotX + SLOT_SIZE - 2, slotY + SLOT_SIZE - 2, tint);
             }
 
@@ -572,6 +639,7 @@ public class StorageOverlay {
     }
 
     private void drawNavigationPanel(GuiGraphicsExtractor gfx, int mouseX, int mouseY) {
+        if (!isNavPanelVisible()) return;
         gfx.blitSprite(RenderPipelines.GUI_TEXTURED, sprite("storage_overview"),
                 navPanelX, navPanelY, NAV_PANEL_W, NAV_PANEL_H);
         gfx.text(mc.font, "Ender Chest",
@@ -729,11 +797,17 @@ public class StorageOverlay {
         if (searchQuery.isBlank() && EnhancedStorageConfig.showEmptyPages) {
             return inventories.keySet();
         }
+        ensureMatchCache();
         Set<StoragePage> result = new TreeSet<>();
         for (var entry : inventories.entrySet()) {
-            if (includeInView(entry.getValue())) {
+            if (includeInView(entry.getKey(), entry.getValue())) {
                 result.add(entry.getKey());
             }
+        }
+        // The page currently open always stays visible, even when its items don't match the
+        // search — otherwise its real slots would be hidden and the page would vanish mid-search.
+        if (activePage != null && inventories.containsKey(activePage)) {
+            result.add(activePage);
         }
         return result;
     }
@@ -742,16 +816,42 @@ public class StorageOverlay {
      * Returns true if this inventory entry should appear in the scroll panel.
      * Empty pages are excluded during active searches regardless of {@code showEmptyPages}.
      */
-    private boolean includeInView(StorageData.StorageInventory inv) {
+    private boolean includeInView(StoragePage page, StorageData.StorageInventory inv) {
         boolean hasData = inv != null && inv.inventory() != null;
         if (!hasData) {
             return EnhancedStorageConfig.showEmptyPages && searchQuery.isBlank();
         }
         if (searchQuery.isBlank()) return true;
-        for (ItemStack stack : inv.inventory().stacks()) {
-            if (matchesSearch(stack, searchQuery)) return true;
+        boolean[] matches = matchCache.get(page);
+        if (matches == null) return false;
+        for (boolean m : matches) {
+            if (m) return true;
         }
         return false;
+    }
+
+    /**
+     * Recomputes per-page search-match flags when the query or underlying data changes.
+     * Cached results are reused by both page filtering and per-slot tinting, so the costly
+     * tooltip-based matching runs once per change rather than once per item per frame.
+     */
+    private void ensureMatchCache() {
+        long version = StorageData.INSTANCE.getVersion();
+        if (searchQuery.equals(matchCacheQuery) && version == matchCacheVersion) return;
+        matchCacheQuery = searchQuery;
+        matchCacheVersion = version;
+        matchCache.clear();
+        if (searchQuery.isBlank()) return;
+        for (var entry : StorageData.INSTANCE.getInventories().entrySet()) {
+            StorageData.StorageInventory inv = entry.getValue();
+            if (inv == null || inv.inventory() == null) continue;
+            List<ItemStack> stacks = inv.inventory().stacks();
+            boolean[] matches = new boolean[stacks.size()];
+            for (int i = 0; i < stacks.size(); i++) {
+                matches[i] = matchesSearch(stacks.get(i), searchQuery);
+            }
+            matchCache.put(entry.getKey(), matches);
+        }
     }
 
     private boolean matchesSearch(ItemStack stack, String query) {
