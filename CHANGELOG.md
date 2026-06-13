@@ -1,4 +1,4 @@
-## Update 0.2.0
+## Update 0.3.0
 
-- Added lang file for configs
-- Added Dark Mode and Transparent Mode for the Storage Overlay
+- Fixed issues when used with RRV and Skyblocker
+- Fixed some bugs

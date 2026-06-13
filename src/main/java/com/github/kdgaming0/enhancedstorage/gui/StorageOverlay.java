@@ -1,6 +1,8 @@
 package com.github.kdgaming0.enhancedstorage.gui;
 
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
+import com.github.kdgaming0.enhancedstorage.integration.RrvIntegration;
+import com.github.kdgaming0.enhancedstorage.integration.SkyblockerIntegration;
 import com.github.kdgaming0.enhancedstorage.mixin.AbstractContainerScreenAccessor;
 import com.github.kdgaming0.enhancedstorage.mixin.ScreenAccessor;
 import com.github.kdgaming0.enhancedstorage.mixin.SlotAccessor;
@@ -22,6 +24,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import org.lwjgl.glfw.GLFW;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -56,6 +59,14 @@ public class StorageOverlay {
     private static final int STORAGE_INV_W = 176;
     private static final int STORAGE_INV_H = 97;
     private static final int BOTTOM_PADDING = 20;
+    /**
+     * Skyblocker QuickNav button size / placement constants. When Skyblocker is loaded the overlay
+     * reserves vertical space so the top and bottom button rows sit against the custom panels.
+     */
+    private static final int QUICK_NAV_BUTTON_H = 32;
+    private static final int QUICK_NAV_BUTTON_OVERLAP = 4;
+    private static final int QUICK_NAV_BUTTON_OFFSET = QUICK_NAV_BUTTON_H - QUICK_NAV_BUTTON_OVERLAP;
+    private static final int QUICK_NAV_ROW_WIDTH = 176;
     /**
      * Hypixel adds a navigation row at the top of every storage page; skip it when rendering.
      */
@@ -99,11 +110,15 @@ public class StorageOverlay {
     private Minecraft mc;
     // ── Layout state (recomputed on every init) ───────────────────────────────
     private boolean isOverview;
+    private int baseLeftPos;
     private int baseTopPos;
+    private int[] originalPlayerSlotRelX;
     private int[] originalPlayerSlotRelY;
+    private int playerPushX;
     private int playerPush;
     private int pageWidthCount;
     private int overviewX, overviewWidth, overviewHeight;
+    private int overlayTop;
     private int innerScrollPanelWidth, innerScrollPanelHeight;
     private int invPanelX, invPanelY;
     private int navPanelX, navPanelY;
@@ -114,6 +129,8 @@ public class StorageOverlay {
     // ── Search state ──────────────────────────────────────────────────────────
     private EditBox searchField;
     private String searchQuery = "";
+    // ── Integration state ─────────────────────────────────────────────────────
+    private boolean skyblockerChestValueHidden;
     // ── Highlight color cache (avoids parsing the config hex string every frame) ──
     private String cachedHighlightHex;
     private int cachedHighlightColor;
@@ -186,6 +203,7 @@ public class StorageOverlay {
         this.activePage = activePage;
         this.mc = Minecraft.getInstance();
         this.isOverview = activePage == null;
+        this.skyblockerChestValueHidden = false;
     }
 
     /**
@@ -198,6 +216,7 @@ public class StorageOverlay {
         if (searchField != null) {
             searchField.setFocused(false);
         }
+        RrvIntegration.clearBlocking();
         screen = null;
         accessor = null;
         activePage = null;
@@ -205,26 +224,49 @@ public class StorageOverlay {
 
     public void onInit(int screenWidth, int screenHeight) {
         ensureAllPagesRegistered();
+        baseLeftPos = accessor.es$getLeftPos();
         baseTopPos = accessor.es$getTopPos();
+        originalPlayerSlotRelX = capturePlayerSlotRelX();
         originalPlayerSlotRelY = capturePlayerSlotRelY();
-        recalculateMeasurements();
+        int quickNavOffset = SkyblockerIntegration.isActive() ? QUICK_NAV_BUTTON_OFFSET : 0;
+        overlayTop = PANEL_TOP + quickNavOffset;
+        recalculateMeasurements(quickNavOffset);
         scroll = clampScroll(scroll);
 
         if (activePage != null && EnhancedStorageConfig.autoScrollToActivePage) {
             scrollToPageIfOffScreen(activePage);
         }
 
-        initSearchField();
         computeNavPanelLayout();
+        initSearchField();
+        if (originalPlayerSlotRelX.length > 0) {
+            playerPushX = invPanelX - baseLeftPos;
+        }
+        RrvIntegration.setBlocking(getBounds());
     }
 
     public void preRender(int mouseX, int mouseY) {
+        if (!skyblockerChestValueHidden) {
+            skyblockerChestValueHidden = SkyblockerIntegration.hideChestValueButton(screen);
+        }
+        positionQuickNavButtons();
         pushPlayerSlots();
         if (isOverview) {
             repositionOverviewSlots();
         } else {
             repositionChestSlots();
         }
+    }
+
+    private void positionQuickNavButtons() {
+        if (!SkyblockerIntegration.isActive()) {
+            return;
+        }
+        int topX = overviewX + (overviewWidth - QUICK_NAV_ROW_WIDTH) / 2;
+        int bottomX = invPanelX + (STORAGE_INV_W - QUICK_NAV_ROW_WIDTH) / 2;
+        int topY = overlayTop - QUICK_NAV_BUTTON_OFFSET;
+        int bottomY = invPanelY + STORAGE_INV_H - QUICK_NAV_BUTTON_OVERLAP;
+        SkyblockerIntegration.positionQuickNav(screen, topX, topY, bottomX, bottomY);
     }
 
     public void extractRenderState(GuiGraphicsExtractor gfx, int mouseX, int mouseY, float delta) {
@@ -241,10 +283,19 @@ public class StorageOverlay {
     // ── Input delegation ──────────────────────────────────────────────────────
 
     public List<Rect> getBounds() {
-        return List.of(
-                new Rect(overviewX, PANEL_TOP, overviewWidth, overviewHeight),
+        List<Rect> bounds = new ArrayList<>(List.of(
+                new Rect(overviewX, overlayTop, overviewWidth, overviewHeight),
                 new Rect(navPanelX, navPanelY, NAV_PANEL_W, NAV_PANEL_H),
-                new Rect(invPanelX, invPanelY, STORAGE_INV_W, STORAGE_INV_H));
+                new Rect(invPanelX, invPanelY, STORAGE_INV_W, STORAGE_INV_H)));
+        if (SkyblockerIntegration.isActive()) {
+            int topX = overviewX + (overviewWidth - QUICK_NAV_ROW_WIDTH) / 2;
+            int bottomX = invPanelX + (STORAGE_INV_W - QUICK_NAV_ROW_WIDTH) / 2;
+            int topY = overlayTop - QUICK_NAV_BUTTON_OFFSET;
+            int bottomY = invPanelY + STORAGE_INV_H - QUICK_NAV_BUTTON_OVERLAP;
+            bounds.add(new Rect(topX, topY, QUICK_NAV_ROW_WIDTH, QUICK_NAV_BUTTON_H));
+            bounds.add(new Rect(bottomX, bottomY, QUICK_NAV_ROW_WIDTH, QUICK_NAV_BUTTON_H));
+        }
+        return bounds;
     }
 
     public EditBox getSearchField() {
@@ -289,7 +340,7 @@ public class StorageOverlay {
         return event.key() != GLFW.GLFW_KEY_ESCAPE;
     }
 
-    private void recalculateMeasurements() {
+    private void recalculateMeasurements(int quickNavOffset) {
         pageWidthCount = Math.clamp(
                 (screen.width - PADDING * 2) / (PAGE_WIDTH + PADDING),
                 1, EnhancedStorageConfig.overlayColumns);
@@ -298,10 +349,10 @@ public class StorageOverlay {
         overviewWidth = innerScrollPanelWidth + SCROLL_BAR_W + PADDING * 3;
         overviewX = screen.width / 2 - overviewWidth / 2;
 
-        invPanelX = accessor.es$getLeftPos();
-        invPanelY = screen.height - BOTTOM_PADDING - STORAGE_INV_H;
+        int extraBottomPadding = SkyblockerIntegration.isActive() ? 20 : 0;
+        invPanelY = screen.height - BOTTOM_PADDING - STORAGE_INV_H - quickNavOffset -  extraBottomPadding;
 
-        overviewHeight = Math.max(MIN_OVERLAY_H, invPanelY - PANEL_TOP);
+        overviewHeight = Math.max(MIN_OVERLAY_H, invPanelY - overlayTop);
         innerScrollPanelHeight = overviewHeight - PADDING * 2;
 
         if (originalPlayerSlotRelY.length > 0) {
@@ -311,12 +362,12 @@ public class StorageOverlay {
         }
 
         scrollPanelRect.x = overviewX + PADDING;
-        scrollPanelRect.y = PANEL_TOP + PADDING;
+        scrollPanelRect.y = overlayTop + PADDING;
         scrollPanelRect.width = innerScrollPanelWidth;
         scrollPanelRect.height = innerScrollPanelHeight;
 
         scrollbarTrackRect.x = overviewX + overviewWidth - PADDING - SCROLL_BAR_W;
-        scrollbarTrackRect.y = PANEL_TOP + PADDING;
+        scrollbarTrackRect.y = overlayTop + PADDING;
         scrollbarTrackRect.width = SCROLL_BAR_W;
         scrollbarTrackRect.height = innerScrollPanelHeight;
     }
@@ -324,13 +375,20 @@ public class StorageOverlay {
     // ── Slot repositioning ────────────────────────────────────────────────────
 
     private void computeNavPanelLayout() {
-        navPanelX = invPanelX - NAV_PANEL_W;
-        navPanelY = invPanelY;
-        if (navPanelX < 8) {
-            // Fall back to centering above the inventory when the screen is too narrow.
-            navPanelX = (screen.width - NAV_PANEL_W) / 2;
-            navPanelY = invPanelY - NAV_PANEL_H;
+        final int sideMargin = 8;
+        int centeredInvX = screen.width / 2 - STORAGE_INV_W / 2;
+
+        if (centeredInvX - NAV_PANEL_W >= sideMargin) {
+            // Wide screen: keep the inventory centered and attach the overview to its left.
+            invPanelX = centeredInvX;
+            navPanelX = invPanelX - NAV_PANEL_W;
+        } else {
+            // Narrow screen: center the overview + inventory group and shift the inventory right.
+            int groupWidth = NAV_PANEL_W + STORAGE_INV_W;
+            navPanelX = Math.max(sideMargin, screen.width / 2 - groupWidth / 2);
+            invPanelX = navPanelX + NAV_PANEL_W;
         }
+        navPanelY = invPanelY;
     }
 
     private void scrollToPageIfOffScreen(StoragePage page) {
@@ -347,8 +405,12 @@ public class StorageOverlay {
 
     private void pushPlayerSlots() {
         List<Slot> playerSlots = getPlayerSlots();
-        for (int i = 0; i < Math.min(playerSlots.size(), originalPlayerSlotRelY.length); i++) {
-            ((SlotAccessor) playerSlots.get(i)).es$setY(originalPlayerSlotRelY[i] + playerPush);
+        int slotsToMove = Math.min(playerSlots.size(),
+                Math.min(originalPlayerSlotRelX.length, originalPlayerSlotRelY.length));
+        for (int i = 0; i < slotsToMove; i++) {
+            Slot slot = playerSlots.get(i);
+            ((SlotAccessor) slot).es$setX(originalPlayerSlotRelX[i] + playerPushX);
+            ((SlotAccessor) slot).es$setY(originalPlayerSlotRelY[i] + playerPush);
         }
     }
 
@@ -414,7 +476,7 @@ public class StorageOverlay {
 
     private void drawMainPanel(GuiGraphicsExtractor gfx) {
         gfx.blitSprite(RenderPipelines.GUI_TEXTURED, sprite("main_panel"),
-                overviewX, PANEL_TOP, overviewWidth, overviewHeight);
+                overviewX, overlayTop, overviewWidth, overviewHeight);
         gfx.blitSprite(RenderPipelines.GUI_TEXTURED, sprite("storage_inventory"),
                 invPanelX, invPanelY, STORAGE_INV_W, STORAGE_INV_H);
     }
@@ -757,7 +819,7 @@ public class StorageOverlay {
 
             consumer.accept(
                     new Rect(overviewX + PADDING + (PAGE_WIDTH + PADDING) * col,
-                            PANEL_TOP + PADDING + totalH, PAGE_WIDTH, pageH),
+                            overlayTop + PADDING + totalH, PAGE_WIDTH, pageH),
                     entry.getKey(), inv);
 
             if (++col >= pageWidthCount) {
@@ -789,6 +851,13 @@ public class StorageOverlay {
                 StorageData.INSTANCE.updateInventory(p, p.defaultName(), null);
             }
         }
+    }
+
+    private int[] capturePlayerSlotRelX() {
+        List<Slot> slots = getPlayerSlots();
+        int[] relX = new int[slots.size()];
+        for (int i = 0; i < slots.size(); i++) relX[i] = slots.get(i).x;
+        return relX;
     }
 
     private int[] capturePlayerSlotRelY() {
