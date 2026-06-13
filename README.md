@@ -17,7 +17,7 @@
 
 ## Unified Storage View
 
-Enhanced Storage replaces the vanilla chest GUI with a custom overlay that displays all **9 Ender Chest pages** and up to **18 Backpack pages** in a single, easy-to-navigate interface. No more memorizing which page holds what — everything is visible at a glance.
+Enhanced Storage replaces the vanilla chest GUI with a custom overlay that displays all **9 Ender Chest pages** and up to **18 Backpack pages** in a single, easy-to-navigate interface. No more memorizing which page holds what — everything is visible at a glance. (Dark Mode textures were made by [Bentcheesee](https://modrinth.com/user/Bentcheesee). Massive thanks!)
 
 ## Smart Search
 
