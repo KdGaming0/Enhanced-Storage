@@ -48,3 +48,5 @@ IMPLEMENTATION_LOG.md
 graphify-out
 .graphifyignore
 docs
+net
+.venv-graphify
