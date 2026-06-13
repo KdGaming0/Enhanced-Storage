@@ -24,12 +24,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import org.lwjgl.glfw.GLFW;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 
 /**
  * Renders a persistent scrollable dashboard of all known storage pages on top of any
@@ -105,6 +100,10 @@ public class StorageOverlay {
     // Cached layout rects — recomputed in recalculateMeasurements, avoids per-frame allocation.
     private final Rect scrollPanelRect = new Rect(0, 0, 0, 0);
     private final Rect scrollbarTrackRect = new Rect(0, 0, 0, 0);
+    // ── Search match cache ────────────────────────────────────────────────────
+    // Per-page match flags (indexed by snapshot stack index) so the expensive
+    // tooltip-based matching runs once per query/data change instead of every frame.
+    private final Map<StoragePage, boolean[]> matchCache = new HashMap<>();
     // ── Screen references (null while detached) ───────────────────────────────
     private AbstractContainerScreen<?> screen;
     private AbstractContainerScreenAccessor accessor;
@@ -131,10 +130,6 @@ public class StorageOverlay {
     // ── Search state ──────────────────────────────────────────────────────────
     private EditBox searchField;
     private String searchQuery = "";
-    // ── Search match cache ────────────────────────────────────────────────────
-    // Per-page match flags (indexed by snapshot stack index) so the expensive
-    // tooltip-based matching runs once per query/data change instead of every frame.
-    private final Map<StoragePage, boolean[]> matchCache = new HashMap<>();
     private String matchCacheQuery;
     private long matchCacheVersion = -1;
     // ── Integration state ─────────────────────────────────────────────────────
@@ -142,6 +137,7 @@ public class StorageOverlay {
     // ── Highlight color cache (avoids parsing the config hex string every frame) ──
     private String cachedHighlightHex;
     private int cachedHighlightColor;
+
     private StorageOverlay(AbstractContainerScreen<?> screen, StoragePage activePage) {
         attach(screen, activePage);
     }
@@ -361,7 +357,7 @@ public class StorageOverlay {
         overviewX = screen.width / 2 - overviewWidth / 2;
 
         int extraBottomPadding = SkyblockerIntegration.isActive() ? 20 : 0;
-        invPanelY = screen.height - BOTTOM_PADDING - STORAGE_INV_H - quickNavOffset -  extraBottomPadding;
+        invPanelY = screen.height - BOTTOM_PADDING - STORAGE_INV_H - quickNavOffset - extraBottomPadding;
 
         overviewHeight = Math.max(MIN_OVERLAY_H, invPanelY - overlayTop);
         innerScrollPanelHeight = overviewHeight - PADDING * 2;
