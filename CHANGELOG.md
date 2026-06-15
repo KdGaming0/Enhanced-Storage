@@ -1,4 +1,3 @@
-## Update 0.3.0
+## Update 0.4.0
 
-- Fixed issues when used with RRV and Skyblocker
-- Fixed some bugs
+- Now hides unavailable pages. Like an ender chest page that you have not unlocked yet.

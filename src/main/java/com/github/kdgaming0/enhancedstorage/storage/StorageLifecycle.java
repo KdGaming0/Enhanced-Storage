@@ -110,8 +110,11 @@ public final class StorageLifecycle {
             StoragePage page = StoragePage.fromOverviewSlotIndex(slot.index);
             if (page == null) continue;
             ItemStack stack = slot.getItem();
-            String title = stack.isEmpty() ? page.defaultName() : stack.getHoverName().getString();
-            StorageData.INSTANCE.updateInventory(page, title, null, stack.copy());
+            // Skip empty slots: init fires before the server content packet, so slots are
+            // temporarily empty. Skipping preserves correct snapshot titles until the packet
+            // arrives and this method is called again with the real items.
+            if (stack.isEmpty()) continue;
+            StorageData.INSTANCE.updateInventory(page, stack.getHoverName().getString(), null, stack.copy());
         }
     }
 

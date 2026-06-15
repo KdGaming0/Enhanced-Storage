@@ -22,6 +22,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.*;
@@ -177,6 +178,20 @@ public class StorageOverlay {
     private static void hideSlot(Slot slot) {
         ((SlotAccessor) slot).es$setX(-9999);
         ((SlotAccessor) slot).es$setY(-9999);
+    }
+
+    /**
+     * Returns true for slots Hypixel marks as unusable: locked EC pages, locked backpack slots,
+     * and unlocked-but-empty backpack slots. Biases toward available when the title is unknown,
+     * so unvisited real pages are never blocked.
+     */
+    private static boolean isUnavailablePage(@Nullable StorageData.StorageInventory inv) {
+        if (inv == null || inv.inventory() != null) return false;
+        String t = inv.title();
+        if (t == null) return false;
+        return t.equals("Locked Page")
+                || t.startsWith("Locked Backpack Slot ")
+                || t.startsWith("Empty Backpack Slot ");
     }
 
     /**
@@ -543,8 +558,14 @@ public class StorageOverlay {
                 isActive ? COLOR_TITLE_ACTIVE : COLOR_TITLE_IDLE, true);
 
         if (!hasInv) {
-            gfx.centeredText(mc.font, "Open Page",
-                    rect.x + PAGE_WIDTH / 2, rect.y + cardH / 2, COLOR_PLACEHOLDER);
+            String label;
+            if (isUnavailablePage(inv)) {
+                label = inv != null && inv.title() != null && inv.title().startsWith("Empty Backpack")
+                        ? "No Backpack" : "Locked";
+            } else {
+                label = "Open Page";
+            }
+            gfx.centeredText(mc.font, label, rect.x + PAGE_WIDTH / 2, rect.y + cardH / 2, COLOR_PLACEHOLDER);
             return;
         }
 
@@ -728,7 +749,10 @@ public class StorageOverlay {
         if (!scrollPanelRect.contains(event.x(), event.y())) return false;
         StoragePage clicked = pageAt((int) event.x(), (int) event.y());
         if (clicked != null && !clicked.equals(activePage)) {
-            clicked.navigateTo();
+            StorageData.StorageInventory inv = StorageData.INSTANCE.getInventory(clicked);
+            if (!isUnavailablePage(inv)) {
+                clicked.navigateTo();
+            }
             return true;
         }
         return false;
@@ -746,7 +770,10 @@ public class StorageOverlay {
             int sx = c.slotStartX() + i * SLOT_SIZE;
             if (event.x() >= sx && event.x() < sx + SLOT_SIZE
                     && event.y() >= c.ecRowY() && event.y() < c.ecRowY() + SLOT_SIZE) {
-                StoragePage.ofEnderChest(i + 1).navigateTo();
+                StoragePage page = StoragePage.ofEnderChest(i + 1);
+                if (!isUnavailablePage(StorageData.INSTANCE.getInventory(page))) {
+                    page.navigateTo();
+                }
                 return true;
             }
         }
@@ -756,7 +783,10 @@ public class StorageOverlay {
             int sy = (i / 9 == 0) ? c.bp1RowY() : c.bp2RowY();
             if (event.x() >= sx && event.x() < sx + SLOT_SIZE
                     && event.y() >= sy && event.y() < sy + SLOT_SIZE) {
-                StoragePage.ofBackpack(i + 1).navigateTo();
+                StoragePage page = StoragePage.ofBackpack(i + 1);
+                if (!isUnavailablePage(StorageData.INSTANCE.getInventory(page))) {
+                    page.navigateTo();
+                }
                 return true;
             }
         }
@@ -790,7 +820,8 @@ public class StorageOverlay {
 
     private Set<StoragePage> getFilteredPages() {
         var inventories = StorageData.INSTANCE.getInventories();
-        if (searchQuery.isBlank() && EnhancedStorageConfig.showEmptyPages) {
+        if (searchQuery.isBlank() && EnhancedStorageConfig.showEmptyPages
+                && EnhancedStorageConfig.showUnavailablePages) {
             return inventories.keySet();
         }
         ensureMatchCache();
@@ -811,8 +842,12 @@ public class StorageOverlay {
     /**
      * Returns true if this inventory entry should appear in the scroll panel.
      * Empty pages are excluded during active searches regardless of {@code showEmptyPages}.
+     * Unavailable pages (locked/empty backpack slots) are excluded unless {@code showUnavailablePages}.
      */
     private boolean includeInView(StoragePage page, StorageData.StorageInventory inv) {
+        if (isUnavailablePage(inv)) {
+            return EnhancedStorageConfig.showUnavailablePages && searchQuery.isBlank();
+        }
         boolean hasData = inv != null && inv.inventory() != null;
         if (!hasData) {
             return EnhancedStorageConfig.showEmptyPages && searchQuery.isBlank();

@@ -30,6 +30,12 @@ public class EnhancedStorageConfig extends MidnightConfig {
     public static boolean showEmptyPages = true;
 
     /**
+     * Show pages that cannot be used: locked ender chest pages and locked or empty backpack slots.
+     */
+    @Entry(category = "storage")
+    public static boolean showUnavailablePages = false;
+
+    /**
      * Auto-scroll the page list so the currently open page is visible on screen init.
      */
     @Entry(category = "storage")

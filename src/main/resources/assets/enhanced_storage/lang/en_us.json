@@ -13,6 +13,8 @@
   "enhanced_storage.midnightconfig.scrollSpeed.tooltip": "Mouse-wheel scroll multiplier (0.5–5.0).",
   "enhanced_storage.midnightconfig.showEmptyPages": "Show Empty Pages",
   "enhanced_storage.midnightconfig.showEmptyPages.tooltip": "Display pages that have not been visited yet.",
+  "enhanced_storage.midnightconfig.showUnavailablePages": "Show Unavailable Pages",
+  "enhanced_storage.midnightconfig.showUnavailablePages.tooltip": "Display locked ender chest pages and locked or empty backpack slots. Clicking them is always blocked.",
   "enhanced_storage.midnightconfig.autoScrollToActivePage": "Auto-Scroll to Active Page",
   "enhanced_storage.midnightconfig.autoScrollToActivePage.tooltip": "Automatically snap scroll so the open page is visible.",
   "enhanced_storage.midnightconfig.showPreviewTooltips": "Show Preview Tooltips",
