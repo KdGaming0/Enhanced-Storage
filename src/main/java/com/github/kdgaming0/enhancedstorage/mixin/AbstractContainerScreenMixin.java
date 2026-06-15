@@ -4,6 +4,7 @@ import com.github.kdgaming0.enhancedstorage.OverlayHolder;
 import com.github.kdgaming0.enhancedstorage.gui.Rect;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlay;
 import com.github.kdgaming0.enhancedstorage.storage.StorageLifecycle;
+import com.github.kdgaming0.enhancedstorage.storage.StoragePage;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -108,6 +109,11 @@ public class AbstractContainerScreenMixin<T extends AbstractContainerMenu> imple
     @Inject(method = "removed", at = @At("HEAD"))
     private void es$onRemoved(CallbackInfo ci) {
         if (es$overlay != null) {
+            StoragePage page = es$overlay.getActivePage();
+            if (page != null) {
+                AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>) (Object) this;
+                StorageLifecycle.rememberPage(screen, page, screen.getTitle().getString());
+            }
             es$overlay.detach();
         }
         es$overlay = null;

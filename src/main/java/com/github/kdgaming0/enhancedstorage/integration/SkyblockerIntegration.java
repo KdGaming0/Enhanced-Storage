@@ -50,11 +50,25 @@ public final class SkyblockerIntegration {
     }
 
     /**
-     * Returns {@code true} when Skyblocker is loaded and the overlay should reserve space for
-     * QuickNav buttons.
+     * Returns {@code true} when Skyblocker is loaded.
      */
     public static boolean isActive() {
         return SKYBLOCKER_PRESENT;
+    }
+
+    /**
+     * Returns {@code true} when Skyblocker is loaded, reflection is initialized, and the given
+     * screen actually contains QuickNav buttons. Use this to gate padding reservation so that
+     * disabling QuickNav in Skyblocker's config doesn't leave unused space in the overlay.
+     */
+    public static boolean hasQuickNavButtons(Screen screen) {
+        if (!SKYBLOCKER_PRESENT) return false;
+        initialize();
+        if (!initialized) return false;
+        for (Object child : screen.children()) {
+            if (quickNavButtonClass.isInstance(child)) return true;
+        }
+        return false;
     }
 
     /**

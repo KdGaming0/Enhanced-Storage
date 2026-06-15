@@ -48,21 +48,22 @@ public class StorageOverlay {
     // ── Layout ────────────────────────────────────────────────────────────────
     private static final int SLOT_SIZE = 18;
     private static final int PAGE_WIDTH = SLOT_SIZE * 9 + 6;
-    private static final int PADDING = 8;
+    private static final int PANEL_PADDING = 6;
+    private static final int CARD_GAP = 3;
     private static final int SCROLL_BAR_W = 6;
     private static final int SCROLL_KNOB_MIN_H = 32;
     private static final int MIN_OVERLAY_H = 60;
-    private static final int PANEL_TOP = SLOT_SIZE;
+    private static final int PANEL_TOP = 8;
     private static final int INV_SLOTS_TOP = 15;
     private static final int STORAGE_INV_W = 176;
     private static final int STORAGE_INV_H = 97;
-    private static final int BOTTOM_PADDING = 20;
+    private static final int BOTTOM_PADDING = 40;
     /**
      * Skyblocker QuickNav button size / placement constants. When Skyblocker is loaded the overlay
      * reserves vertical space so the top and bottom button rows sit against the custom panels.
      */
-    private static final int QUICK_NAV_BUTTON_H = 32;
-    private static final int QUICK_NAV_BUTTON_OVERLAP = 4;
+    private static final int QUICK_NAV_BUTTON_H = 30;
+    private static final int QUICK_NAV_BUTTON_OVERLAP = 2;
     private static final int QUICK_NAV_BUTTON_OFFSET = QUICK_NAV_BUTTON_H - QUICK_NAV_BUTTON_OVERLAP;
     private static final int QUICK_NAV_ROW_WIDTH = 176;
     /**
@@ -135,12 +136,18 @@ public class StorageOverlay {
     private long matchCacheVersion = -1;
     // ── Integration state ─────────────────────────────────────────────────────
     private boolean skyblockerChestValueHidden;
+    private int quickNavOffset;
+    private boolean layoutVerified;
     // ── Highlight color cache (avoids parsing the config hex string every frame) ──
     private String cachedHighlightHex;
     private int cachedHighlightColor;
 
     private StorageOverlay(AbstractContainerScreen<?> screen, StoragePage activePage) {
         attach(screen, activePage);
+    }
+
+    public StoragePage getActivePage() {
+        return activePage;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -182,8 +189,7 @@ public class StorageOverlay {
 
     /**
      * Returns true for slots Hypixel marks as unusable: locked EC pages, locked backpack slots,
-     * and unlocked-but-empty backpack slots. Biases toward available when the title is unknown,
-     * so unvisited real pages are never blocked.
+     * and unlocked-but-empty backpack slots. Used for scroll-panel visibility filtering.
      */
     private static boolean isUnavailablePage(@Nullable StorageData.StorageInventory inv) {
         if (inv == null || inv.inventory() != null) return false;
@@ -192,6 +198,18 @@ public class StorageOverlay {
         return t.equals("Locked Page")
                 || t.startsWith("Locked Backpack Slot ")
                 || t.startsWith("Empty Backpack Slot ");
+    }
+
+    /**
+     * Returns true only for pages that are permanently inaccessible (not yet purchased/unlocked).
+     * Empty-but-unlocked backpack slots are NOT blocked here: Hypixel responds to the navigation
+     * command by opening the storage overview, which lets the user place a backpack in the slot.
+     */
+    private static boolean isLockedPage(@Nullable StorageData.StorageInventory inv) {
+        if (inv == null || inv.inventory() != null) return false;
+        String t = inv.title();
+        if (t == null) return false;
+        return t.equals("Locked Page") || t.startsWith("Locked Backpack Slot ");
     }
 
     /**
@@ -224,6 +242,7 @@ public class StorageOverlay {
         this.mc = Minecraft.getInstance();
         this.isOverview = activePage == null;
         this.skyblockerChestValueHidden = false;
+        this.layoutVerified = false;
     }
 
     /**
@@ -248,7 +267,7 @@ public class StorageOverlay {
         baseTopPos = accessor.es$getTopPos();
         originalPlayerSlotRelX = capturePlayerSlotRelX();
         originalPlayerSlotRelY = capturePlayerSlotRelY();
-        int quickNavOffset = SkyblockerIntegration.isActive() ? QUICK_NAV_BUTTON_OFFSET : 0;
+        quickNavOffset = SkyblockerIntegration.hasQuickNavButtons(screen) ? QUICK_NAV_BUTTON_OFFSET : 0;
         overlayTop = PANEL_TOP + quickNavOffset;
         recalculateMeasurements(quickNavOffset);
         scroll = clampScroll(scroll);
@@ -262,12 +281,25 @@ public class StorageOverlay {
         if (originalPlayerSlotRelX.length > 0) {
             playerPushX = invPanelX - baseLeftPos;
         }
+        positionQuickNavButtons();
         RrvIntegration.setBlocking(getBounds());
     }
 
     public void preRender(int mouseX, int mouseY) {
         if (!skyblockerChestValueHidden) {
             skyblockerChestValueHidden = SkyblockerIntegration.hideChestValueButton(screen);
+        }
+        if (!layoutVerified) {
+            layoutVerified = true;
+            int actualOffset = SkyblockerIntegration.hasQuickNavButtons(screen) ? QUICK_NAV_BUTTON_OFFSET : 0;
+            if (actualOffset != quickNavOffset) {
+                quickNavOffset = actualOffset;
+                overlayTop = PANEL_TOP + quickNavOffset;
+                recalculateMeasurements(quickNavOffset);
+                computeNavPanelLayout();
+                initSearchField();
+                RrvIntegration.setBlocking(getBounds());
+            }
         }
         positionQuickNavButtons();
         pushPlayerSlots();
@@ -309,7 +341,7 @@ public class StorageOverlay {
         if (isNavPanelVisible()) {
             bounds.add(new Rect(navPanelX, navPanelY, NAV_PANEL_W, NAV_PANEL_H));
         }
-        if (SkyblockerIntegration.isActive()) {
+        if (SkyblockerIntegration.hasQuickNavButtons(screen)) {
             int topX = overviewX + (overviewWidth - QUICK_NAV_ROW_WIDTH) / 2;
             int bottomX = invPanelX + (STORAGE_INV_W - QUICK_NAV_ROW_WIDTH) / 2;
             int topY = overlayTop - QUICK_NAV_BUTTON_OFFSET;
@@ -364,18 +396,17 @@ public class StorageOverlay {
 
     private void recalculateMeasurements(int quickNavOffset) {
         pageWidthCount = Math.clamp(
-                (screen.width - PADDING * 2) / (PAGE_WIDTH + PADDING),
+                (screen.width - PANEL_PADDING * 2) / (PAGE_WIDTH + CARD_GAP),
                 1, EnhancedStorageConfig.overlayColumns);
 
-        innerScrollPanelWidth = PAGE_WIDTH * pageWidthCount + (pageWidthCount - 1) * PADDING;
-        overviewWidth = innerScrollPanelWidth + SCROLL_BAR_W + PADDING * 3;
+        innerScrollPanelWidth = PAGE_WIDTH * pageWidthCount + (pageWidthCount - 1) * CARD_GAP;
+        overviewWidth = innerScrollPanelWidth + SCROLL_BAR_W + PANEL_PADDING * 3;
         overviewX = screen.width / 2 - overviewWidth / 2;
 
-        int extraBottomPadding = SkyblockerIntegration.isActive() ? 20 : 0;
-        invPanelY = screen.height - BOTTOM_PADDING - STORAGE_INV_H - quickNavOffset - extraBottomPadding;
+        invPanelY = screen.height - BOTTOM_PADDING - STORAGE_INV_H - quickNavOffset;
 
         overviewHeight = Math.max(MIN_OVERLAY_H, invPanelY - overlayTop);
-        innerScrollPanelHeight = overviewHeight - PADDING * 2;
+        innerScrollPanelHeight = overviewHeight - PANEL_PADDING * 2;
 
         if (originalPlayerSlotRelY.length > 0) {
             int targetFirstSlotScreenY = invPanelY + INV_SLOTS_TOP;
@@ -383,13 +414,13 @@ public class StorageOverlay {
             playerPush = targetFirstSlotScreenY - vanillaFirstSlotScreenY;
         }
 
-        scrollPanelRect.x = overviewX + PADDING;
-        scrollPanelRect.y = overlayTop + PADDING;
+        scrollPanelRect.x = overviewX + PANEL_PADDING;
+        scrollPanelRect.y = overlayTop + PANEL_PADDING;
         scrollPanelRect.width = innerScrollPanelWidth;
         scrollPanelRect.height = innerScrollPanelHeight;
 
-        scrollbarTrackRect.x = overviewX + overviewWidth - PADDING - SCROLL_BAR_W;
-        scrollbarTrackRect.y = overlayTop + PADDING;
+        scrollbarTrackRect.x = overviewX + overviewWidth - PANEL_PADDING - SCROLL_BAR_W;
+        scrollbarTrackRect.y = overlayTop + PANEL_PADDING;
         scrollbarTrackRect.width = SCROLL_BAR_W;
         scrollbarTrackRect.height = innerScrollPanelHeight;
     }
@@ -750,7 +781,7 @@ public class StorageOverlay {
         StoragePage clicked = pageAt((int) event.x(), (int) event.y());
         if (clicked != null && !clicked.equals(activePage)) {
             StorageData.StorageInventory inv = StorageData.INSTANCE.getInventory(clicked);
-            if (!isUnavailablePage(inv)) {
+            if (!isLockedPage(inv)) {
                 clicked.navigateTo();
             }
             return true;
@@ -771,7 +802,7 @@ public class StorageOverlay {
             if (event.x() >= sx && event.x() < sx + SLOT_SIZE
                     && event.y() >= c.ecRowY() && event.y() < c.ecRowY() + SLOT_SIZE) {
                 StoragePage page = StoragePage.ofEnderChest(i + 1);
-                if (!isUnavailablePage(StorageData.INSTANCE.getInventory(page))) {
+                if (!isLockedPage(StorageData.INSTANCE.getInventory(page))) {
                     page.navigateTo();
                 }
                 return true;
@@ -784,7 +815,7 @@ public class StorageOverlay {
             if (event.x() >= sx && event.x() < sx + SLOT_SIZE
                     && event.y() >= sy && event.y() < sy + SLOT_SIZE) {
                 StoragePage page = StoragePage.ofBackpack(i + 1);
-                if (!isUnavailablePage(StorageData.INSTANCE.getInventory(page))) {
+                if (!isLockedPage(StorageData.INSTANCE.getInventory(page))) {
                     page.navigateTo();
                 }
                 return true;
@@ -949,12 +980,12 @@ public class StorageOverlay {
             maxRowH = Math.max(maxRowH, pageH);
 
             consumer.accept(
-                    new Rect(overviewX + PADDING + (PAGE_WIDTH + PADDING) * col,
-                            overlayTop + PADDING + totalH, PAGE_WIDTH, pageH),
+                    new Rect(overviewX + PANEL_PADDING + (PAGE_WIDTH + CARD_GAP) * col,
+                            overlayTop + PANEL_PADDING + totalH, PAGE_WIDTH, pageH),
                     entry.getKey(), inv);
 
             if (++col >= pageWidthCount) {
-                totalH += maxRowH + PADDING;
+                totalH += maxRowH + CARD_GAP;
                 col = 0;
                 maxRowH = 0;
             }
