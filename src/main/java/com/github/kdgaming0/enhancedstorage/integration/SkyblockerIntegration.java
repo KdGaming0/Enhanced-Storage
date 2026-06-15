@@ -2,6 +2,7 @@ package com.github.kdgaming0.enhancedstorage.integration;
 
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 
@@ -96,6 +97,12 @@ public final class SkyblockerIntegration {
                 } else {
                     setXMethod.invoke(child, bottomX + (buttonCount - 7) * 25);
                     setYMethod.invoke(child, bottomY);
+                }
+                // Reveal button now that it has correct overlay coordinates.
+                // Buttons are born invisible (via QuickNavButtonMixin) to prevent a flash
+                // at the default (0, 0) construction position before this method runs.
+                if (child instanceof AbstractWidget widget) {
+                    widget.visible = true;
                 }
                 buttonCount++;
             }
