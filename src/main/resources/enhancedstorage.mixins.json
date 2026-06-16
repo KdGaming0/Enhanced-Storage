@@ -8,6 +8,8 @@
     "AbstractContainerScreenMixin",
     "ClientPacketListenerMixin",
     "ContainerBackgroundMixin",
+    "ProfileIdCommandHideMixin",
+    "ProfileIdResponseMixin",
     "QuickNavButtonMixin",
     "ScreenAccessor",
     "SlotAccessor"

@@ -1,7 +1,9 @@
 package com.github.kdgaming0.enhancedstorage.storage;
 
+import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlay;
+import com.github.kdgaming0.enhancedstorage.util.ProfileIdTracker;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import net.azureaaron.hmapi.events.HypixelPacketEvents;
 import net.azureaaron.hmapi.network.HypixelNetworking;
@@ -10,24 +12,30 @@ import net.azureaaron.hmapi.network.packet.v1.s2c.LocationUpdateS2CPacket;
 import net.azureaaron.hmapi.utils.Utils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.UUID;
 
 /**
  * Manages feature lifecycle: server detection, snapshot persistence, and overlay creation.
  */
 public final class StorageLifecycle {
 
-    private static final AtomicReference<StorageSnapshotStorage> STORAGE_REF = new AtomicReference<>();
-    private static volatile String cachedProfileId = "unknown";
+    private static final StorageSnapshotStorage STORAGE = new StorageSnapshotStorage();
+
+    /** Persistence key for the snapshot file — the SkyBlock profile UUID, or {@code null} when unknown. */
+    private static volatile String currentKey = null;
+    /** Whether {@link #currentKey} was confirmed by {@code /profileid} (vs. a tentative cache guess). */
+    private static volatile boolean currentKeyConfirmed = false;
     private static volatile boolean onSkyBlock = false;
 
     private StorageLifecycle() {
@@ -40,17 +48,18 @@ public final class StorageLifecycle {
         HypixelNetworking.registerToEvents(events);
         HypixelPacketEvents.LOCATION_UPDATE.register(StorageLifecycle::onLocationUpdate);
 
-        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
-            // Profile ID uses the Minecraft account UUID, not the Hypixel profile UUID.
-            // Players with multiple SkyBlock profiles share one snapshot file per MC account.
-            cachedProfileId = resolveProfileId();
-            StorageSnapshotStorage storage = new StorageSnapshotStorage();
-            storage.load(cachedProfileId, StorageData.INSTANCE);
-            STORAGE_REF.set(storage);
-        });
+        // The snapshot is keyed by SkyBlock profile UUID, resolved via /profileid. The profile is
+        // unknown until the player enters SkyBlock and the probe completes, so loading is driven by
+        // the tracker's callbacks rather than the network-join event.
+        Path cachePath = FabricLoader.getInstance().getConfigDir()
+                .resolve(EnhancedStorage.MOD_ID).resolve("profile_cache.json");
+        ProfileIdTracker.register(cachePath, StorageLifecycle::onProfileResolved, StorageLifecycle::onProfileEnded);
 
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> save());
-        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> save());
+        // onSkyBlock is otherwise only updated by LocationUpdate packets, which don't arrive on
+        // disconnect. Clearing it here prevents a stale "true" from triggering a spurious probe in
+        // the lobby on the next reconnect, before the first LocationUpdate corrects it.
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> onSkyBlock = false);
+        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> saveCurrent());
     }
 
     private static void onLocationUpdate(HypixelS2CPacket packet) {
@@ -59,6 +68,10 @@ public final class StorageLifecycle {
                     .map(t -> t.equalsIgnoreCase("SKYBLOCK"))
                     .orElse(false);
         }
+    }
+
+    public static boolean isOnSkyBlock() {
+        return onSkyBlock;
     }
 
     public static boolean isFeatureEnabled() {
@@ -148,22 +161,92 @@ public final class StorageLifecycle {
         return stacks.size() > target ? stacks.subList(0, target) : stacks;
     }
 
-    public static void save() {
-        StorageSnapshotStorage storage = STORAGE_REF.getAndSet(null);
-        if (storage != null) {
-            storage.save(cachedProfileId, StorageData.INSTANCE);
+    /**
+     * Reacts to a profile UUID resolved by {@link ProfileIdTracker}.
+     *
+     * <p>Upholds the invariant that {@link StorageData#INSTANCE} is never saved under a key that
+     * was a tentative guess later contradicted: on such a contradiction the in-memory state is
+     * discarded (cleared and reloaded from disk), never persisted into the wrong file.
+     *
+     * @param profileId the resolved SkyBlock profile UUID
+     * @param confirmed {@code true} if confirmed by {@code /profileid}; {@code false} if a
+     *                  tentative value from the per-account cache
+     */
+    public static void onProfileResolved(UUID profileId, boolean confirmed) {
+        String key = profileId.toString();
+
+        if (key.equals(currentKey)) {
+            if (confirmed) currentKeyConfirmed = true;
+            return;
         }
+
+        if (currentKey == null) {
+            // First profile this session. Any pages already captured belong to this profile
+            // (no other profile's file was loaded), so load() merges them without discarding.
+            currentKey = key;
+            currentKeyConfirmed = confirmed;
+            STORAGE.load(key, StorageData.INSTANCE);
+            return;
+        }
+
+        // Replacing a previously adopted key.
+        if (currentKeyConfirmed) {
+            // The prior key was confirmed — its data is legitimate; persist before switching.
+            STORAGE.save(currentKey, StorageData.INSTANCE);
+        }
+        // Otherwise the prior key was a tentative guess now contradicted — discard, never save.
+        // Data-only swap: a live overlay reads StorageData each frame, so it follows the switch.
+        // Do NOT tear down the overlay here — destroyActive() leaves the screen mixin's cached
+        // reference dangling and crashes the next render. The screen's removed() handles teardown.
+        StorageData.INSTANCE.clear();
+        currentKey = key;
+        currentKeyConfirmed = confirmed;
+        STORAGE.load(key, StorageData.INSTANCE);
+        // The loaded snapshot may be stale (e.g. older locked/unlocked page state). If a storage
+        // screen is open, re-capture its live contents — no new content packet fires for an
+        // already-open screen, so otherwise the view stays stale until the player reopens it.
+        recaptureOpenScreen();
+    }
+
+    /**
+     * Re-captures the currently open storage screen into {@link StorageData}, mirroring what the
+     * content-packet handler does on open. Used after a mid-session profile switch so the overview's
+     * locked/unlocked page state reflects the live screen immediately rather than the loaded snapshot.
+     */
+    private static void recaptureOpenScreen() {
+        Minecraft mc = Minecraft.getInstance();
+        if (!(mc.screen instanceof AbstractContainerScreen<?> screen)) return;
+        String rawTitle = screen.getTitle().getString();
+        Optional<StorageTitleParser.ParsedTitle> parsed = StorageTitleParser.parse(rawTitle);
+        if (parsed.isEmpty()) return;
+        if (parsed.get().isOverview()) {
+            rememberOverview(screen);
+            return;
+        }
+        StoragePage page = parsed.get().page();
+        if (page != null) {
+            rememberPage(screen, page, rawTitle);
+        }
+    }
+
+    /** Reacts to SkyBlock state ending (leave or disconnect): flush the current profile and reset. */
+    public static void onProfileEnded() {
+        saveCurrent();
+        StorageData.INSTANCE.clear();
+        currentKey = null;
+        currentKeyConfirmed = false;
+    }
+
+    /** Saves the in-memory snapshot under the current key; no-op when no profile is known. */
+    public static void saveCurrent() {
+        if (currentKey == null) return;
+        STORAGE.save(currentKey, StorageData.INSTANCE);
     }
 
     public static void clearCache() {
         StorageData.INSTANCE.clear();
-        STORAGE_REF.set(null);
-        cachedProfileId = "unknown";
+        currentKey = null;
+        currentKeyConfirmed = false;
         StorageOverlay.destroyActive();
-    }
-
-    private static String resolveProfileId() {
-        Minecraft mc = Minecraft.getInstance();
-        return mc.player != null ? mc.player.getUUID().toString() : "unknown";
     }
 }

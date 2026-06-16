@@ -286,6 +286,9 @@ public class StorageOverlay {
     }
 
     public void preRender(int mouseX, int mouseY) {
+        // A detached overlay (torn down while the screen mixin still holds a reference) has no
+        // screen to position against; skip rather than NPE on screen.getMenu() / children().
+        if (screen == null) return;
         if (!skyblockerChestValueHidden) {
             skyblockerChestValueHidden = SkyblockerIntegration.hideChestValueButton(screen);
         }
@@ -322,6 +325,7 @@ public class StorageOverlay {
     }
 
     public void extractRenderState(GuiGraphicsExtractor gfx, int mouseX, int mouseY, float delta) {
+        if (screen == null) return;
         drawMainPanel(gfx);
         drawScrollableContent(gfx, mouseX, mouseY);
         drawScrollbar(gfx);

@@ -1,5 +1,4 @@
-## Update 0.4.0
+## Update 0.5.0
 
-- Now hides unavailable pages. Like an ender chest page that you have not unlocked yet.
-- Made the page snapshot saving more robust.
-- Tweaked padding and spacing around pages in the page overview to let you see more items at once.
+- Storage Pages are now saved per Skyblock Profile instead of only being one save that needs to be updated when you change the profile.
+  - This means that on update your storage pages will be reset, but they will be saved for each profile from now on.
