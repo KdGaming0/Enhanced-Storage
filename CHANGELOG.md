@@ -1,4 +1,4 @@
-## Update 0.5.0
+## Update 0.5.1
 
-- Storage Pages are now saved per Skyblock Profile instead of only being one save that needs to be updated when you change the profile.
-  - This means that on update your storage pages will be reset, but they will be saved for each profile from now on.
+- Remembered to update version number
+- Set the default scroll speed to be slightly lower in the storage overlay

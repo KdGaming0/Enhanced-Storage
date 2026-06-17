@@ -2,10 +2,10 @@
 mod.id = "enhanced_storage"
 mod.name = "Enhanced Storage"
 mod.group = "com.github.kdgaming0"
-mod.version = "0.4.0"
+mod.version = "0.5.1"
 
-deps.fabric_loader = "0.19.2"
-loomx.loom_version = "1.16-SNAPSHOT"
+deps.fabric_loader = "0.19.3"
+loomx.loom_version = "1.17-SNAPSHOT"
 
 ["26.1"]
 mod.mc_compat = "~26.1"

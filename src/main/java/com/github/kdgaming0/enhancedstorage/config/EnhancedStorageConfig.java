@@ -21,7 +21,7 @@ public class EnhancedStorageConfig extends MidnightConfig {
     public static boolean inverseScroll = false;
 
     @Entry(category = "storage", isSlider = true, min = 0.5, max = 5.0, precision = 1)
-    public static double scrollSpeed = 2.0;
+    public static double scrollSpeed = 1.0;
 
     /**
      * Show/hide pages that have not been visited yet.
