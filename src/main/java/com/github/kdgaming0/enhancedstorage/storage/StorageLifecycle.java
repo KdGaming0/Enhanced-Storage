@@ -48,16 +48,11 @@ public final class StorageLifecycle {
         HypixelNetworking.registerToEvents(events);
         HypixelPacketEvents.LOCATION_UPDATE.register(StorageLifecycle::onLocationUpdate);
 
-        // The snapshot is keyed by SkyBlock profile UUID, resolved via /profileid. The profile is
-        // unknown until the player enters SkyBlock and the probe completes, so loading is driven by
-        // the tracker's callbacks rather than the network-join event.
+        // The snapshot is keyed by SkyBlock profile UUID.
         Path cachePath = FabricLoader.getInstance().getConfigDir()
                 .resolve(EnhancedStorage.MOD_ID).resolve("profile_cache.json");
         ProfileIdTracker.register(cachePath, StorageLifecycle::onProfileResolved, StorageLifecycle::onProfileEnded);
 
-        // onSkyBlock is otherwise only updated by LocationUpdate packets, which don't arrive on
-        // disconnect. Clearing it here prevents a stale "true" from triggering a spurious probe in
-        // the lobby on the next reconnect, before the first LocationUpdate corrects it.
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> onSkyBlock = false);
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> saveCurrent());
     }
@@ -74,14 +69,13 @@ public final class StorageLifecycle {
         return onSkyBlock;
     }
 
-    public static boolean isFeatureEnabled() {
-        return EnhancedStorageConfig.enableStorageOverlay
-                && Utils.isOnHypixel()
-                && onSkyBlock;
+    private static boolean isOnHypixelSkyBlock() {
+        return Utils.isOnHypixel() && onSkyBlock;
     }
 
     public static @Nullable StorageOverlay createOverlay(AbstractContainerScreen<?> screen) {
-        if (!isFeatureEnabled()) {
+        // Base gate only — the two overlay systems have independent config toggles checked below.
+        if (!isOnHypixelSkyBlock()) {
             StorageOverlay.destroyActive();
             return null;
         }
@@ -93,12 +87,29 @@ public final class StorageLifecycle {
             return null;
         }
 
+        StoragePage page = parsed.get().page();
+
+        // Rift Storage is a separate two-page system with its own independent toggle.
+        if (page != null && page.isRift()) {
+            if (!EnhancedStorageConfig.enableRiftStorageOverlay) {
+                StorageOverlay.destroyActive();
+                return null;
+            }
+            rememberPage(screen, page, rawTitle);
+            return StorageOverlay.createOrAttach(screen, page);
+        }
+
+        // Main storage hub (Ender Chest / Backpack).
+        if (!EnhancedStorageConfig.enableStorageOverlay) {
+            StorageOverlay.destroyActive();
+            return null;
+        }
+
         if (parsed.get().isOverview()) {
             rememberOverview(screen);
             return StorageOverlay.createOrAttach(screen, null);
         }
 
-        StoragePage page = parsed.get().page();
         if (page == null) {
             StorageOverlay.destroyActive();
             return null;
@@ -241,12 +252,5 @@ public final class StorageLifecycle {
     public static void saveCurrent() {
         if (currentKey == null) return;
         STORAGE.save(currentKey, StorageData.INSTANCE);
-    }
-
-    public static void clearCache() {
-        StorageData.INSTANCE.clear();
-        currentKey = null;
-        currentKeyConfirmed = false;
-        StorageOverlay.destroyActive();
     }
 }

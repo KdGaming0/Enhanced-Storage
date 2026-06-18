@@ -5,6 +5,8 @@
   "enhanced_storage.midnightconfig.storageOverlayHeader": "Storage Overlay Settings",
   "enhanced_storage.midnightconfig.enableStorageOverlay": "Enable Storage Overlay",
   "enhanced_storage.midnightconfig.enableStorageOverlay.tooltip": "Toggle the custom storage dashboard on or off.",
+  "enhanced_storage.midnightconfig.enableRiftStorageOverlay": "Enable Rift Storage Overlay",
+  "enhanced_storage.midnightconfig.enableRiftStorageOverlay.tooltip": "Toggle the overlay for the two-page Rift Storage menu. Independent of the main storage overlay.",
   "enhanced_storage.midnightconfig.overlayColumns": "Overlay Columns",
   "enhanced_storage.midnightconfig.overlayColumns.tooltip": "Number of page columns displayed in the scroll panel (1–6).",
   "enhanced_storage.midnightconfig.inverseScroll": "Inverse Scroll",

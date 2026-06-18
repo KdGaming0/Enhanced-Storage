@@ -17,12 +17,19 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class StorageData {
 
     public static final StorageData INSTANCE = new StorageData();
+    // MAIN (Ender Chest / Backpack) and RIFT pages live in separate maps so neither system's
+    // pages ever leak into the other's overlay. The active map is chosen by the page's type.
     private final ConcurrentSkipListMap<StoragePage, StorageInventory> inventories = new ConcurrentSkipListMap<>();
+    private final ConcurrentSkipListMap<StoragePage, StorageInventory> riftInventories = new ConcurrentSkipListMap<>();
     private final List<Runnable> dirtyListeners = new CopyOnWriteArrayList<>();
     private final AtomicLong version = new AtomicLong();
     private volatile boolean dirty = false;
 
     private StorageData() {
+    }
+
+    private ConcurrentSkipListMap<StoragePage, StorageInventory> mapFor(StoragePage page) {
+        return page.type() == StorageType.RIFT ? riftInventories : inventories;
     }
 
     public void updateInventory(StoragePage page, String title, @Nullable VirtualInventory inventory) {
@@ -31,7 +38,8 @@ public final class StorageData {
 
     public void updateInventory(StoragePage page, String title,
                                 @Nullable VirtualInventory inventory, @Nullable ItemStack icon) {
-        StorageInventory existing = inventories.get(page);
+        ConcurrentSkipListMap<StoragePage, StorageInventory> map = mapFor(page);
+        StorageInventory existing = map.get(page);
 
         String resolvedTitle = (title != null && !title.isBlank()) ? title
                 : (existing != null && existing.title() != null) ? existing.title()
@@ -41,33 +49,37 @@ public final class StorageData {
         ItemStack resolvedIcon = icon != null ? icon
                 : (existing != null ? existing.icon() : null);
 
-        inventories.put(page, new StorageInventory(resolvedTitle, page, resolvedInv, resolvedIcon));
+        map.put(page, new StorageInventory(resolvedTitle, page, resolvedInv, resolvedIcon));
         markDirty();
     }
 
     public boolean hasInventory(StoragePage page) {
-        return inventories.containsKey(page);
+        return mapFor(page).containsKey(page);
     }
 
     public @Nullable StorageInventory getInventory(StoragePage page) {
-        return inventories.get(page);
-    }
-
-    public void removeInventory(StoragePage page) {
-        inventories.remove(page);
-        markDirty();
+        return mapFor(page).get(page);
     }
 
     public void clear() {
         inventories.clear();
+        riftInventories.clear();
         markDirty();
     }
 
     /**
-     * Returns a read-only view of all cached inventories, sorted by page index.
+     * Returns a read-only view of the MAIN (Ender Chest / Backpack) inventories, sorted by page.
+     * Rift pages are intentionally excluded so they never appear in the regular storage overlay.
      */
     public Map<StoragePage, StorageInventory> getInventories() {
         return Collections.unmodifiableMap(inventories);
+    }
+
+    /**
+     * Returns a read-only view of the RIFT inventories, sorted by page.
+     */
+    public Map<StoragePage, StorageInventory> getRiftInventories() {
+        return Collections.unmodifiableMap(riftInventories);
     }
 
     public void markDirty() {
@@ -84,18 +96,6 @@ public final class StorageData {
      */
     public long getVersion() {
         return version.get();
-    }
-
-    public void addDirtyListener(Runnable listener) {
-        dirtyListeners.add(listener);
-    }
-
-    public boolean isDirty() {
-        return dirty;
-    }
-
-    public void clearDirty() {
-        dirty = false;
     }
 
     public record StorageInventory(

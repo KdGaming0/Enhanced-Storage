@@ -24,7 +24,7 @@ public class ClientPacketListenerMixin {
 
     @Inject(method = "handleContainerContent", at = @At("TAIL"))
     private void es$onContainerContent(ClientboundContainerSetContentPacket packet, CallbackInfo ci) {
-        if (!EnhancedStorageConfig.enableStorageOverlay) return;
+        if (!EnhancedStorageConfig.enableStorageOverlay && !EnhancedStorageConfig.enableRiftStorageOverlay) return;
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
@@ -35,12 +35,18 @@ public class ClientPacketListenerMixin {
         Optional<StorageTitleParser.ParsedTitle> parsed = StorageTitleParser.parse(rawTitle);
         if (parsed.isEmpty()) return;
 
+        StoragePage page = parsed.get().page();
+        // Each storage system is captured only when its own overlay is enabled, so the two
+        // toggles stay independent (overview pages belong to the MAIN system).
+        boolean rift = page != null && page.isRift();
+        if (rift ? !EnhancedStorageConfig.enableRiftStorageOverlay
+                 : !EnhancedStorageConfig.enableStorageOverlay) return;
+
         if (parsed.get().isOverview()) {
             StorageLifecycle.onOverviewPacketReceived(screen);
             return;
         }
 
-        StoragePage page = parsed.get().page();
         if (page == null) return;
 
         List<ItemStack> stacks = StorageLifecycle.collectContainerStacks(screen);

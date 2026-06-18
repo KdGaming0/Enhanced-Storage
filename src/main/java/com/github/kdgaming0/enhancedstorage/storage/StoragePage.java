@@ -5,14 +5,19 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Typed, validated key representing a single storage page (Ender Chest or Backpack).
- * Encodes Hypixel's specific page indexing and navigation commands.
+ * Typed, validated key representing a single storage page. {@link StorageType#MAIN} pages are
+ * the Hypixel Storage hub (Ender Chest / Backpack) navigated by chat commands; {@link
+ * StorageType#RIFT} pages are the two Rift Storage pages navigated by in-container buttons.
+ * The {@code type} is part of the page's identity so the two systems never collide.
  */
-public record StoragePage(int index) implements Comparable<StoragePage> {
+public record StoragePage(StorageType type, int index) implements Comparable<StoragePage> {
 
     public static final int ENDER_CHEST_COUNT = 9;
     public static final int BACKPACK_COUNT = 18;
+    /** Number of {@link StorageType#MAIN} pages (Ender Chest + Backpack). */
     public static final int COUNT = ENDER_CHEST_COUNT + BACKPACK_COUNT;
+    /** Number of {@link StorageType#RIFT} pages. */
+    public static final int RIFT_COUNT = 2;
 
     // Slot indices of the interactive overview rows in the Hypixel Storage hub menu.
     public static final int OVERVIEW_EC_SLOT_FIRST = 9;
@@ -23,9 +28,15 @@ public record StoragePage(int index) implements Comparable<StoragePage> {
     public static final int OVERVIEW_BP_ROW2_SLOT_LAST = 44;
 
     public StoragePage {
-        if (index < 0 || index >= COUNT) {
-            throw new IllegalArgumentException("Invalid storage page index: " + index);
+        int max = type == StorageType.RIFT ? RIFT_COUNT : COUNT;
+        if (index < 0 || index >= max) {
+            throw new IllegalArgumentException("Invalid " + type + " storage page index: " + index);
         }
+    }
+
+    /** Convenience constructor for {@link StorageType#MAIN} pages (Ender Chest / Backpack). */
+    public StoragePage(int index) {
+        this(StorageType.MAIN, index);
     }
 
     public static StoragePage ofEnderChest(int page) {
@@ -40,6 +51,13 @@ public record StoragePage(int index) implements Comparable<StoragePage> {
             throw new IllegalArgumentException("Invalid Backpack page: " + page);
         }
         return new StoragePage(ENDER_CHEST_COUNT + page - 1);
+    }
+
+    public static StoragePage ofRift(int page) {
+        if (page < 1 || page > RIFT_COUNT) {
+            throw new IllegalArgumentException("Invalid Rift Storage page: " + page);
+        }
+        return new StoragePage(StorageType.RIFT, page - 1);
     }
 
     /**
@@ -74,43 +92,53 @@ public record StoragePage(int index) implements Comparable<StoragePage> {
         }
     }
 
+    public boolean isRift() {
+        return type == StorageType.RIFT;
+    }
+
     public boolean isEnderChest() {
-        return index < ENDER_CHEST_COUNT;
+        return type == StorageType.MAIN && index < ENDER_CHEST_COUNT;
     }
 
     // ── Factories ─────────────────────────────────────────────────────────────
 
     public boolean isBackpack() {
-        return index >= ENDER_CHEST_COUNT;
+        return type == StorageType.MAIN && index >= ENDER_CHEST_COUNT;
     }
 
     /**
      * Returns the 1-based page number for display.
      */
     public int getPageNumber() {
-        return isEnderChest() ? index + 1 : index - ENDER_CHEST_COUNT + 1;
+        return isBackpack() ? index - ENDER_CHEST_COUNT + 1 : index + 1;
     }
 
     public String defaultName() {
-        return isEnderChest()
-                ? "Ender Chest " + getPageNumber()
-                : "Backpack " + getPageNumber();
+        return switch (type) {
+            case RIFT -> "Rift Storage " + (index + 1);
+            case MAIN -> isEnderChest()
+                    ? "Ender Chest " + getPageNumber()
+                    : "Backpack " + getPageNumber();
+        };
     }
 
     /**
-     * Sends the Hypixel chat command that opens this storage page.
+     * Sends the Hypixel chat command that opens this storage page. Rift pages use the same
+     * {@code /ec <n>} command as Ender Chest pages — Hypixel opens the rift's storage when the
+     * player is in the Rift.
      */
     public void navigateTo() {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.getConnection() == null) return;
-        String command = isEnderChest()
-                ? "ec " + getPageNumber()
-                : "backpack " + getPageNumber();
+        String command = isBackpack()
+                ? "backpack " + getPageNumber()
+                : "ec " + getPageNumber();
         mc.getConnection().sendCommand(command);
     }
 
     @Override
     public int compareTo(@NotNull StoragePage o) {
-        return Integer.compare(this.index, o.index);
+        int byType = Integer.compare(this.type.ordinal(), o.type.ordinal());
+        return byType != 0 ? byType : Integer.compare(this.index, o.index);
     }
 }

@@ -12,6 +12,7 @@ import java.util.regex.Pattern;
 public final class StorageTitleParser {
 
     private static final Pattern PATTERN_OVERVIEW = Pattern.compile("^[Ss]torage$");
+    private static final Pattern PATTERN_RIFT = Pattern.compile(".*[Rr]ift [Ss]torage.*\\((\\d+)/(\\d+)\\)");
     private static final Pattern PATTERN_STORAGE_PAGE = Pattern.compile(".*[Ss]torage.*\\((\\d+)/(\\d+)\\)");
     private static final Pattern PATTERN_ENDER_CHEST = Pattern.compile(".*[Ee]nder [Cc]hest.*\\((\\d+)/(\\d+)\\)");
     private static final Pattern PATTERN_BACKPACK = Pattern.compile(".*[Bb]ackpack.*\\s*[(#]\\s*(\\d+)\\s*\\)?");
@@ -26,6 +27,15 @@ public final class StorageTitleParser {
 
         if (PATTERN_OVERVIEW.matcher(clean).matches()) {
             return Optional.of(new ParsedTitle(null, clean, true));
+        }
+
+        Matcher rift = PATTERN_RIFT.matcher(clean);
+        if (rift.matches()) {
+            try {
+                int page = Integer.parseInt(rift.group(1));
+                return Optional.of(new ParsedTitle(StoragePage.ofRift(page), clean, false));
+            } catch (IllegalArgumentException ignored) {
+            }
         }
 
         for (Pattern ecPattern : new Pattern[]{PATTERN_STORAGE_PAGE, PATTERN_ENDER_CHEST}) {

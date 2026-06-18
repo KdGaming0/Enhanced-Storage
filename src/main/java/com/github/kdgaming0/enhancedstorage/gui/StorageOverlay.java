@@ -8,6 +8,7 @@ import com.github.kdgaming0.enhancedstorage.mixin.ScreenAccessor;
 import com.github.kdgaming0.enhancedstorage.mixin.SlotAccessor;
 import com.github.kdgaming0.enhancedstorage.storage.StorageData;
 import com.github.kdgaming0.enhancedstorage.storage.StoragePage;
+import com.github.kdgaming0.enhancedstorage.storage.StorageType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
@@ -112,6 +113,8 @@ public class StorageOverlay {
     private StoragePage activePage;
     private Minecraft mc;
     // ── Layout state (recomputed on every init) ───────────────────────────────
+    // Which storage system this overlay is currently presenting; derived from the active page.
+    private StorageType type = StorageType.MAIN;
     private boolean isOverview;
     private int baseLeftPos;
     private int baseTopPos;
@@ -250,9 +253,23 @@ public class StorageOverlay {
         this.accessor = (AbstractContainerScreenAccessor) screen;
         this.activePage = activePage;
         this.mc = Minecraft.getInstance();
+        // Rift pages always carry an active page; only the MAIN hub has an overview (null) page.
+        this.type = activePage != null ? activePage.type() : StorageType.MAIN;
         this.isOverview = activePage == null;
         this.skyblockerChestValueHidden = false;
         this.layoutVerified = false;
+    }
+
+    private boolean isRift() {
+        return type == StorageType.RIFT;
+    }
+
+    /**
+     * The cache map this overlay draws from: the Rift pages in rift mode, otherwise the regular
+     * Ender Chest / Backpack pages. Keeps the two systems' cards from leaking into each other.
+     */
+    private Map<StoragePage, StorageData.StorageInventory> pageSource() {
+        return isRift() ? StorageData.INSTANCE.getRiftInventories() : StorageData.INSTANCE.getInventories();
     }
 
     /**
@@ -446,6 +463,8 @@ public class StorageOverlay {
      * {@code HIDE_ON_PAGES} keeps it on the overview screen but hides it on individual pages.
      */
     private boolean isNavPanelVisible() {
+        // Rift Storage has no hub/overview, so it never shows the navigation panel.
+        if (isRift()) return false;
         return switch (EnhancedStorageConfig.storageOverviewVisibility) {
             case ALWAYS_SHOW -> true;
             case HIDE_ON_PAGES -> isOverview;
@@ -864,9 +883,11 @@ public class StorageOverlay {
     }
 
     private Set<StoragePage> getFilteredPages() {
-        var inventories = StorageData.INSTANCE.getInventories();
-        if (searchQuery.isBlank() && EnhancedStorageConfig.showEmptyPages
-                && EnhancedStorageConfig.showUnavailablePages) {
+        var inventories = pageSource();
+        // Rift always shows both pages (when not searching) regardless of the empty/unavailable
+        // toggles — the unvisited page's card is the only way to navigate to it.
+        if (searchQuery.isBlank() && (isRift()
+                || (EnhancedStorageConfig.showEmptyPages && EnhancedStorageConfig.showUnavailablePages))) {
             return inventories.keySet();
         }
         ensureMatchCache();
@@ -918,7 +939,7 @@ public class StorageOverlay {
         matchCacheVersion = version;
         matchCache.clear();
         if (searchQuery.isBlank()) return;
-        for (var entry : StorageData.INSTANCE.getInventories().entrySet()) {
+        for (var entry : pageSource().entrySet()) {
             StorageData.StorageInventory inv = entry.getValue();
             if (inv == null || inv.inventory() == null) continue;
             List<ItemStack> stacks = inv.inventory().stacks();
@@ -985,7 +1006,7 @@ public class StorageOverlay {
      */
     private void forEachPage(Set<StoragePage> filter, PageConsumer consumer) {
         int col = 0, maxRowH = 0, totalH = 0;
-        for (var entry : StorageData.INSTANCE.getInventories().entrySet()) {
+        for (var entry : pageSource().entrySet()) {
             if (!filter.contains(entry.getKey())) continue;
             StorageData.StorageInventory inv = entry.getValue();
 
@@ -1021,6 +1042,15 @@ public class StorageOverlay {
     // ── Utilities ─────────────────────────────────────────────────────────────
 
     private void ensureAllPagesRegistered() {
+        if (isRift()) {
+            for (int page = 1; page <= StoragePage.RIFT_COUNT; page++) {
+                StoragePage p = StoragePage.ofRift(page);
+                if (!StorageData.INSTANCE.hasInventory(p)) {
+                    StorageData.INSTANCE.updateInventory(p, p.defaultName(), null);
+                }
+            }
+            return;
+        }
         for (int i = 0; i < StoragePage.COUNT; i++) {
             StoragePage p = new StoragePage(i);
             if (!StorageData.INSTANCE.hasInventory(p)) {

@@ -14,6 +14,9 @@ public class EnhancedStorageConfig extends MidnightConfig {
     @Entry(category = "storage")
     public static boolean enableStorageOverlay = true;
 
+    @Entry(category = "storage")
+    public static boolean enableRiftStorageOverlay = true;
+
     @Entry(category = "storage", min = 1, max = 5, isSlider = true)
     public static int overlayColumns = 3;
 
