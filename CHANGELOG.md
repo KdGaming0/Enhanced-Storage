@@ -1,4 +1,3 @@
-## Update 0.5.1
+## Update 0.5.2
 
-- Remembered to update version number
-- Set the default scroll speed to be slightly lower in the storage overlay
+- Skyblock ProfileId is now parsed from chat.
