@@ -64,4 +64,11 @@ public class EnhancedStorageConfig extends MidnightConfig {
      */
     @Entry(category = "storage")
     public static StorageOverviewVisibility storageOverviewVisibility = StorageOverviewVisibility.ALWAYS_SHOW;
+
+    /**
+     * When to preserve the cursor position between inventory screens. Defers automatically to
+     * SkyBlock-Enhancements when that mod's own cursor-save feature is enabled.
+     */
+    @Entry(category = "storage")
+    public static CursorPositionMode saveCursorPositionMode = CursorPositionMode.STORAGE_OVERLAY_ONLY;
 }

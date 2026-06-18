@@ -25,6 +25,8 @@
   "enhanced_storage.midnightconfig.overlayTheme.tooltip": "Visual style for the storage overlay sprites.",
   "enhanced_storage.midnightconfig.storageOverviewVisibility": "Storage Overview Panel",
   "enhanced_storage.midnightconfig.storageOverviewVisibility.tooltip": "When to show the storage overview panel left of the inventory. Hiding it re-centers the inventory.",
+  "enhanced_storage.midnightconfig.saveCursorPositionMode": "Save Cursor Position",
+  "enhanced_storage.midnightconfig.saveCursorPositionMode.tooltip": "Keep the cursor where it was when moving between inventory screens. Defers to SkyBlock-Enhancements when that mod's cursor saving is enabled.",
 
   "enhanced_storage.midnightconfig.enum.OverlayTheme.LIGHT": "Light",
   "enhanced_storage.midnightconfig.enum.OverlayTheme.DARK": "Dark",
@@ -32,5 +34,9 @@
 
   "enhanced_storage.midnightconfig.enum.StorageOverviewVisibility.ALWAYS_SHOW": "Always Show",
   "enhanced_storage.midnightconfig.enum.StorageOverviewVisibility.HIDE_ON_PAGES": "Hide on Storage Pages",
-  "enhanced_storage.midnightconfig.enum.StorageOverviewVisibility.ALWAYS_HIDE": "Always Hide"
+  "enhanced_storage.midnightconfig.enum.StorageOverviewVisibility.ALWAYS_HIDE": "Always Hide",
+
+  "enhanced_storage.midnightconfig.enum.CursorPositionMode.DISABLED": "Disabled",
+  "enhanced_storage.midnightconfig.enum.CursorPositionMode.STORAGE_OVERLAY_ONLY": "Storage Overlay Only",
+  "enhanced_storage.midnightconfig.enum.CursorPositionMode.ALL_CONTAINERS": "All Containers"
 }

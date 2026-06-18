@@ -182,6 +182,16 @@ public class StorageOverlay {
         }
     }
 
+    /**
+     * Read-only: whether a storage overlay singleton currently exists. The singleton persists across
+     * the brief screen-less gap between storage pages (only {@link #destroyActive()} clears it), so
+     * this stays {@code true} while leaving a storage page — unlike {@code Minecraft.screen}, which is
+     * already {@code null} by the time {@code MouseHandler.grabMouse()} runs.
+     */
+    public static boolean hasActiveOverlay() {
+        return activeInstance != null;
+    }
+
     private static void hideSlot(Slot slot) {
         ((SlotAccessor) slot).es$setX(-9999);
         ((SlotAccessor) slot).es$setY(-9999);
