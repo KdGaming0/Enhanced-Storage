@@ -47,10 +47,12 @@ If you'd like to support continued development, you can do so on **Ko-fi** — e
 
 [**Support on Ko-fi →**](https://ko-fi.com/kdgaming1)
 
----
+## Credits & Attribution
 
-<div align="center">
+The storage overlay concept and parts of the implementation were heavily inspired by [Firmament](https://github.com/FirmamentMC/Firmament).
 
-**Made with love for the SkyBlock community.**
+- Upstream project: https://github.com/FirmamentMC/Firmament
+- Feature area: storage GUI/overlay rendering, storage page modeling, and related SkyBlock hooks
 
-</div>
+**Texuters**
+Dark Mode textures were made by [Bentcheesee](https://modrinth.com/user/Bentcheesee).

@@ -1,3 +1,10 @@
+/*
+ * Attribution:
+ * This file's feature concept and parts of the approach were heavily inspired by
+ * Firmament (https://github.com/FirmamentMC/Firmament).
+ * Modified for Enhanced Storage's architecture.
+ */
+
 package com.github.kdgaming0.enhancedstorage.gui;
 
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
