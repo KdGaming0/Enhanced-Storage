@@ -1,8 +1,15 @@
 /*
- * Attribution:
- * This file's feature concept and parts of the approach were heavily inspired by
- * Firmament (https://github.com/FirmamentMC/Firmament).
- * Modified for Enhanced Storage's architecture.
+ * Based on code from Firmament:
+ * https://github.com/FirmamentMC/Firmament
+ *
+ * This file contains substantial portions adapted from Firmament's
+ * storage overlay implementation.
+ *
+ * Original code licensed under the GNU General Public License v3.0.
+ *
+ * Modifications:
+ * - Translated from Kotlin to Java
+ * - Modified for Enhanced Storage
  */
 
 package com.github.kdgaming0.enhancedstorage.gui;

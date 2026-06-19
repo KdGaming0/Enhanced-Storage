@@ -49,10 +49,17 @@ If you'd like to support continued development, you can do so on **Ko-fi** — e
 
 ## Credits & Attribution
 
-The storage overlay concept and parts of the implementation were heavily inspired by [Firmament](https://github.com/FirmamentMC/Firmament).
+Significant Parts of the storage overlay implementation were adapted from Firmament:
+https://github.com/FirmamentMC/Firmament
 
-- Upstream project: https://github.com/FirmamentMC/Firmament
-- Feature area: storage GUI/overlay rendering, storage page modeling, and related SkyBlock hooks
+The following areas contain significant portions adapted from Firmament:
+- Storage overlay rendering
+- Storage page/data handling
+- Virtual inventory handling
+- Related Hypixel SkyBlock storage hooks
+
+Original project:
+Firmament (GPL-3.0)
 
 **Texuters**
 Dark Mode textures were made by [Bentcheesee](https://modrinth.com/user/Bentcheesee).
