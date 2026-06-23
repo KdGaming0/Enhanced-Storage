@@ -26,52 +26,30 @@ public class EnhancedStorageConfig extends MidnightConfig {
     @Entry(category = "storage", isSlider = true, min = 0.5, max = 5.0, precision = 1)
     public static double scrollSpeed = 1.0;
 
-    /**
-     * Show/hide pages that have not been visited yet.
-     */
     @Entry(category = "storage")
     public static boolean showEmptyPages = true;
 
-    /**
-     * Show pages that cannot be used: locked ender chest pages and locked or empty backpack slots.
-     */
     @Entry(category = "storage")
     public static boolean showUnavailablePages = false;
 
-    /**
-     * Auto-scroll the page list so the currently open page is visible on screen init.
-     */
     @Entry(category = "storage")
     public static boolean autoScrollToActivePage = true;
 
-    /**
-     * Show item tooltips when hovering over items in non-active page previews.
-     */
     @Entry(category = "storage")
     public static boolean showPreviewTooltips = true;
 
-    /**
-     * Colour applied to matching items during search (format: #RRGGBBAA or #RRGGBB).
-     */
     @Entry(category = "storage", isColor = true)
     public static String searchHighlightColor = "#00ff33";
 
-    /**
-     * Visual theme for the storage overlay sprites.
-     */
     @Entry(category = "storage")
     public static OverlayTheme overlayTheme = OverlayTheme.TRANSPARENT;
 
-    /**
-     * When to display the storage overview (navigation) panel left of the inventory.
-     */
     @Entry(category = "storage")
     public static StorageOverviewVisibility storageOverviewVisibility = StorageOverviewVisibility.ALWAYS_SHOW;
 
-    /**
-     * When to preserve the cursor position between inventory screens. Defers automatically to
-     * SkyBlock-Enhancements when that mod's own cursor-save feature is enabled.
-     */
+    @Entry(category = "storage")
+    public static boolean shiftLeftClickOpensHub = true;
+
     @Entry(category = "storage")
     public static CursorPositionMode saveCursorPositionMode = CursorPositionMode.STORAGE_OVERLAY_ONLY;
 }

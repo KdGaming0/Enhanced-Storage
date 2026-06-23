@@ -1,3 +1,3 @@
-## Update 0.6.0
+## Update 0.6.1
 
-- Added Support for Rift Storage
+- Left Click now opens the storage overview instead of opening the storage page.

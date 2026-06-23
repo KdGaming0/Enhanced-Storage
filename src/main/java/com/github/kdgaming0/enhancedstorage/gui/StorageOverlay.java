@@ -125,6 +125,9 @@ public class StorageOverlay {
     private AbstractContainerScreen<?> screen;
     private AbstractContainerScreenAccessor accessor;
     private StoragePage activePage;
+    // The last page actually opened (survives the screen swap to the hub via the persistent singleton),
+    // so an empty-area click on the overview can jump back to where the user was browsing.
+    private StoragePage lastViewedPage;
     private Minecraft mc;
     // ── Layout state (recomputed on every init) ───────────────────────────────
     // Which storage system this overlay is currently presenting; derived from the active page.
@@ -266,6 +269,7 @@ public class StorageOverlay {
         this.screen = screen;
         this.accessor = (AbstractContainerScreenAccessor) screen;
         this.activePage = activePage;
+        if (activePage != null) this.lastViewedPage = activePage;
         this.mc = Minecraft.getInstance();
         // Rift pages always carry an active page; only the MAIN hub has an overview (null) page.
         this.type = activePage != null ? activePage.type() : StorageType.MAIN;
@@ -406,7 +410,8 @@ public class StorageOverlay {
         if (handleScrollbarClick(event)) return true;
         // On the overview screen, Hypixel's real slots handle nav-panel clicks.
         if (!isOverview && isNavPanelVisible() && handleNavPanelClick(event)) return true;
-        return handlePageCardClick(event);
+        if (handlePageCardClick(event)) return true;
+        return handleOverviewReturnClick(event);
     }
 
     public boolean mouseReleased(MouseButtonEvent event) {
@@ -836,6 +841,21 @@ public class StorageOverlay {
         return false;
     }
 
+    /**
+     * On the hub/overview screen, a left-click in the page list that misses every card jumps back to
+     * the last page the user was browsing (so after opening the hub to move a backpack, clicking the
+     * empty panel area returns to the overlay). No-op until a page has been opened this session, and
+     * only on the overview — the scroll panel holds no real slots there, so consuming the click is safe.
+     */
+    private boolean handleOverviewReturnClick(MouseButtonEvent event) {
+        if (!isOverview || lastViewedPage == null) return false;
+        if (event.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT) return false;
+        if (!scrollPanelRect.contains(event.x(), event.y())) return false;
+        if (pageAt((int) event.x(), (int) event.y()) != null) return false;
+        lastViewedPage.navigateTo();
+        return true;
+    }
+
     private boolean handleNavPanelClick(MouseButtonEvent event) {
         if (event.x() < navPanelX || event.x() >= navPanelX + NAV_PANEL_W
                 || event.y() < navPanelY || event.y() >= navPanelY + NAV_PANEL_H) {
@@ -848,10 +868,7 @@ public class StorageOverlay {
             int sx = c.slotStartX() + i * SLOT_SIZE;
             if (event.x() >= sx && event.x() < sx + SLOT_SIZE
                     && event.y() >= c.ecRowY() && event.y() < c.ecRowY() + SLOT_SIZE) {
-                StoragePage page = StoragePage.ofEnderChest(i + 1);
-                if (!isLockedPage(StorageData.INSTANCE.getInventory(page))) {
-                    page.navigateTo();
-                }
+                navigateFromNavSlot(event, StoragePage.ofEnderChest(i + 1));
                 return true;
             }
         }
@@ -861,15 +878,40 @@ public class StorageOverlay {
             int sy = (i / 9 == 0) ? c.bp1RowY() : c.bp2RowY();
             if (event.x() >= sx && event.x() < sx + SLOT_SIZE
                     && event.y() >= sy && event.y() < sy + SLOT_SIZE) {
-                StoragePage page = StoragePage.ofBackpack(i + 1);
-                if (!isLockedPage(StorageData.INSTANCE.getInventory(page))) {
-                    page.navigateTo();
-                }
+                navigateFromNavSlot(event, StoragePage.ofBackpack(i + 1));
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * Resolves a click on a nav-panel slot: a hub-open click ({@link #isHubOpenClick}) jumps to the
+     * Hypixel storage hub so backpacks can be moved/removed; any other click opens that page (locked
+     * pages stay blocked).
+     */
+    private void navigateFromNavSlot(MouseButtonEvent event, StoragePage page) {
+        if (isHubOpenClick(event)) {
+            openStorageHub();
+        } else if (!isLockedPage(StorageData.INSTANCE.getInventory(page))) {
+            page.navigateTo();
+        }
+    }
+
+    /** Right-click always opens the hub; Shift+Left-click opens it only when the config allows. */
+    private static boolean isHubOpenClick(MouseButtonEvent event) {
+        if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT) return true;
+        return event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT
+                && event.hasShiftDown()
+                && EnhancedStorageConfig.shiftLeftClickOpensHub;
+    }
+
+    /** Opens the Hypixel storage hub (the "Storage" overview screen) via its chat command. */
+    private void openStorageHub() {
+        if (mc.player != null && mc.getConnection() != null) {
+            mc.getConnection().sendCommand("storage");
+        }
     }
 
     // ── Search ────────────────────────────────────────────────────────────────
