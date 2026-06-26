@@ -53,6 +53,5 @@ public class ClientPacketListenerMixin {
         if (stacks.isEmpty()) return;
 
         StorageData.INSTANCE.updateInventory(page, rawTitle, new VirtualInventory(stacks));
-        StorageData.INSTANCE.markDirty();
     }
 }

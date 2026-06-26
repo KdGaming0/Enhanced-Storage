@@ -7,7 +7,7 @@
 </div>
 <div align="center">
 
-[![Modrinth Downloads](https://img.shields.io/modrinth/dt/enhanced-storage?color=00AF5C&label=downloads&logo=modrinth&style=flat-square)](https://modrinth.com/project/ICyROmSc)
+[![Modrinth Downloads](https://img.shields.io/modrinth/dt/enhanced-storage?color=00AF5C&label=downloads&logo=modrinth&style=flat-square)](https://modrinth.com/mod/skyblock-enhanced-storage)
 [![Join Fluxer](https://img.shields.io/badge/Join-Fluxer-5865F2?style=flat-square)](https://fluxer.gg/3jJy9cp6)
 
 # Enhanced Storage
@@ -41,18 +41,12 @@ Found a bug or have a feature request? Come say hi.
 [![Chat with us on Discord](https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/social/discord-plural_vector.svg)](https://discord.gg/FCPP2WPZ3U)
 [![Join Fluxer](https://img.shields.io/badge/Join-Fluxer-5865F2?style=flat-square)](https://fluxer.gg/3jJy9cp6)
 
-## Support the Project
-
-If you'd like to support continued development, you can do so on **Ko-fi** — every contribution is appreciated.
-
-[**Support on Ko-fi →**](https://ko-fi.com/kdgaming1)
-
 ## Credits & Attribution
 
 Significant Parts of the storage overlay implementation were adapted from Firmament:
 https://github.com/FirmamentMC/Firmament
 
-The following areas contain significant portions adapted from Firmament:
+The following areas contain significant portions of code adapted from Firmament:
 - Storage overlay rendering
 - Storage page/data handling
 - Virtual inventory handling
@@ -62,4 +56,9 @@ Original project:
 Firmament (GPL-3.0)
 
 **Texuters**
+
 Dark Mode textures were made by [Bentcheesee](https://modrinth.com/user/Bentcheesee).
+
+> This project was created for the community as a lightweight alternative to Firmament for users who only want the storage overlay without the additional features the mod hace to offer, and big performance overhead that come with the mod.
+
+> AI tools were extensively used during development.

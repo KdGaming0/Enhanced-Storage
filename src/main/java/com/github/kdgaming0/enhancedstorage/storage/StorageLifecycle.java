@@ -121,9 +121,11 @@ public final class StorageLifecycle {
 
     public static void rememberPage(AbstractContainerScreen<?> screen, StoragePage page, String rawTitle) {
         List<ItemStack> stacks = collectContainerStacks(screen);
-        if (stacks.isEmpty()) return;
+        if (stacks.isEmpty()) {
+            EnhancedStorage.LOGGER.debug("Skipped capturing page {} — player/container slots unavailable", page);
+            return;
+        }
         StorageData.INSTANCE.updateInventory(page, rawTitle, new VirtualInventory(stacks));
-        StorageData.INSTANCE.markDirty();
     }
 
     public static void rememberOverview(AbstractContainerScreen<?> screen) {
@@ -187,7 +189,12 @@ public final class StorageLifecycle {
         String key = profileId.toString();
 
         if (key.equals(currentKey)) {
-            if (confirmed) currentKeyConfirmed = true;
+            if (confirmed && !currentKeyConfirmed) {
+                currentKeyConfirmed = true;
+                // Flush any pages captured during the tentative window now that the key is verified,
+                // so they survive a crash before the next storage-screen close.
+                saveIfDirty();
+            }
             return;
         }
 
@@ -251,6 +258,22 @@ public final class StorageLifecycle {
     /** Saves the in-memory snapshot under the current key; no-op when no profile is known. */
     public static void saveCurrent() {
         if (currentKey == null) return;
-        STORAGE.save(currentKey, StorageData.INSTANCE);
+        if (STORAGE.save(currentKey, StorageData.INSTANCE)) {
+            StorageData.INSTANCE.clearDirty();
+        }
+    }
+
+    /**
+     * Persists the snapshot the moment a storage screen closes — but only when the profile UUID is
+     * confirmed and there are unsaved changes. This bounds crash data loss to (at most) the page
+     * still open, without rewriting the file when nothing changed. Saving only under a confirmed
+     * key upholds the invariant that data is never written under a contradicted tentative guess.
+     */
+    public static void saveIfDirty() {
+        if (currentKey == null || !currentKeyConfirmed) return;
+        if (!StorageData.INSTANCE.isDirty()) return;
+        if (STORAGE.save(currentKey, StorageData.INSTANCE)) {
+            StorageData.INSTANCE.clearDirty();
+        }
     }
 }

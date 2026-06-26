@@ -49,25 +49,47 @@ public final class StorageSnapshotStorage {
         return id.replaceAll("[^a-zA-Z0-9_-]", "_");
     }
 
-    public void save(String profileId, StorageData data) {
+    /**
+     * Writes the snapshot atomically (temp file + move). Returns {@code true} on success.
+     *
+     * <p>Skips the write when no registry context is available (e.g. the level is already unloaded
+     * at client-stop): encoding without it can drop registry-backed item components, which would
+     * overwrite a good file with a degraded one. The in-session save-on-close already persists with
+     * a valid context, so skipping here loses nothing.
+     */
+    public boolean save(String profileId, StorageData data) {
         Path file = storageDir.resolve(sanitize(profileId) + ".json");
         Path temp = storageDir.resolve(sanitize(profileId) + ".tmp");
 
         Minecraft mc = Minecraft.getInstance();
         var lookup = mc.level != null ? mc.level.registryAccess() : null;
+        if (lookup == null) {
+            EnhancedStorage.LOGGER.warn("Skipping storage save for {} — no registry context available", profileId);
+            return false;
+        }
 
         JsonObject root = new JsonObject();
         root.addProperty("profileId", profileId);
         root.addProperty("version", FILE_FORMAT_VERSION);
-        root.add("pages", serializePages(data.getInventories(), lookup));
-        root.add("riftPages", serializePages(data.getRiftInventories(), lookup));
+        JsonArray mainPages = serializePages(data.getInventories(), lookup);
+        JsonArray riftPages = serializePages(data.getRiftInventories(), lookup);
+        root.add("pages", mainPages);
+        root.add("riftPages", riftPages);
 
-        try (Writer writer = Files.newBufferedWriter(temp, StandardCharsets.UTF_8)) {
-            GSON.toJson(root, writer);
+        try {
+            // Close (and flush) the writer before moving: moving while the buffered writer is still
+            // open can publish a partial/empty file, or fail outright on Windows.
+            try (Writer writer = Files.newBufferedWriter(temp, StandardCharsets.UTF_8)) {
+                GSON.toJson(root, writer);
+            }
             Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
             EnhancedStorage.LOGGER.error("Failed to save storage snapshot for {}", profileId, e);
+            return false;
         }
+        EnhancedStorage.LOGGER.debug("Saved storage snapshot for {} ({} main, {} rift pages)",
+                profileId, mainPages.size(), riftPages.size());
+        return true;
     }
 
     public void load(String profileId, StorageData data) {
@@ -78,6 +100,7 @@ public final class StorageSnapshotStorage {
         if (mc.level == null) return;
         var lookup = mc.level.registryAccess();
 
+        int before = data.getInventories().size() + data.getRiftInventories().size();
         try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
             JsonObject root = GSON.fromJson(reader, JsonObject.class);
             if (root == null) return;
@@ -89,8 +112,13 @@ public final class StorageSnapshotStorage {
             if (root.has("riftPages")) {
                 deserializePages(root.getAsJsonArray("riftPages"), StorageType.RIFT, version, data, lookup);
             }
-        } catch (IOException e) {
-            EnhancedStorage.LOGGER.error("Failed to load storage snapshot for {}", profileId, e);
+            int loaded = data.getInventories().size() + data.getRiftInventories().size() - before;
+            EnhancedStorage.LOGGER.debug("Loaded storage snapshot for {} (+{} pages)", profileId, loaded);
+        } catch (Exception e) {
+            // Catch runtime parse errors too (e.g. JsonSyntaxException on a corrupt/partial file).
+            // The old IOException-only catch let those escape, aborting the load and leaving every
+            // page looking unopened with no recovery. Back the file up so the player isn't stuck.
+            EnhancedStorage.LOGGER.error("Failed to load storage snapshot for {} — backing up the broken file", profileId, e);
             backupBrokenFile(file);
         }
     }
@@ -116,6 +144,8 @@ public final class StorageSnapshotStorage {
                 if (bytes != null && bytes.length > 0) {
                     pageObj.addProperty("inventoryBase64",
                             java.util.Base64.getEncoder().encodeToString(bytes));
+                } else {
+                    EnhancedStorage.LOGGER.warn("Inventory for page {} serialized to empty — content not persisted this save", page);
                 }
             }
 

@@ -7,6 +7,7 @@ import net.minecraft.resources.Identifier;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
 
@@ -32,6 +33,9 @@ public final class RrvIntegration {
     private static Method removeGuiBlockingMethod;
     private static Method updateOverlaysAndWidgetsMethod;
     private static boolean initialized;
+
+    /** Bounds last registered with RVV; lets repeat calls with identical bounds skip all list churn. */
+    private static List<Rect> lastBounds;
 
     private RrvIntegration() {
     }
@@ -67,8 +71,23 @@ public final class RrvIntegration {
         if (!initialized) {
             return;
         }
-        clearBlocking();
         try {
+            if (boundsEqual(bounds, lastBounds)) {
+                // Same bounds (e.g. page navigation): skip the structural list churn that races
+                // RVV's background reader, but STILL ask RVV to re-apply blocking. RVV rebuilds its
+                // item list per screen and only repositions it around our (still-registered)
+                // components when updateOverlaysAndWidgets runs (-> onScreenChanged ->
+                // updateSidePanelIndex -> isPositionBlocked). Skipping it entirely left the list
+                // rendering over the overlay after the first screen. This call only *reads* the
+                // blocking list, so on its own it can't trigger the CME — only structural
+                // (add/remove) mutations can, and those are confined to the bounds-changed path.
+                updateOverlaysAndWidgetsMethod.invoke(overlayManagerInstance, true);
+                return;
+            }
+            // Bounds changed: remove our previous components WITHOUT kicking RVV's update, add the
+            // new set, then fire a single update at the end — so the list is never structurally
+            // mutated after we trigger the background read within this call.
+            removeOurComponents(false);
             for (int i = 0; i < bounds.size(); i++) {
                 Rect rect = bounds.get(i);
                 Identifier id = Identifier.fromNamespaceAndPath(EnhancedStorage.MOD_ID, "storage_overlay_" + i);
@@ -77,24 +96,55 @@ public final class RrvIntegration {
                 setGuiBlockingMethod.invoke(overlayManagerInstance, component);
             }
             updateOverlaysAndWidgetsMethod.invoke(overlayManagerInstance, true);
+            lastBounds = copyOf(bounds);
         } catch (Exception e) {
             EnhancedStorage.LOGGER.error("Failed to set RVV blocking components", e);
+            lastBounds = null;
         }
     }
 
     /**
      * Removes all blocking components owned by this mod and tells RVV to update its overlays.
+     * Called on full overlay teardown ({@code StorageOverlay.destroyActive}) — not on the
+     * {@code detach()} that runs during each page navigation — so the registration persists across
+     * the persistent overlay's screen transitions and avoids per-navigation list churn.
      */
     public static void clearBlocking() {
         initialize();
         if (!initialized) {
             return;
         }
+        removeOurComponents(true);
+        lastBounds = null;
+    }
+
+    private static void removeOurComponents(boolean update) {
         try {
             Predicate<Identifier> filter = id -> EnhancedStorage.MOD_ID.equals(id.getNamespace());
-            removeGuiBlockingMethod.invoke(overlayManagerInstance, filter, true);
+            removeGuiBlockingMethod.invoke(overlayManagerInstance, filter, update);
         } catch (Exception e) {
             EnhancedStorage.LOGGER.error("Failed to clear RVV blocking components", e);
         }
+    }
+
+    private static boolean boundsEqual(List<Rect> a, List<Rect> b) {
+        if (a == b) return true;
+        if (a == null || b == null || a.size() != b.size()) return false;
+        for (int i = 0; i < a.size(); i++) {
+            Rect r1 = a.get(i);
+            Rect r2 = b.get(i);
+            if (r1.x != r2.x || r1.y != r2.y || r1.width != r2.width || r1.height != r2.height) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static List<Rect> copyOf(List<Rect> bounds) {
+        List<Rect> copy = new ArrayList<>(bounds.size());
+        for (Rect r : bounds) {
+            copy.add(new Rect(r.x, r.y, r.width, r.height));
+        }
+        return copy;
     }
 }

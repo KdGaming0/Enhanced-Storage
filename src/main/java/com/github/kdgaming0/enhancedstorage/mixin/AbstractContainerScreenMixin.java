@@ -114,6 +114,9 @@ public class AbstractContainerScreenMixin<T extends AbstractContainerMenu> imple
                 AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>) (Object) this;
                 StorageLifecycle.rememberPage(screen, page, screen.getTitle().getString());
             }
+            // Persist on close (when confirmed + dirty) so opened pages survive a later crash,
+            // not just a clean leave-SkyBlock / disconnect / quit.
+            StorageLifecycle.saveIfDirty();
             es$overlay.detach();
         }
         es$overlay = null;

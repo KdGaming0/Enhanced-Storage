@@ -20,6 +20,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
@@ -63,7 +64,13 @@ public final class StorageData {
         ItemStack resolvedIcon = icon != null ? icon
                 : (existing != null ? existing.icon() : null);
 
-        map.put(page, new StorageInventory(resolvedTitle, page, resolvedInv, resolvedIcon));
+        StorageInventory updated = new StorageInventory(resolvedTitle, page, resolvedInv, resolvedIcon);
+        // Skip no-op updates (e.g. re-opening an unchanged page): only advance the dirty flag and
+        // version on real content changes, so save-on-close never rewrites the file for nothing.
+        if (existing != null && existing.contentEquals(updated)) {
+            return;
+        }
+        map.put(page, updated);
         markDirty();
     }
 
@@ -112,10 +119,34 @@ public final class StorageData {
         return version.get();
     }
 
+    /** Whether there are in-memory changes not yet written to disk. */
+    public boolean isDirty() {
+        return dirty;
+    }
+
+    /** Marks the in-memory state as matching the last successful save. */
+    public void clearDirty() {
+        dirty = false;
+    }
+
     public record StorageInventory(
             String title,
             StoragePage page,
             @Nullable VirtualInventory inventory,
             @Nullable ItemStack icon) {
+
+        /**
+         * Content equality ignoring page identity: same title, same inventory contents, same icon.
+         * The record's generated {@code equals} can't be used — it compares the inventory and icon
+         * by reference, not by item content.
+         */
+        public boolean contentEquals(StorageInventory other) {
+            if (other == null) return false;
+            if (!Objects.equals(title, other.title)) return false;
+            if ((inventory == null) != (other.inventory == null)) return false;
+            if (inventory != null && !inventory.contentEquals(other.inventory)) return false;
+            if ((icon == null) != (other.icon == null)) return false;
+            return icon == null || ItemStack.matches(icon, other.icon);
+        }
     }
 }

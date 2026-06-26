@@ -198,6 +198,9 @@ public class StorageOverlay {
     public static void destroyActive() {
         if (activeInstance != null) {
             activeInstance.detach();
+            // Clear RVV blocking only on full teardown, not on the detach() that runs during each
+            // page navigation — that per-navigation churn is what races RVV's background reader.
+            RrvIntegration.clearBlocking();
             activeInstance = null;
         }
     }
@@ -300,7 +303,6 @@ public class StorageOverlay {
         if (searchField != null) {
             searchField.setFocused(false);
         }
-        RrvIntegration.clearBlocking();
         screen = null;
         accessor = null;
         activePage = null;

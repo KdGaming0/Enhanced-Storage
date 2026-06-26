@@ -99,6 +99,20 @@ public final class VirtualInventory {
         return stacks;
     }
 
+    /**
+     * Content equality against another snapshot: same slot count and every slot the same item,
+     * count, and components ({@link ItemStack#matches}). Lets callers detect whether a re-captured
+     * page actually changed, so unchanged re-opens don't dirty the cache.
+     */
+    public boolean contentEquals(@Nullable VirtualInventory other) {
+        if (other == null) return false;
+        if (other.stacks.size() != stacks.size()) return false;
+        for (int i = 0; i < stacks.size(); i++) {
+            if (!ItemStack.matches(stacks.get(i), other.stacks.get(i))) return false;
+        }
+        return true;
+    }
+
     public byte[] serializeToBytes(@Nullable HolderLookup.Provider provider) {
         try {
             var ops = provider != null
