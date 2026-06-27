@@ -12,6 +12,7 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.Slot;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -24,6 +25,9 @@ public class AbstractContainerScreenMixin<T extends AbstractContainerMenu> imple
 
     @Unique
     private StorageOverlay es$overlay;
+
+    @Unique
+    private boolean es$slotClipped;
 
     @Override
     public boolean es$hasOverlay() {
@@ -68,6 +72,23 @@ public class AbstractContainerScreenMixin<T extends AbstractContainerMenu> imple
     @Inject(method = "extractLabels", at = @At("HEAD"), cancellable = true)
     private void es$onExtractLabels(GuiGraphicsExtractor graphics, int mouseX, int mouseY, CallbackInfo ci) {
         if (es$overlay != null) ci.cancel();
+    }
+
+    /**
+     * Clip the open page's real slots to the scroll panel so edge rows clip smoothly instead of
+     * vanishing whole. {@code extractSlot} is not re-entrant, so a single flag pairs HEAD with RETURN.
+     */
+    @Inject(method = "extractSlot(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/world/inventory/Slot;II)V", at = @At("HEAD"))
+    private void es$beginSlotClip(GuiGraphicsExtractor graphics, Slot slot, int mouseX, int mouseY, CallbackInfo ci) {
+        es$slotClipped = es$overlay != null && es$overlay.beginActivePageSlotClip(graphics, slot);
+    }
+
+    @Inject(method = "extractSlot(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/world/inventory/Slot;II)V", at = @At("RETURN"))
+    private void es$endSlotClip(GuiGraphicsExtractor graphics, Slot slot, int mouseX, int mouseY, CallbackInfo ci) {
+        if (es$slotClipped) {
+            graphics.disableScissor();
+            es$slotClipped = false;
+        }
     }
 
     @Inject(method = "mouseClicked(Lnet/minecraft/client/input/MouseButtonEvent;Z)Z", at = @At("HEAD"), cancellable = true)

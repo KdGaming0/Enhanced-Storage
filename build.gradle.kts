@@ -156,7 +156,7 @@ if (sc.current.version in compatibleVersions) {
         displayName.set("${property("mod.name")} v${property("mod.version")} for mc${sc.current.version}")
         version.set("v${property("mod.version")}-mc${sc.current.version}")
         changelog.set(publishChangelog)
-        type.set(STABLE)
+        type.set(BETA)
         modLoaders.add("fabric")
 
         dryRun.set(providers.environmentVariable("MODRINTH_TOKEN").getOrNull() == null)
@@ -167,7 +167,9 @@ if (sc.current.version in compatibleVersions) {
                 projectId.set(modrinthId)
                 accessToken.set(providers.environmentVariable("MODRINTH_TOKEN"))
                 minecraftVersions.addAll(compatibleVersions)
-                requires("fabric-api")
+                requires { slug = "P7dR8mSH" } // Fabric API
+                optional { slug = "mOgUt4GM" } // ModMenu
+                embeds   { slug = "codAaoxh" } // MidnightLib
             }
         }
 

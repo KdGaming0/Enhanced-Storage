@@ -64,15 +64,12 @@ public class StorageOverlay {
     private static final int SLOT_SIZE = 18;
     private static final int PAGE_WIDTH = SLOT_SIZE * 9 + 6;
     private static final int PANEL_PADDING = 6;
-    private static final int CARD_GAP = 3;
     private static final int SCROLL_BAR_W = 6;
     private static final int SCROLL_KNOB_MIN_H = 32;
     private static final int MIN_OVERLAY_H = 60;
-    private static final int PANEL_TOP = 8;
     private static final int INV_SLOTS_TOP = 15;
     private static final int STORAGE_INV_W = 176;
     private static final int STORAGE_INV_H = 97;
-    private static final int BOTTOM_PADDING = 40;
     /**
      * Skyblocker QuickNav button size / placement constants. When Skyblocker is loaded the overlay
      * reserves vertical space so the top and bottom button rows sit against the custom panels.
@@ -315,7 +312,7 @@ public class StorageOverlay {
         originalPlayerSlotRelX = capturePlayerSlotRelX();
         originalPlayerSlotRelY = capturePlayerSlotRelY();
         quickNavOffset = SkyblockerIntegration.hasQuickNavButtons(screen) ? QUICK_NAV_BUTTON_OFFSET : 0;
-        overlayTop = PANEL_TOP + quickNavOffset;
+        overlayTop = EnhancedStorageConfig.overlayTopPadding + quickNavOffset;
         recalculateMeasurements(quickNavOffset);
         scroll = clampScroll(scroll);
 
@@ -344,7 +341,7 @@ public class StorageOverlay {
             int actualOffset = SkyblockerIntegration.hasQuickNavButtons(screen) ? QUICK_NAV_BUTTON_OFFSET : 0;
             if (actualOffset != quickNavOffset) {
                 quickNavOffset = actualOffset;
-                overlayTop = PANEL_TOP + quickNavOffset;
+                overlayTop = EnhancedStorageConfig.overlayTopPadding + quickNavOffset;
                 recalculateMeasurements(quickNavOffset);
                 computeNavPanelLayout();
                 initSearchField();
@@ -447,15 +444,16 @@ public class StorageOverlay {
     }
 
     private void recalculateMeasurements(int quickNavOffset) {
+        int pageGap = EnhancedStorageConfig.overlayPageGap;
         pageWidthCount = Math.clamp(
-                (screen.width - PANEL_PADDING * 2) / (PAGE_WIDTH + CARD_GAP),
+                (screen.width - PANEL_PADDING * 2) / (PAGE_WIDTH + pageGap),
                 1, EnhancedStorageConfig.overlayColumns);
 
-        innerScrollPanelWidth = PAGE_WIDTH * pageWidthCount + (pageWidthCount - 1) * CARD_GAP;
+        innerScrollPanelWidth = PAGE_WIDTH * pageWidthCount + (pageWidthCount - 1) * pageGap;
         overviewWidth = innerScrollPanelWidth + SCROLL_BAR_W + PANEL_PADDING * 3;
         overviewX = screen.width / 2 - overviewWidth / 2;
 
-        invPanelY = screen.height - BOTTOM_PADDING - STORAGE_INV_H - quickNavOffset;
+        invPanelY = screen.height - EnhancedStorageConfig.overlayBottomPadding - STORAGE_INV_H - quickNavOffset;
 
         overviewHeight = Math.max(MIN_OVERLAY_H, invPanelY - overlayTop);
         innerScrollPanelHeight = overviewHeight - PANEL_PADDING * 2;
@@ -518,15 +516,29 @@ public class StorageOverlay {
         navPanelY = invPanelY;
     }
 
+    /**
+     * Brings a page into view only when it is <em>entirely</em> outside the viewport — a page with any
+     * part already visible is left untouched. You open a page either by clicking its (visible) card, or
+     * via a nav-panel slot / {@code /ec} command when its card may be off-screen; only the latter needs
+     * scrolling, so never nudging a visible page avoids the small jumps that come from the active card's
+     * height being recomputed on open. When it does scroll, it moves the minimum distance: a page taller
+     * than the panel aligns to its top, otherwise align top if it's above the viewport, bottom if below.
+     */
     private void scrollToPageIfOffScreen(StoragePage page) {
         Rect pageRect = findPageRect(page);
         if (pageRect == null) return;
-        int pageTop = pageRect.y - (int) scroll;
-        int pageBottom = pageTop + pageRect.height;
-        boolean offScreen = pageTop >= scrollPanelRect.y + scrollPanelRect.height
-                || pageBottom <= scrollPanelRect.y;
-        if (offScreen) {
-            scroll = clampScroll(pageRect.y - scrollPanelRect.y);
+        int top = pageRect.y - scrollPanelRect.y;
+        int bottom = top + pageRect.height;
+        int panelH = scrollPanelRect.height;
+
+        boolean entirelyAbove = bottom <= scroll;
+        boolean entirelyBelow = top >= scroll + panelH;
+        if (!entirelyAbove && !entirelyBelow) return;
+
+        if (entirelyAbove || pageRect.height > panelH) {
+            scroll = clampScroll(top);
+        } else {
+            scroll = clampScroll(bottom - panelH);
         }
     }
 
@@ -558,16 +570,42 @@ public class StorageOverlay {
             int screenY = activeRect.y + mc.font.lineHeight + CARD_SLOTS_INSET_Y + 1
                     + (visIndex / 9) * SLOT_SIZE - (int) scroll;
 
-            boolean inPanel = screenY >= scrollPanelRect.y
-                    && screenY + SLOT_SIZE <= scrollPanelRect.y + scrollPanelRect.height;
+            // Position any slot with part inside the panel; the per-slot scissor in extractSlot clips
+            // the overflow. Hiding only fully-outside rows stops the open page's items from vanishing
+            // ~17px early (real slots can't clip pixel-by-pixel the way fake items do).
+            boolean anyVisible = screenY + SLOT_SIZE > scrollPanelRect.y
+                    && screenY < scrollPanelRect.y + scrollPanelRect.height;
 
-            if (inPanel) {
+            if (anyVisible) {
                 ((SlotAccessor) slot).es$setX(screenX - leftPos);
                 ((SlotAccessor) slot).es$setY(screenY - baseTopPos);
             } else {
                 hideSlot(slot);
             }
         }
+    }
+
+    /**
+     * Scissors the open page's real slot (drawn by vanilla {@code extractSlot}) to the scroll panel so
+     * edge rows clip smoothly instead of being hidden whole. Returns {@code true} when a scissor was
+     * pushed (the caller must {@code disableScissor} after the slot draws); {@code false} leaves
+     * player-inventory and overview-hub slots unclipped.
+     *
+     * <p>{@code extractSlot} runs inside {@code pose().translate(leftPos, topPos)} and
+     * {@code enableScissor} applies that pose, so the screen-space panel rect is pre-offset by
+     * {@code -leftPos/-topPos} to land back on screen coordinates.
+     */
+    public boolean beginActivePageSlotClip(GuiGraphicsExtractor gfx, Slot slot) {
+        if (screen == null || isOverview || mc == null || mc.player == null) return false;
+        if (slot.container == mc.player.getInventory()) return false;
+        int leftPos = accessor.es$getLeftPos();
+        int topPos = accessor.es$getTopPos();
+        gfx.enableScissor(
+                scrollPanelRect.x - leftPos,
+                scrollPanelRect.y - topPos,
+                scrollPanelRect.x + scrollPanelRect.width - leftPos,
+                scrollPanelRect.y + scrollPanelRect.height - topPos);
+        return true;
     }
 
     // ── Rendering ─────────────────────────────────────────────────────────────
@@ -1063,6 +1101,7 @@ public class StorageOverlay {
      * Also updates {@link #lastRenderedContentH} as a side effect for scrollbar calculations.
      */
     private void forEachPage(Set<StoragePage> filter, PageConsumer consumer) {
+        int pageGap = EnhancedStorageConfig.overlayPageGap;
         int col = 0, maxRowH = 0, totalH = 0;
         for (var entry : pageSource().entrySet()) {
             if (!filter.contains(entry.getKey())) continue;
@@ -1073,12 +1112,12 @@ public class StorageOverlay {
             maxRowH = Math.max(maxRowH, pageH);
 
             consumer.accept(
-                    new Rect(overviewX + PANEL_PADDING + (PAGE_WIDTH + CARD_GAP) * col,
+                    new Rect(overviewX + PANEL_PADDING + (PAGE_WIDTH + pageGap) * col,
                             overlayTop + PANEL_PADDING + totalH, PAGE_WIDTH, pageH),
                     entry.getKey(), inv);
 
             if (++col >= pageWidthCount) {
-                totalH += maxRowH + CARD_GAP;
+                totalH += maxRowH + pageGap;
                 col = 0;
                 maxRowH = 0;
             }

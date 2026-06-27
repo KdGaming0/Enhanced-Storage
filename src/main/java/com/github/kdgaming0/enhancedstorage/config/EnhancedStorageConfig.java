@@ -20,6 +20,15 @@ public class EnhancedStorageConfig extends MidnightConfig {
     @Entry(category = "storage", min = 1, max = 5, isSlider = true)
     public static int overlayColumns = 3;
 
+    @Entry(category = "storage", min = 0, max = 40, isSlider = true)
+    public static int overlayTopPadding = 8;
+
+    @Entry(category = "storage", min = 0, max = 40, isSlider = true)
+    public static int overlayBottomPadding = 40;
+
+    @Entry(category = "storage", min = 0, max = 12, isSlider = true)
+    public static int overlayPageGap = 3;
+
     @Entry(category = "storage")
     public static boolean inverseScroll = false;
 
