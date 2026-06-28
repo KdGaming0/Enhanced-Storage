@@ -127,7 +127,7 @@ public final class SkyblockerIntegration {
                 if (listener instanceof Button button && "$".equals(button.getMessage().getString())) {
                     button.visible = false;
                     button.active = false;
-                    EnhancedStorage.LOGGER.info("[Enhanced Storage] Hidden Skyblocker ChestValue button");
+                    EnhancedStorage.LOGGER.debug("Hid Skyblocker ChestValue button");
                     return true;
                 }
             }

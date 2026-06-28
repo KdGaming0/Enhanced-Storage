@@ -26,7 +26,7 @@ public class AbstractContainerScreenMixin<T extends AbstractContainerMenu> imple
     private StorageOverlay es$overlay;
 
     @Unique
-    private boolean es$slotClipped;
+    private int es$scissorDepth;
 
     @Override
     public boolean es$hasOverlay() {
@@ -73,20 +73,29 @@ public class AbstractContainerScreenMixin<T extends AbstractContainerMenu> imple
         if (es$overlay != null) ci.cancel();
     }
 
-    /**
-     * Clip the open page's real slots to the scroll panel so edge rows clip smoothly instead of
-     * vanishing whole. {@code extractSlot} is not re-entrant, so a single flag pairs HEAD with RETURN.
-     */
     @Inject(method = "extractSlot(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/world/inventory/Slot;II)V", at = @At("HEAD"))
     private void es$beginSlotClip(GuiGraphicsExtractor graphics, Slot slot, int mouseX, int mouseY, CallbackInfo ci) {
-        es$slotClipped = es$overlay != null && es$overlay.beginActivePageSlotClip(graphics, slot);
+        es$popOverlayScissors(graphics);
+        if (es$overlay != null && es$overlay.beginActivePageSlotClip(graphics, slot)) {
+            es$scissorDepth++;
+        }
     }
 
     @Inject(method = "extractSlot(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/world/inventory/Slot;II)V", at = @At("RETURN"))
     private void es$endSlotClip(GuiGraphicsExtractor graphics, Slot slot, int mouseX, int mouseY, CallbackInfo ci) {
-        if (es$slotClipped) {
+        es$popOverlayScissors(graphics);
+    }
+
+    @Inject(method = "extractSlots(Lnet/minecraft/client/gui/GuiGraphicsExtractor;II)V", at = @At("RETURN"))
+    private void es$drainSlotClip(GuiGraphicsExtractor graphics, int mouseX, int mouseY, CallbackInfo ci) {
+        es$popOverlayScissors(graphics);
+    }
+
+    @Unique
+    private void es$popOverlayScissors(GuiGraphicsExtractor graphics) {
+        while (es$scissorDepth > 0) {
             graphics.disableScissor();
-            es$slotClipped = false;
+            es$scissorDepth--;
         }
     }
 
