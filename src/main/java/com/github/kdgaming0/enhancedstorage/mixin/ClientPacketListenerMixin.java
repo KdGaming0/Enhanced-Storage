@@ -36,8 +36,6 @@ public class ClientPacketListenerMixin {
         if (parsed.isEmpty()) return;
 
         StoragePage page = parsed.get().page();
-        // Each storage system is captured only when its own overlay is enabled, so the two
-        // toggles stay independent (overview pages belong to the MAIN system).
         boolean rift = page != null && page.isRift();
         if (rift ? !EnhancedStorageConfig.enableRiftStorageOverlay
                  : !EnhancedStorageConfig.enableStorageOverlay) return;
@@ -52,6 +50,7 @@ public class ClientPacketListenerMixin {
         List<ItemStack> stacks = StorageLifecycle.collectContainerStacks(screen);
         if (stacks.isEmpty()) return;
 
-        StorageData.INSTANCE.updateInventory(page, rawTitle, new VirtualInventory(stacks));
+        StorageData.INSTANCE.updateInventory(page, rawTitle,
+                VirtualInventory.capture(stacks, mc.level.registryAccess()));
     }
 }

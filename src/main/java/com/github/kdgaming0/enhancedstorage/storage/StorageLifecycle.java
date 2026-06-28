@@ -15,6 +15,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
@@ -125,7 +126,14 @@ public final class StorageLifecycle {
             EnhancedStorage.LOGGER.debug("Skipped capturing page {} — player/container slots unavailable", page);
             return;
         }
-        StorageData.INSTANCE.updateInventory(page, rawTitle, new VirtualInventory(stacks));
+        // Serialize now, against the live connection's registry — see VirtualInventory.capture.
+        StorageData.INSTANCE.updateInventory(page, rawTitle, VirtualInventory.capture(stacks, registryAccess()));
+    }
+
+    /** The current client registry set, or {@code null} when no level is loaded. */
+    private static @Nullable HolderLookup.Provider registryAccess() {
+        Minecraft mc = Minecraft.getInstance();
+        return mc.level != null ? mc.level.registryAccess() : null;
     }
 
     public static void rememberOverview(AbstractContainerScreen<?> screen) {
@@ -136,9 +144,6 @@ public final class StorageLifecycle {
             StoragePage page = StoragePage.fromOverviewSlotIndex(slot.index);
             if (page == null) continue;
             ItemStack stack = slot.getItem();
-            // Skip empty slots: init fires before the server content packet, so slots are
-            // temporarily empty. Skipping preserves correct snapshot titles until the packet
-            // arrives and this method is called again with the real items.
             if (stack.isEmpty()) continue;
             StorageData.INSTANCE.updateInventory(page, stack.getHoverName().getString(), null, stack.copy());
         }
@@ -191,8 +196,6 @@ public final class StorageLifecycle {
         if (key.equals(currentKey)) {
             if (confirmed && !currentKeyConfirmed) {
                 currentKeyConfirmed = true;
-                // Flush any pages captured during the tentative window now that the key is verified,
-                // so they survive a crash before the next storage-screen close.
                 saveIfDirty();
             }
             return;
@@ -212,17 +215,10 @@ public final class StorageLifecycle {
             // The prior key was confirmed — its data is legitimate; persist before switching.
             STORAGE.save(currentKey, StorageData.INSTANCE);
         }
-        // Otherwise the prior key was a tentative guess now contradicted — discard, never save.
-        // Data-only swap: a live overlay reads StorageData each frame, so it follows the switch.
-        // Do NOT tear down the overlay here — destroyActive() leaves the screen mixin's cached
-        // reference dangling and crashes the next render. The screen's removed() handles teardown.
         StorageData.INSTANCE.clear();
         currentKey = key;
         currentKeyConfirmed = confirmed;
         STORAGE.load(key, StorageData.INSTANCE);
-        // The loaded snapshot may be stale (e.g. older locked/unlocked page state). If a storage
-        // screen is open, re-capture its live contents — no new content packet fires for an
-        // already-open screen, so otherwise the view stays stale until the player reopens it.
         recaptureOpenScreen();
     }
 

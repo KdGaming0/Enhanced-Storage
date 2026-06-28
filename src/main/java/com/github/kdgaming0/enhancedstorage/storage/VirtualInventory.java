@@ -39,6 +39,8 @@ public final class VirtualInventory {
     private final List<ItemStack> stacks;
     private final int rows;
 
+    private volatile byte @Nullable [] serializedSnapshot;
+
     public VirtualInventory(@NotNull List<ItemStack> stacks) {
         int size = Math.clamp(stacks.size(), MIN_SIZE, MAX_SIZE);
         int rows = (size + COLUMNS - 1) / COLUMNS;
@@ -51,6 +53,17 @@ public final class VirtualInventory {
         }
         this.stacks = Collections.unmodifiableList(copy);
         this.rows = rows;
+    }
+
+    /**
+     * Builds a snapshot from freshly captured container stacks and eagerly serializes it while the
+     * given registry context is still valid, so the save path never has to re-encode against a
+     * registry that may have changed (see {@link #serializedSnapshot}).
+     */
+    public static VirtualInventory capture(@NotNull List<ItemStack> stacks, @Nullable HolderLookup.Provider provider) {
+        VirtualInventory inv = new VirtualInventory(stacks);
+        inv.serializeToBytes(provider);
+        return inv;
     }
 
     public static VirtualInventory empty(int rows) {
@@ -68,15 +81,26 @@ public final class VirtualInventory {
             ListTag list = root.getListOrEmpty("Inventory");
             var ops = lookup.createSerializationContext(NbtOps.INSTANCE);
             List<ItemStack> stacks = new ArrayList<>(list.size());
+            int failed = 0;
             for (int i = 0; i < list.size(); i++) {
                 CompoundTag tag = list.getCompoundOrEmpty(i);
                 if (tag.contains("Item")) {
-                    stacks.add(ItemStack.CODEC.parse(ops, tag.get("Item")).getOrThrow());
+                    try {
+                        stacks.add(ItemStack.CODEC.parse(ops, tag.get("Item")).getOrThrow());
+                    } catch (RuntimeException e) {
+                        stacks.add(ItemStack.EMPTY);
+                        failed++;
+                    }
                 } else {
                     stacks.add(ItemStack.EMPTY);
                 }
             }
-            return new VirtualInventory(stacks);
+            if (failed > 0) {
+                EnhancedStorage.LOGGER.warn("Skipped {} unreadable item(s) while loading a storage page", failed);
+            }
+            VirtualInventory inv = new VirtualInventory(stacks);
+            inv.serializedSnapshot = data;
+            return inv;
         } catch (Exception e) {
             EnhancedStorage.LOGGER.warn("Failed to deserialize VirtualInventory, returning empty", e);
             return empty(5);
@@ -113,20 +137,42 @@ public final class VirtualInventory {
         return true;
     }
 
+    /**
+     * Returns the page's NBT, encoding it on first use and caching the result. Once cached (here or
+     * at {@link #capture}/{@link #deserialize}) the bytes are reused verbatim and {@code provider}
+     * is ignored — that is what keeps a later save safe from a changed registry.
+     */
     public byte[] serializeToBytes(@Nullable HolderLookup.Provider provider) {
+        byte[] cached = serializedSnapshot;
+        if (cached != null) return cached;
+
+        byte[] bytes = encode(provider);
+        if (bytes.length > 0) serializedSnapshot = bytes;
+        return bytes;
+    }
+
+    private byte[] encode(@Nullable HolderLookup.Provider provider) {
         try {
             var ops = provider != null
                     ? provider.createSerializationContext(NbtOps.INSTANCE)
                     : NbtOps.INSTANCE;
             CompoundTag root = new CompoundTag();
             ListTag list = new ListTag();
+            int failed = 0;
             for (ItemStack stack : stacks) {
                 CompoundTag tag = new CompoundTag();
                 if (!stack.isEmpty()) {
-                    Tag encoded = ItemStack.CODEC.encodeStart(ops, stack).getOrThrow();
-                    tag.put("Item", encoded);
+                    try {
+                        Tag encoded = ItemStack.CODEC.encodeStart(ops, stack).getOrThrow();
+                        tag.put("Item", encoded);
+                    } catch (RuntimeException e) {
+                        failed++;
+                    }
                 }
                 list.add(tag);
+            }
+            if (failed > 0) {
+                EnhancedStorage.LOGGER.warn("Dropped {} unserializable item(s) while saving a storage page", failed);
             }
             root.put("Inventory", list);
             ByteArrayOutputStream out = new ByteArrayOutputStream();
