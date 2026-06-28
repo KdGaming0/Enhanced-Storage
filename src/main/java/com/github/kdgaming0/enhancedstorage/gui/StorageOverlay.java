@@ -122,16 +122,14 @@ public class StorageOverlay {
     private AbstractContainerScreen<?> screen;
     private AbstractContainerScreenAccessor accessor;
     private StoragePage activePage;
-    // The last page actually opened (survives the screen swap to the hub via the persistent singleton),
-    // so an empty-area click on the overview can jump back to where the user was browsing.
     private StoragePage lastViewedPage;
     private Minecraft mc;
-    // ── Layout state (recomputed on every init) ───────────────────────────────
-    // Which storage system this overlay is currently presenting; derived from the active page.
+    // ── Layout state ────────────────────────────────
     private StorageType type = StorageType.MAIN;
     private boolean isOverview;
     private int baseLeftPos;
     private int baseTopPos;
+    private List<Slot> playerSlots = List.of();
     private int[] originalPlayerSlotRelX;
     private int[] originalPlayerSlotRelY;
     private int playerPushX;
@@ -149,8 +147,15 @@ public class StorageOverlay {
     // ── Search state ──────────────────────────────────────────────────────────
     private EditBox searchField;
     private String searchQuery = "";
+    private String[] searchWords = new String[0];
     private String matchCacheQuery;
     private long matchCacheVersion = -1;
+    private Set<StoragePage> filteredPagesCache;
+    private String filteredCacheQuery;
+    private long filteredCacheVersion = -1;
+    private StoragePage filteredCacheActivePage;
+    private boolean filteredCacheShowEmpty;
+    private boolean filteredCacheShowUnavailable;
     // ── Integration state ─────────────────────────────────────────────────────
     private boolean skyblockerChestValueHidden;
     private int quickNavOffset;
@@ -195,8 +200,6 @@ public class StorageOverlay {
     public static void destroyActive() {
         if (activeInstance != null) {
             activeInstance.detach();
-            // Clear RVV blocking only on full teardown, not on the detach() that runs during each
-            // page navigation — that per-navigation churn is what races RVV's background reader.
             RrvIntegration.clearBlocking();
             activeInstance = null;
         }
@@ -271,7 +274,6 @@ public class StorageOverlay {
         this.activePage = activePage;
         if (activePage != null) this.lastViewedPage = activePage;
         this.mc = Minecraft.getInstance();
-        // Rift pages always carry an active page; only the MAIN hub has an overview (null) page.
         this.type = activePage != null ? activePage.type() : StorageType.MAIN;
         this.isOverview = activePage == null;
         this.skyblockerChestValueHidden = false;
@@ -303,12 +305,15 @@ public class StorageOverlay {
         screen = null;
         accessor = null;
         activePage = null;
+        playerSlots = List.of();
+        filteredPagesCache = null;
     }
 
-    public void onInit(int screenWidth, int screenHeight) {
+    public void onInit() {
         ensureAllPagesRegistered();
         baseLeftPos = accessor.es$getLeftPos();
         baseTopPos = accessor.es$getTopPos();
+        playerSlots = getPlayerSlots();
         originalPlayerSlotRelX = capturePlayerSlotRelX();
         originalPlayerSlotRelY = capturePlayerSlotRelY();
         quickNavOffset = SkyblockerIntegration.hasQuickNavButtons(screen) ? QUICK_NAV_BUTTON_OFFSET : 0;
@@ -330,8 +335,6 @@ public class StorageOverlay {
     }
 
     public void preRender(int mouseX, int mouseY) {
-        // A detached overlay (torn down while the screen mixin still holds a reference) has no
-        // screen to position against; skip rather than NPE on screen.getMenu() / children().
         if (screen == null) return;
         if (!skyblockerChestValueHidden) {
             skyblockerChestValueHidden = SkyblockerIntegration.hideChestValueButton(screen);
@@ -407,7 +410,6 @@ public class StorageOverlay {
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
         if (handleSearchFieldClick(event, doubleClick)) return true;
         if (handleScrollbarClick(event)) return true;
-        // On the overview screen, Hypixel's real slots handle nav-panel clicks.
         if (!isOverview && isNavPanelVisible() && handleNavPanelClick(event)) return true;
         if (handlePageCardClick(event)) return true;
         return handleOverviewReturnClick(event);
@@ -439,7 +441,7 @@ public class StorageOverlay {
     public boolean keyPressed(KeyEvent event) {
         if (searchField == null || !searchField.isFocused()) return false;
         if (searchField.keyPressed(event)) return true;
-        // Consume non-Escape keys while search is focused to suppress vanilla hotkeys (e.g. "E").
+        // Consume non-Escape keys while search is focused to suppress vanilla hotkeys
         return event.key() != GLFW.GLFW_KEY_ESCAPE;
     }
 
@@ -482,7 +484,6 @@ public class StorageOverlay {
      * {@code HIDE_ON_PAGES} keeps it on the overview screen but hides it on individual pages.
      */
     private boolean isNavPanelVisible() {
-        // Rift Storage has no hub/overview, so it never shows the navigation panel.
         if (isRift()) return false;
         return switch (EnhancedStorageConfig.storageOverviewVisibility) {
             case ALWAYS_SHOW -> true;
@@ -543,7 +544,6 @@ public class StorageOverlay {
     }
 
     private void pushPlayerSlots() {
-        List<Slot> playerSlots = getPlayerSlots();
         int slotsToMove = Math.min(playerSlots.size(),
                 Math.min(originalPlayerSlotRelX.length, originalPlayerSlotRelY.length));
         for (int i = 0; i < slotsToMove; i++) {
@@ -570,9 +570,6 @@ public class StorageOverlay {
             int screenY = activeRect.y + mc.font.lineHeight + CARD_SLOTS_INSET_Y + 1
                     + (visIndex / 9) * SLOT_SIZE - (int) scroll;
 
-            // Position any slot with part inside the panel; the per-slot scissor in extractSlot clips
-            // the overflow. Hiding only fully-outside rows stops the open page's items from vanishing
-            // ~17px early (real slots can't clip pixel-by-pixel the way fake items do).
             boolean anyVisible = screenY + SLOT_SIZE > scrollPanelRect.y
                     && screenY < scrollPanelRect.y + scrollPanelRect.height;
 
@@ -613,8 +610,6 @@ public class StorageOverlay {
     private void repositionOverviewSlots() {
         if (mc.player == null) return;
         if (!isNavPanelVisible()) {
-            // Panel hidden on the overview screen: the real hub slots have nowhere to map, so hide
-            // them. Page navigation still works through the cards in the scroll panel.
             for (Slot slot : screen.getMenu().slots) {
                 if (slot.container != mc.player.getInventory()) hideSlot(slot);
             }
@@ -694,8 +689,6 @@ public class StorageOverlay {
 
         drawSlotBackgrounds(gfx, rect, rows);
         if (isActive) {
-            // The open page renders real (repositioned) slots on top of this card, so it needs
-            // only the search tint drawn behind them — not fake items.
             drawActivePageSearchTint(gfx, rect, rows);
         } else {
             drawFakeItems(gfx, rect, page, inv.inventory().stacks(), rows, mouseX, mouseY);
@@ -719,7 +712,7 @@ public class StorageOverlay {
             int slotX = pageRect.x + CARD_SLOTS_INSET_X + 1 + (visIndex % 9) * SLOT_SIZE;
             int slotY = pageRect.y + mc.font.lineHeight + CARD_SLOTS_INSET_Y + 1
                     + (visIndex / 9) * SLOT_SIZE;
-            int tint = matchesSearch(slot.getItem(), searchQuery) ? highlightColor : COLOR_DIM_OVERLAY;
+            int tint = matchesSearch(slot.getItem()) ? highlightColor : COLOR_DIM_OVERLAY;
             gfx.fill(slotX, slotY, slotX + SLOT_SIZE - 2, slotY + SLOT_SIZE - 2, tint);
         }
     }
@@ -975,13 +968,34 @@ public class StorageOverlay {
 
     private void onSearchChanged(String query) {
         searchQuery = query != null ? query : "";
+        searchWords = searchQuery.isBlank() ? new String[0] : searchQuery.toLowerCase().split("\\s+");
         scroll = 0f;
     }
 
     private Set<StoragePage> getFilteredPages() {
+        long version = StorageData.INSTANCE.getVersion();
+        boolean showEmpty = EnhancedStorageConfig.showEmptyPages;
+        boolean showUnavailable = EnhancedStorageConfig.showUnavailablePages;
+        if (filteredPagesCache != null
+                && version == filteredCacheVersion
+                && searchQuery.equals(filteredCacheQuery)
+                && Objects.equals(activePage, filteredCacheActivePage)
+                && showEmpty == filteredCacheShowEmpty
+                && showUnavailable == filteredCacheShowUnavailable) {
+            return filteredPagesCache;
+        }
+        Set<StoragePage> result = computeFilteredPages();
+        filteredPagesCache = result;
+        filteredCacheVersion = version;
+        filteredCacheQuery = searchQuery;
+        filteredCacheActivePage = activePage;
+        filteredCacheShowEmpty = showEmpty;
+        filteredCacheShowUnavailable = showUnavailable;
+        return result;
+    }
+
+    private Set<StoragePage> computeFilteredPages() {
         var inventories = pageSource();
-        // Rift always shows both pages (when not searching) regardless of the empty/unavailable
-        // toggles — the unvisited page's card is the only way to navigate to it.
         if (searchQuery.isBlank() && (isRift()
                 || (EnhancedStorageConfig.showEmptyPages && EnhancedStorageConfig.showUnavailablePages))) {
             return inventories.keySet();
@@ -993,8 +1007,6 @@ public class StorageOverlay {
                 result.add(entry.getKey());
             }
         }
-        // The page currently open always stays visible, even when its items don't match the
-        // search — otherwise its real slots would be hidden and the page would vanish mid-search.
         if (activePage != null && inventories.containsKey(activePage)) {
             result.add(activePage);
         }
@@ -1041,15 +1053,15 @@ public class StorageOverlay {
             List<ItemStack> stacks = inv.inventory().stacks();
             boolean[] matches = new boolean[stacks.size()];
             for (int i = 0; i < stacks.size(); i++) {
-                matches[i] = matchesSearch(stacks.get(i), searchQuery);
+                matches[i] = matchesSearch(stacks.get(i));
             }
             matchCache.put(entry.getKey(), matches);
         }
     }
 
-    private boolean matchesSearch(ItemStack stack, String query) {
-        if (stack.isEmpty()) return false;
-        for (String word : query.toLowerCase().split("\\s+")) {
+    private boolean matchesSearch(ItemStack stack) {
+        if (stack.isEmpty() || searchWords.length == 0) return false;
+        for (String word : searchWords) {
             if (!stackContainsWord(stack, word)) return false;
         }
         return true;
@@ -1157,16 +1169,14 @@ public class StorageOverlay {
     }
 
     private int[] capturePlayerSlotRelX() {
-        List<Slot> slots = getPlayerSlots();
-        int[] relX = new int[slots.size()];
-        for (int i = 0; i < slots.size(); i++) relX[i] = slots.get(i).x;
+        int[] relX = new int[playerSlots.size()];
+        for (int i = 0; i < playerSlots.size(); i++) relX[i] = playerSlots.get(i).x;
         return relX;
     }
 
     private int[] capturePlayerSlotRelY() {
-        List<Slot> slots = getPlayerSlots();
-        int[] relY = new int[slots.size()];
-        for (int i = 0; i < slots.size(); i++) relY[i] = slots.get(i).y;
+        int[] relY = new int[playerSlots.size()];
+        for (int i = 0; i < playerSlots.size(); i++) relY[i] = playerSlots.get(i).y;
         return relY;
     }
 
@@ -1183,7 +1193,6 @@ public class StorageOverlay {
         if (inv == null) return ItemStack.EMPTY;
         if (inv.icon() != null && !inv.icon().isEmpty()) return inv.icon();
         if (inv.inventory() == null) return ItemStack.EMPTY;
-        // Skip Hypixel's navigation row when scanning for a representative item.
         for (int i = NAV_ROW_SKIP_SLOTS; i < inv.inventory().stacks().size(); i++) {
             ItemStack s = inv.inventory().stacks().get(i);
             if (!s.isEmpty()) return s;

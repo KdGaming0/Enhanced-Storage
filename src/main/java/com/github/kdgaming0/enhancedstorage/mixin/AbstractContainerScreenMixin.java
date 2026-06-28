@@ -7,7 +7,6 @@ import com.github.kdgaming0.enhancedstorage.storage.StorageLifecycle;
 import com.github.kdgaming0.enhancedstorage.storage.StoragePage;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -40,7 +39,7 @@ public class AbstractContainerScreenMixin<T extends AbstractContainerMenu> imple
             es$overlay = StorageLifecycle.createOverlay((AbstractContainerScreen<?>) (Object) this);
         }
         if (es$overlay != null) {
-            es$overlay.onInit(((Screen) (Object) this).width, ((Screen) (Object) this).height);
+            es$overlay.onInit();
             EditBox searchField = es$overlay.getSearchField();
             if (searchField != null) {
                 ((ScreenAccessor) this).es$addWidget(searchField);
@@ -135,8 +134,6 @@ public class AbstractContainerScreenMixin<T extends AbstractContainerMenu> imple
                 AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>) (Object) this;
                 StorageLifecycle.rememberPage(screen, page, screen.getTitle().getString());
             }
-            // Persist on close (when confirmed + dirty) so opened pages survive a later crash,
-            // not just a clean leave-SkyBlock / disconnect / quit.
             StorageLifecycle.saveIfDirty();
             es$overlay.detach();
         }

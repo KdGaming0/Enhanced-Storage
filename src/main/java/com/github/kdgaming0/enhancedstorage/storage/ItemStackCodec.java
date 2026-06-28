@@ -8,7 +8,6 @@ import org.jetbrains.annotations.Nullable;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.Base64;
-import java.util.Optional;
 
 /**
  * Bidirectional encoding/decoding between {@link ItemStack} and Base64-encoded compressed NBT.
@@ -43,17 +42,6 @@ public final class ItemStackCodec {
             return ItemStack.CODEC.parse(ops, compound).getOrThrow();
         } catch (Exception e) {
             return ItemStack.EMPTY;
-        }
-    }
-
-    public static Optional<CompoundTag> decodeToTag(@Nullable String base64) {
-        if (base64 == null || base64.isBlank()) return Optional.empty();
-        try {
-            byte[] bytes = Base64.getDecoder().decode(base64);
-            ByteArrayInputStream in = new ByteArrayInputStream(bytes);
-            return Optional.of(NbtIo.readCompressed(in, NbtAccounter.unlimitedHeap()));
-        } catch (Exception e) {
-            return Optional.empty();
         }
     }
 }

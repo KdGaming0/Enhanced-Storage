@@ -18,11 +18,9 @@ import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -32,11 +30,8 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class StorageData {
 
     public static final StorageData INSTANCE = new StorageData();
-    // MAIN (Ender Chest / Backpack) and RIFT pages live in separate maps so neither system's
-    // pages ever leak into the other's overlay. The active map is chosen by the page's type.
     private final ConcurrentSkipListMap<StoragePage, StorageInventory> inventories = new ConcurrentSkipListMap<>();
     private final ConcurrentSkipListMap<StoragePage, StorageInventory> riftInventories = new ConcurrentSkipListMap<>();
-    private final List<Runnable> dirtyListeners = new CopyOnWriteArrayList<>();
     private final AtomicLong version = new AtomicLong();
     private volatile boolean dirty = false;
 
@@ -65,8 +60,6 @@ public final class StorageData {
                 : (existing != null ? existing.icon() : null);
 
         StorageInventory updated = new StorageInventory(resolvedTitle, page, resolvedInv, resolvedIcon);
-        // Skip no-op updates (e.g. re-opening an unchanged page): only advance the dirty flag and
-        // version on real content changes, so save-on-close never rewrites the file for nothing.
         if (existing != null && existing.contentEquals(updated)) {
             return;
         }
@@ -106,9 +99,6 @@ public final class StorageData {
     public void markDirty() {
         dirty = true;
         version.incrementAndGet();
-        for (Runnable listener : dirtyListeners) {
-            listener.run();
-        }
     }
 
     /**

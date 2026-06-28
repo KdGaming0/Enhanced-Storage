@@ -20,7 +20,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
@@ -64,10 +63,7 @@ public final class ProfileIdTracker {
     /** Notified when SkyBlock state ends (leave or disconnect) so persistence can flush + clear. */
     private static Runnable onReset = () -> {};
 
-    // profileId / profileIdConfirmed are written on the network thread (chat parse) and read on
-    // the main thread (tick). The rest are main-thread only.
     private static volatile UUID profileId;
-    private static volatile boolean profileIdConfirmed;
     private static boolean wasOnSkyblock = false;
 
     private ProfileIdTracker() {}
@@ -89,27 +85,6 @@ public final class ProfileIdTracker {
     }
 
     /**
-     * Returns the current SkyBlock profile UUID, if known. The most recently confirmed UUID, or
-     * — while on SkyBlock without a confirmation this session — the last cached UUID for the
-     * current account, returned tentatively.
-     */
-    public static Optional<UUID> getProfileId() {
-        if (profileId != null) {
-            return Optional.of(profileId);
-        }
-        if (StorageLifecycle.isOnSkyBlock()) {
-            UUID cached = parseCached(profileCache.get(accountUuid()));
-            if (cached != null) return Optional.of(cached);
-        }
-        return Optional.empty();
-    }
-
-    /** {@code true} if the current profile UUID has been confirmed by a chat message this session. */
-    public static boolean isProfileIdConfirmed() {
-        return profileIdConfirmed;
-    }
-
-    /**
      * Called by the incoming-chat mixin. Parses the profile UUID if present.
      *
      * <p>Hypixel sends {@code Profile ID: ...} automatically on every SkyBlock server change, so
@@ -128,7 +103,6 @@ public final class ProfileIdTracker {
                 UUID parsed = UUID.fromString(matcher.group(1));
                 if (!parsed.equals(profileId)) {
                     profileId = parsed;
-                    profileIdConfirmed = true;
                     LOGGER.info("Detected SkyBlock profile UUID: {}", parsed);
                     Minecraft.getInstance().execute(() -> {
                         cacheProfileUuid(parsed);
@@ -211,7 +185,6 @@ public final class ProfileIdTracker {
     private static void reset() {
         boolean wasActive = wasOnSkyblock || profileId != null;
         profileId = null;
-        profileIdConfirmed = false;
         wasOnSkyblock = false;
         if (wasActive) {
             onReset.run();

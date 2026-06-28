@@ -1,5 +1,6 @@
 package com.github.kdgaming0.enhancedstorage.storage;
 
+import com.github.kdgaming0.enhancedstorage.util.StringUtil;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Optional;
@@ -17,7 +18,6 @@ public final class StorageTitleParser {
     private static final Pattern PATTERN_ENDER_CHEST = Pattern.compile(".*[Ee]nder [Cc]hest.*\\((\\d+)/(\\d+)\\)");
     private static final Pattern PATTERN_BACKPACK = Pattern.compile(".*[Bb]ackpack.*\\s*[(#]\\s*(\\d+)\\s*\\)?");
     private static final Pattern PATTERN_BACKPACK_UNNAMED = Pattern.compile(".*[Bb]ackpack.*");
-    private static final Pattern FORMATTING_CODES = Pattern.compile("§.");
 
     private StorageTitleParser() {
     }
@@ -66,7 +66,7 @@ public final class StorageTitleParser {
     }
 
     public static String stripFormatting(String text) {
-        return FORMATTING_CODES.matcher(text).replaceAll("");
+        return StringUtil.stripColorCodes(text);
     }
 
     public record ParsedTitle(@Nullable StoragePage page, String rawTitle, boolean isOverview) {

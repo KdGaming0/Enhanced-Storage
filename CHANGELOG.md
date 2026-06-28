@@ -1,5 +1,5 @@
-## Update 0.7.1
+## Update 0.8.0
 
-- You can now make the storage overlay taller to see more pages at once. New sliders in the settings let you adjust the space above and below the overlay, and the spacing between pages.
-- Fixed items in an open backpack are disappearing too early — they used to vanish before they had actually scrolled out of view.
-- Fixed the overlay sometimes jumping unexpectedly when you opened a page you could already see.
+- Improved performance when searching and browsing the storage overlay.
+- Made saving your storage data more robust if the game crashes or is force-closed.
+- Internal code cleanup and reliability improvements.

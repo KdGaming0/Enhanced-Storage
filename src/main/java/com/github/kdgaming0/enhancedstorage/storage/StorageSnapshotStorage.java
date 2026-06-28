@@ -1,6 +1,7 @@
 package com.github.kdgaming0.enhancedstorage.storage;
 
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
+import com.github.kdgaming0.enhancedstorage.repo.io.AtomicFileWriter;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -12,7 +13,6 @@ import net.minecraft.world.item.ItemStack;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -59,7 +59,6 @@ public final class StorageSnapshotStorage {
      */
     public boolean save(String profileId, StorageData data) {
         Path file = storageDir.resolve(sanitize(profileId) + ".json");
-        Path temp = storageDir.resolve(sanitize(profileId) + ".tmp");
 
         Minecraft mc = Minecraft.getInstance();
         var lookup = mc.level != null ? mc.level.registryAccess() : null;
@@ -77,12 +76,9 @@ public final class StorageSnapshotStorage {
         root.add("riftPages", riftPages);
 
         try {
-            // Close (and flush) the writer before moving: moving while the buffered writer is still
-            // open can publish a partial/empty file, or fail outright on Windows.
-            try (Writer writer = Files.newBufferedWriter(temp, StandardCharsets.UTF_8)) {
-                GSON.toJson(root, writer);
-            }
-            Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING);
+            // Atomic temp-file + move (writer is closed/flushed before the move, then ATOMIC_MOVE
+            // with a non-atomic fallback). See AtomicFileWriter.
+            AtomicFileWriter.writeJson(file, root, GSON);
         } catch (IOException e) {
             EnhancedStorage.LOGGER.error("Failed to save storage snapshot for {}", profileId, e);
             return false;
@@ -115,9 +111,6 @@ public final class StorageSnapshotStorage {
             int loaded = data.getInventories().size() + data.getRiftInventories().size() - before;
             EnhancedStorage.LOGGER.debug("Loaded storage snapshot for {} (+{} pages)", profileId, loaded);
         } catch (Exception e) {
-            // Catch runtime parse errors too (e.g. JsonSyntaxException on a corrupt/partial file).
-            // The old IOException-only catch let those escape, aborting the load and leaving every
-            // page looking unopened with no recovery. Back the file up so the player isn't stuck.
             EnhancedStorage.LOGGER.error("Failed to load storage snapshot for {} — backing up the broken file", profileId, e);
             backupBrokenFile(file);
         }
