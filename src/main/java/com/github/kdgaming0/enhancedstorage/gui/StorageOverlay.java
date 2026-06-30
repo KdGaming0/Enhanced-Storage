@@ -34,6 +34,7 @@ import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
+import net.minecraft.world.Container;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
@@ -129,6 +130,7 @@ public class StorageOverlay {
     private boolean isOverview;
     private int baseLeftPos;
     private int baseTopPos;
+    private Container playerInventory;
     private List<Slot> playerSlots = List.of();
     private int[] originalPlayerSlotRelX;
     private int[] originalPlayerSlotRelY;
@@ -144,6 +146,8 @@ public class StorageOverlay {
     private float scroll;
     private int lastRenderedContentH;
     private boolean knobGrabbed;
+    /** Carries the "view was at the bottom" intent from onInit() until the final geometry is known. */
+    private boolean stickToBottom;
     // ── Search state ──────────────────────────────────────────────────────────
     private EditBox searchField;
     private String searchQuery = "";
@@ -305,7 +309,9 @@ public class StorageOverlay {
         screen = null;
         accessor = null;
         activePage = null;
+        playerInventory = null;
         playerSlots = List.of();
+        knobGrabbed = false;
         filteredPagesCache = null;
     }
 
@@ -313,17 +319,15 @@ public class StorageOverlay {
         ensureAllPagesRegistered();
         baseLeftPos = accessor.es$getLeftPos();
         baseTopPos = accessor.es$getTopPos();
+        playerInventory = mc.player != null ? mc.player.getInventory() : null;
         playerSlots = getPlayerSlots();
         originalPlayerSlotRelX = capturePlayerSlotRelX();
         originalPlayerSlotRelY = capturePlayerSlotRelY();
         quickNavOffset = SkyblockerIntegration.hasQuickNavButtons(screen) ? QUICK_NAV_BUTTON_OFFSET : 0;
         overlayTop = EnhancedStorageConfig.overlayTopPadding + quickNavOffset;
+        stickToBottom = maxScroll() > 0f && scroll >= maxScroll() - 1f;
         recalculateMeasurements(quickNavOffset);
-        scroll = clampScroll(scroll);
-
-        if (activePage != null && EnhancedStorageConfig.autoScrollToActivePage) {
-            scrollToPageIfOffScreen(activePage);
-        }
+        resolveScrollAfterLayout();
 
         computeNavPanelLayout();
         initSearchField();
@@ -346,6 +350,7 @@ public class StorageOverlay {
                 quickNavOffset = actualOffset;
                 overlayTop = EnhancedStorageConfig.overlayTopPadding + quickNavOffset;
                 recalculateMeasurements(quickNavOffset);
+                resolveScrollAfterLayout();
                 computeNavPanelLayout();
                 initSearchField();
                 RrvIntegration.setBlocking(getBounds());
@@ -518,25 +523,33 @@ public class StorageOverlay {
     }
 
     /**
-     * Brings a page into view only when it is <em>entirely</em> outside the viewport — a page with any
-     * part already visible is left untouched. You open a page either by clicking its (visible) card, or
-     * via a nav-panel slot / {@code /ec} command when its card may be off-screen; only the latter needs
-     * scrolling, so never nudging a visible page avoids the small jumps that come from the active card's
-     * height being recomputed on open. When it does scroll, it moves the minimum distance: a page taller
-     * than the panel aligns to its top, otherwise align top if it's above the viewport, bottom if below.
+     * Resolves the scroll position after a layout change: stays pinned to the bottom when the view was
+     * scrolled to the end, otherwise clamps the current offset into range, then brings the active page
+     * into view if it is entirely off-screen. Re-invoked from {@link #preRender} because Skyblocker's
+     * QuickNav buttons — and therefore the final panel height — are only known on the first rendered frame.
      */
-    private void scrollToPageIfOffScreen(StoragePage page) {
+    private void resolveScrollAfterLayout() {
+        recomputeContentHeight();
+        scroll = stickToBottom ? maxScroll() : clampScroll(scroll);
+        if (activePage != null && EnhancedStorageConfig.autoScrollToActivePage) {
+            scrollPageIntoView(activePage);
+        }
+    }
+
+    /**
+     * Brings a page fully into view, moving the minimum distance, unless it is already entirely visible.
+     */
+    private void scrollPageIntoView(StoragePage page) {
         Rect pageRect = findPageRect(page);
         if (pageRect == null) return;
         int top = pageRect.y - scrollPanelRect.y;
         int bottom = top + pageRect.height;
         int panelH = scrollPanelRect.height;
 
-        boolean entirelyAbove = bottom <= scroll;
-        boolean entirelyBelow = top >= scroll + panelH;
-        if (!entirelyAbove && !entirelyBelow) return;
+        boolean fullyVisible = top >= scroll && bottom <= scroll + panelH;
+        if (fullyVisible) return;
 
-        if (entirelyAbove || pageRect.height > panelH) {
+        if (pageRect.height > panelH || top < scroll) {
             scroll = clampScroll(top);
         } else {
             scroll = clampScroll(bottom - panelH);
@@ -559,7 +572,7 @@ public class StorageOverlay {
         int leftPos = accessor.es$getLeftPos();
 
         for (Slot slot : screen.getMenu().slots) {
-            if (slot.container == mc.player.getInventory()) continue;
+            if (isPlayerSlot(slot)) continue;
             if (activePage == null || activeRect == null || slot.index < NAV_ROW_SKIP_SLOTS) {
                 hideSlot(slot);
                 continue;
@@ -594,7 +607,7 @@ public class StorageOverlay {
      */
     public boolean beginActivePageSlotClip(GuiGraphicsExtractor gfx, Slot slot) {
         if (screen == null || isOverview || mc == null || mc.player == null) return false;
-        if (slot.container == mc.player.getInventory()) return false;
+        if (isPlayerSlot(slot)) return false;
         int leftPos = accessor.es$getLeftPos();
         int topPos = accessor.es$getTopPos();
         gfx.enableScissor(
@@ -611,7 +624,7 @@ public class StorageOverlay {
         if (mc.player == null) return;
         if (!isNavPanelVisible()) {
             for (Slot slot : screen.getMenu().slots) {
-                if (slot.container != mc.player.getInventory()) hideSlot(slot);
+                if (!isPlayerSlot(slot)) hideSlot(slot);
             }
             return;
         }
@@ -619,7 +632,7 @@ public class StorageOverlay {
         int leftPos = accessor.es$getLeftPos();
 
         for (Slot slot : screen.getMenu().slots) {
-            if (slot.container == mc.player.getInventory()) continue;
+            if (isPlayerSlot(slot)) continue;
 
             if (slot.index >= StoragePage.OVERVIEW_EC_SLOT_FIRST
                     && slot.index <= StoragePage.OVERVIEW_EC_SLOT_LAST) {
@@ -666,7 +679,8 @@ public class StorageOverlay {
                               int mouseX, int mouseY) {
         int rows = pageRows(page, inv, isActive);
         boolean hasInv = inv != null && inv.inventory() != null;
-        int cardH = pageCardHeight(rows, hasInv);
+        boolean hasContent = hasInv || isActive;
+        int cardH = pageCardHeight(rows, hasContent);
 
         Identifier cardSprite = isActive ? sprite("page_card_active") : sprite("page_card_idle");
         gfx.blitSprite(RenderPipelines.GUI_TEXTURED, cardSprite, rect.x, rect.y, PAGE_WIDTH, cardH);
@@ -675,7 +689,7 @@ public class StorageOverlay {
         gfx.text(mc.font, title, rect.x + 6, rect.y + 5,
                 isActive ? COLOR_TITLE_ACTIVE : COLOR_TITLE_IDLE, true);
 
-        if (!hasInv) {
+        if (!hasContent) {
             String label;
             if (isUnavailablePage(inv)) {
                 label = inv != null && inv.title() != null && inv.title().startsWith("Empty Backpack")
@@ -705,7 +719,7 @@ public class StorageOverlay {
         int highlightColor = getSearchHighlightColor();
         int slotCount = rows * 9;
         for (Slot slot : screen.getMenu().slots) {
-            if (slot.container == mc.player.getInventory() || slot.index < NAV_ROW_SKIP_SLOTS) continue;
+            if (isPlayerSlot(slot) || slot.index < NAV_ROW_SKIP_SLOTS) continue;
             int visIndex = slot.index - NAV_ROW_SKIP_SLOTS;
             if (visIndex >= slotCount) continue;
 
@@ -1119,8 +1133,9 @@ public class StorageOverlay {
             if (!filter.contains(entry.getKey())) continue;
             StorageData.StorageInventory inv = entry.getValue();
 
-            int rows = pageRows(entry.getKey(), inv, entry.getKey().equals(activePage));
-            int pageH = pageCardHeight(rows, inv != null && inv.inventory() != null);
+            boolean isActive = entry.getKey().equals(activePage);
+            int rows = pageRows(entry.getKey(), inv, isActive);
+            int pageH = pageCardHeight(rows, isActive || (inv != null && inv.inventory() != null));
             maxRowH = Math.max(maxRowH, pageH);
 
             consumer.accept(
@@ -1135,6 +1150,13 @@ public class StorageOverlay {
             }
         }
         lastRenderedContentH = totalH + maxRowH;
+    }
+
+    /**
+     * Refreshes {@link #lastRenderedContentH} for the current layout without drawing anything.
+     */
+    private void recomputeContentHeight() {
+        forEachPage(getFilteredPages(), (rect, page, inv) -> { });
     }
 
     private int pageRows(StoragePage page, StorageData.StorageInventory inv, boolean isActive) {
@@ -1181,11 +1203,14 @@ public class StorageOverlay {
     }
 
     private List<Slot> getPlayerSlots() {
-        if (mc.player == null) return List.of();
-        var playerInv = mc.player.getInventory();
+        if (playerInventory == null) return List.of();
         return screen.getMenu().slots.stream()
-                .filter(s -> s.container == playerInv)
+                .filter(this::isPlayerSlot)
                 .toList();
+    }
+
+    private boolean isPlayerSlot(Slot slot) {
+        return playerInventory != null && slot.container == playerInventory;
     }
 
     private ItemStack getRepresentativeStack(StoragePage page) {

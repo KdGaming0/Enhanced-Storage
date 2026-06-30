@@ -1,7 +1,4 @@
-## Update 0.8.0
+## Update 0.8.1
 
-- Improved performance when searching and browsing the storage overlay.
-- Made saving your storage data more robust if the game crashes or is force-closed.
-- Fixed pages with enchanted items sometimes failing to save.
-- Internal code cleanup and reliability improvements.
-- Maybe fixed a bug where the inventory items would go invisible when opening the storage page.
+- Improved reliability of the inventory display and item dragging in the storage screen, including inventory items sometimes going invisible.
+- Fixed the storage view not staying at the bottom (drifting up a little) when opening the last page while scrolled all the way down.
