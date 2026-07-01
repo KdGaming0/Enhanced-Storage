@@ -65,6 +65,18 @@ repositories {
             includeGroupAndSubgroups("cc.cassian")
         }
     }
+
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = "shedaniel's Maven"
+                url = uri("https://maven.shedaniel.me")
+            }
+        }
+        filter {
+            includeGroupAndSubgroups("me.shedaniel")
+        }
+    }
 }
 
 dependencies {
@@ -79,6 +91,12 @@ dependencies {
     include("net.azureaaron:hm-api:${property("deps.hm_api_version")}")
 
     implementation("org.msgpack:msgpack-core:0.9.12")
+
+    // Soft integration with Roughly Enough Items: compile-only so REI stays optional at runtime
+    modCompileOnly("me.shedaniel:RoughlyEnoughItems-api-fabric:26.1.819") {
+        isTransitive = false
+    }
+    compileOnly("me.shedaniel.cloth:basic-math:0.6.1")
 
     modRuntimeOnly("me.djtheredstoner:DevAuth-fabric:1.2.2")
     modRuntimeOnly("maven.modrinth:modmenu:${property("deps.modmenu_version")}")

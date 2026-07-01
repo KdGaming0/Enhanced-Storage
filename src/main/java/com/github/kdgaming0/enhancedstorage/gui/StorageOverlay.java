@@ -219,6 +219,18 @@ public class StorageOverlay {
         return activeInstance != null;
     }
 
+    /**
+     * Screen-space rectangles the active overlay occupies on {@code screen}, or an empty list when no
+     * overlay is showing on it. Lets pull-model integrations (e.g. REI exclusion zones) query the same
+     * bounds RRV is pushed via {@link #getBounds()} without touching overlay internals.
+     */
+    public static List<Rect> getActiveBoundsFor(AbstractContainerScreen<?> screen) {
+        if (activeInstance != null && activeInstance.screen == screen) {
+            return activeInstance.getBounds();
+        }
+        return List.of();
+    }
+
     private static void hideSlot(Slot slot) {
         ((SlotAccessor) slot).es$setX(-9999);
         ((SlotAccessor) slot).es$setY(-9999);

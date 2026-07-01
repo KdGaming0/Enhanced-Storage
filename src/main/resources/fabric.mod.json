@@ -17,6 +17,9 @@
   "entrypoints": {
     "client": [
       "com.github.kdgaming0.enhancedstorage.EnhancedStorage"
+    ],
+    "rei_client": [
+      "com.github.kdgaming0.enhancedstorage.integration.EnhancedStorageReiPlugin"
     ]
   },
   "mixins": [
