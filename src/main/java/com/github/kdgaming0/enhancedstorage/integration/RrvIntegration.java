@@ -65,28 +65,32 @@ public final class RrvIntegration {
     /**
      * Registers the given screen-space rectangles as RVV blocking components.
      * Any previously registered components from this mod are replaced.
+     *
+     * @param forceReposition re-register structurally even when the bounds are unchanged. Pass
+     *        {@code true} on a screen change (each page is a new screen): RVV re-avoids the overlay
+     *        only when the blocking list is structurally mutated ({@code setGuiBlocking} /
+     *        {@code removeGuiBlocking}) — a lone {@code updateOverlaysAndWidgets} does not move the
+     *        already-rendered item list, so on page navigation the list rendered back over the
+     *        overlay. Pass {@code false} for same-screen re-calls (e.g. the {@code preRender} layout
+     *        re-verify) so an unchanged layout skips the churn that races RVV's background reader.
      */
-    public static void setBlocking(List<Rect> bounds) {
+    public static void setBlocking(List<Rect> bounds, boolean forceReposition) {
         initialize();
         if (!initialized) {
             return;
         }
         try {
-            if (boundsEqual(bounds, lastBounds)) {
-                // Same bounds (e.g. page navigation): skip the structural list churn that races
-                // RVV's background reader, but STILL ask RVV to re-apply blocking. RVV rebuilds its
-                // item list per screen and only repositions it around our (still-registered)
-                // components when updateOverlaysAndWidgets runs (-> onScreenChanged ->
-                // updateSidePanelIndex -> isPositionBlocked). Skipping it entirely left the list
-                // rendering over the overlay after the first screen. This call only *reads* the
-                // blocking list, so on its own it can't trigger the CME — only structural
-                // (add/remove) mutations can, and those are confined to the bounds-changed path.
+            if (!forceReposition && boundsEqual(bounds, lastBounds)) {
+                // Same screen, unchanged bounds (e.g. the preRender layout re-verify): only *read*
+                // the list to keep RVV's widgets in sync. Can't trigger the CME on its own, since
+                // only structural (add/remove) mutations race RVV's background stream.
                 updateOverlaysAndWidgetsMethod.invoke(overlayManagerInstance, true);
                 return;
             }
-            // Bounds changed: remove our previous components WITHOUT kicking RVV's update, add the
-            // new set, then fire a single update at the end — so the list is never structurally
-            // mutated after we trigger the background read within this call.
+            // Screen change or changed bounds: remove our previous components WITHOUT kicking RVV's
+            // update, add the new set, then fire a single update at the end — so the list is never
+            // structurally mutated after we trigger the background read within this call. The
+            // structural mutation is what actually makes RVV re-flow its item list off the overlay.
             removeOurComponents(false);
             for (int i = 0; i < bounds.size(); i++) {
                 Rect rect = bounds.get(i);

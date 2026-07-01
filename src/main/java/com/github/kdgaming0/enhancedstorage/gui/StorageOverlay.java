@@ -323,7 +323,11 @@ public class StorageOverlay {
         playerSlots = getPlayerSlots();
         originalPlayerSlotRelX = capturePlayerSlotRelX();
         originalPlayerSlotRelY = capturePlayerSlotRelY();
-        quickNavOffset = SkyblockerIntegration.hasQuickNavButtons(screen) ? QUICK_NAV_BUTTON_OFFSET : 0;
+        if (SkyblockerIntegration.hasQuickNavButtons(screen)) {
+            quickNavOffset = QUICK_NAV_BUTTON_OFFSET;
+        } else if (!SkyblockerIntegration.isActive()) {
+            quickNavOffset = 0;
+        }
         overlayTop = EnhancedStorageConfig.overlayTopPadding + quickNavOffset;
         stickToBottom = maxScroll() > 0f && scroll >= maxScroll() - 1f;
         recalculateMeasurements(quickNavOffset);
@@ -335,7 +339,7 @@ public class StorageOverlay {
             playerPushX = invPanelX - baseLeftPos;
         }
         positionQuickNavButtons();
-        RrvIntegration.setBlocking(getBounds());
+        RrvIntegration.setBlocking(getBounds(), true);
     }
 
     public void preRender(int mouseX, int mouseY) {
@@ -353,7 +357,7 @@ public class StorageOverlay {
                 resolveScrollAfterLayout();
                 computeNavPanelLayout();
                 initSearchField();
-                RrvIntegration.setBlocking(getBounds());
+                RrvIntegration.setBlocking(getBounds(), false);
             }
         }
         positionQuickNavButtons();
@@ -397,7 +401,7 @@ public class StorageOverlay {
         if (isNavPanelVisible()) {
             bounds.add(new Rect(navPanelX, navPanelY, NAV_PANEL_W, NAV_PANEL_H));
         }
-        if (SkyblockerIntegration.hasQuickNavButtons(screen)) {
+        if (quickNavOffset != 0) {
             int topX = overviewX + (overviewWidth - QUICK_NAV_ROW_WIDTH) / 2;
             int bottomX = invPanelX + (STORAGE_INV_W - QUICK_NAV_ROW_WIDTH) / 2;
             int topY = overlayTop - QUICK_NAV_BUTTON_OFFSET;

@@ -1,4 +1,3 @@
-## Update 0.8.1
+## Update 0.8.2
 
-- Improved reliability of the inventory display and item dragging in the storage screen, including inventory items sometimes going invisible.
-- Fixed the storage view not staying at the bottom (drifting up a little) when opening the last page while scrolled all the way down.
+- Fixed the item list from RRV rendering over the overlay after you open a page.
