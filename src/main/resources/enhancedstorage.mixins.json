@@ -2,17 +2,8 @@
   "required": true,
   "package": "com.github.kdgaming0.enhancedstorage.mixin",
   "compatibilityLevel": "JAVA_25",
-  "plugin": "com.github.kdgaming0.enhancedstorage.mixin.EnhancedStorageMixinPlugin",
   "mixins": [
-    "AbstractContainerScreenAccessor",
-    "AbstractContainerScreenMixin",
-    "ClientPacketListenerMixin",
-    "ContainerBackgroundMixin",
-    "MouseHandlerMixin",
-    "ProfileIdResponseMixin",
-    "QuickNavButtonMixin",
-    "ScreenAccessor",
-    "SlotAccessor"
+
   ],
   "injectors": {
     "defaultRequire": 1
