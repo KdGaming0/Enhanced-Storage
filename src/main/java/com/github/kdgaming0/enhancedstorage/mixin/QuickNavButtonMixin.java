@@ -24,7 +24,7 @@ public class QuickNavButtonMixin {
 
     @Inject(method = "<init>", at = @At("TAIL"))
     private void es$onConstruct(int index, boolean toggled, String command, ItemStack icon, String tooltip, CallbackInfo ci) {
-        Screen screen = Minecraft.getInstance().screen;
+        Screen screen = Minecraft.getInstance(){$gui}.screen;
         if (screen instanceof OverlayHolder holder && holder.es$hasOverlay()) {
             ((AbstractWidget) (Object) this).visible = false;
         }
@@ -32,7 +32,7 @@ public class QuickNavButtonMixin {
 
     @Inject(method = "updateCoordinates", at = @At("HEAD"), cancellable = true)
     private void es$onUpdateCoordinates(CallbackInfo ci) {
-        Screen screen = Minecraft.getInstance().screen;
+        Screen screen = Minecraft.getInstance(){$gui}.screen;
         if (screen instanceof OverlayHolder holder && holder.es$hasOverlay()) {
             ci.cancel();
         }

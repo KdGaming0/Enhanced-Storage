@@ -93,7 +93,7 @@ dependencies {
     implementation("org.msgpack:msgpack-core:0.9.12")
 
     // Soft integration with Roughly Enough Items: compile-only so REI stays optional at runtime
-    modCompileOnly("me.shedaniel:RoughlyEnoughItems-api-fabric:26.1.819") {
+    modCompileOnly("me.shedaniel:RoughlyEnoughItems-api-fabric:${property("deps.rei_version")}") {
         isTransitive = false
     }
     compileOnly("me.shedaniel.cloth:basic-math:0.6.1")

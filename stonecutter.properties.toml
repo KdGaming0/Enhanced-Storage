@@ -15,3 +15,14 @@ deps.fabric_api = "0.150.0+26.1.2"
 deps.midnightlib_version = "1.9.3+26.1-fabric"
 deps.hm_api_version = "1.0.3+26.1"
 deps.modmenu_version = "18.0.0-beta.1"
+deps.rei_version = "26.1.819"
+
+["26.2"]
+mod.mc_compat = "~26.2"
+mod.mc_releases = ["26.2"]
+
+deps.fabric_api = "0.154.0+26.2"
+deps.midnightlib_version = "1.9.3+26.2-fabric"
+deps.hm_api_version = "1.0.4+26.2"
+deps.modmenu_version = "20.0.0-beta.4"
+deps.rei_version = "26.2.820"
