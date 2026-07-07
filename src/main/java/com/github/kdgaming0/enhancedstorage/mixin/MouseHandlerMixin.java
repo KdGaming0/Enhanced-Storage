@@ -55,7 +55,7 @@ public class MouseHandlerMixin {
             ordinal = 2))
     private void es$onReleaseMouse(CallbackInfo ci) {
         Minecraft mc = Minecraft.getInstance();
-        Screen newScreen = mc{$gui}.screen;
+        Screen newScreen = mc.screen;
         CursorPosition position = CursorPositionManager.loadCursor(this.xpos, this.ypos, newScreen);
         if (position != null) {
             this.xpos = position.x();

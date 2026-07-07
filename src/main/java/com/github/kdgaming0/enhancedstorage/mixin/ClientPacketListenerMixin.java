@@ -28,7 +28,7 @@ public class ClientPacketListenerMixin {
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
-        if (!(mc{$gui}.screen instanceof AbstractContainerScreen<?> screen)) return;
+        if (!(mc.screen instanceof AbstractContainerScreen<?> screen)) return;
         if (screen.getMenu().containerId != packet.containerId()) return;
 
         String rawTitle = screen.getTitle().getString();

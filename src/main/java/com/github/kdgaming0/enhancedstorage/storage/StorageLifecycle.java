@@ -229,7 +229,7 @@ public final class StorageLifecycle {
      */
     private static void recaptureOpenScreen() {
         Minecraft mc = Minecraft.getInstance();
-        if (!(mc{$gui}.screen instanceof AbstractContainerScreen<?> screen)) return;
+        if (!(mc.screen instanceof AbstractContainerScreen<?> screen)) return;
         String rawTitle = screen.getTitle().getString();
         Optional<StorageTitleParser.ParsedTitle> parsed = StorageTitleParser.parse(rawTitle);
         if (parsed.isEmpty()) return;

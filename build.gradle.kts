@@ -119,13 +119,33 @@ loom {
     }
 }
 
+// Minecraft 26.2 moved screen/setScreen from Minecraft -> Minecraft.gui
+// Apply source transformation during build so each subproject gets the right API.
+if (sc.current.version == "26.2") {
+    val transformJavaSources by tasks.registering(Sync::class) {
+        from(rootProject.file("src/main/java"))
+        into(layout.buildDirectory.dir("transformed-java"))
+        filesMatching("**/*.java") {
+            filter { line: String ->
+                line
+                    .replace("mc.screen", "mc.gui.screen()")
+                    .replace("Minecraft.getInstance().screen", "Minecraft.getInstance().gui.screen()")
+            }
+        }
+    }
+    sourceSets.main { java.setSrcDirs(listOf(layout.buildDirectory.dir("transformed-java").get().asFile)) }
+    tasks.named("compileJava") { dependsOn(transformJavaSources) }
+    tasks.withType<Jar>().matching { it.name == "sourcesJar" }.configureEach {
+        dependsOn(transformJavaSources)
+    }
+}
+
 java {
     withSourcesJar()
     targetCompatibility = requiredJava
     sourceCompatibility = requiredJava
 
     toolchain {
-        vendor = JvmVendorSpec.ADOPTIUM
         languageVersion = JavaLanguageVersion.of(requiredJava.majorVersion)
     }
 }

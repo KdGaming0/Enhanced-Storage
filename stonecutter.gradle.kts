@@ -11,8 +11,6 @@ stonecutter parameters {
     swaps["minecraft"] = "\"${node.metadata.version}\";"
     constants["release"] = property("mod.id") != "template"
     dependencies["fapi"] = node.project.property("deps.fabric_api") as String
-    // Minecraft 26.2 moved screen/setScreen from Minecraft -> Minecraft.gui
-    swaps["gui"] = if (sc.current.version in listOf("26.2")) ".gui" else ""
 }
 
 val releaseVersions = listOf(
