@@ -30,6 +30,9 @@ public class EnhancedStorageConfig extends MidnightConfig {
     @Entry(category = CATEGORY_GENERAL, isSlider = true, min = 0, max = 50, precision = 1)
     public static int extraTopAndBottomMarginForQuickNav = 10;
 
+    @Entry(category = CATEGORY_GENERAL, isSlider = true, min = 0, max = 50, precision = 1)
+    public static int extraBottomMarginForRecipeSearchBar = 35;
+
 
     @Entry(category = CATEGORY_GENERAL)
     public static boolean showItemTooltipsOnCachedItems = true;

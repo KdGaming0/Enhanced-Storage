@@ -12,6 +12,7 @@ import com.github.kdgaming0.enhancedstorage.gui.component.TooltipItemComponent;
 import com.github.kdgaming0.enhancedstorage.storage.StorageCache;
 import com.github.kdgaming0.enhancedstorage.storage.StorageKey;
 import de.hysky.skyblocker.config.SkyblockerConfigManager;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -30,6 +31,8 @@ import static com.github.kdgaming0.enhancedstorage.EnhancedStorage.MOD_ID;
 
 
 public class StorageOverlayLayout {
+
+    public static final boolean RRV_LOADED = FabricLoader.getInstance().isModLoaded("rrv");
 
     private Identifier getMainBackgroundTexture() {
         return switch (EnhancedStorageConfig.backgroundType) {
@@ -303,11 +306,16 @@ public class StorageOverlayLayout {
     }
 
     private static int computeBottomMargin() {
+        int margin = EnhancedStorageConfig.overviewBottomMargin + 96; // 96 is the space for the inventory panel below the Storage overview panel, adding more will create spacing between the edge of the screen and the storage overview as a whole
+
         // Quick Nav buttons sit in a row just above and below the container, so add more margin to make space for them.
         if (SkyblockerConfigManager.get().quickNav.enableQuickNav) {
-            return EnhancedStorageConfig.overviewBottomMargin + (EnhancedStorageConfig.extraTopAndBottomMarginForQuickNav - 5) + 96;
+            margin += EnhancedStorageConfig.extraTopAndBottomMarginForQuickNav - 5;
         }
-        return EnhancedStorageConfig.overviewBottomMargin + 96; // 96 is the space for the inventory panel below the Storage overview panel, adding more will create spacing between the edge of the screen and the storage overview as a whole
+        if (RRV_LOADED) {
+            margin += EnhancedStorageConfig.extraBottomMarginForRecipeSearchBar;
+        }
+        return margin;
     }
 
     private int cardHeightForRow(StorageKey key, @Nullable StorageKey liveKey, int liveRows, int titleAreaHeight) {
