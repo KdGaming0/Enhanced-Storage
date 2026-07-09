@@ -77,12 +77,25 @@ repositories {
             includeGroupAndSubgroups("me.shedaniel")
         }
     }
+
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = "DAQEM Studios Maven"
+                url = uri("https://maven.daqem.com/releases")
+            }
+        }
+        filter {
+            includeGroup("com.daqem.uilib")
+        }
+    }
 }
 
 dependencies {
     minecraft("com.mojang:minecraft:${sc.current.version}")
     modImplementation("net.fabricmc:fabric-loader:${property("deps.fabric_loader")}")
     modImplementation("net.fabricmc.fabric-api:fabric-api:${property("deps.fabric_api")}")
+    modImplementation("com.daqem.uilib:uilib-fabric:${property("deps.uilib_version")}")
 
     modImplementation("maven.modrinth:midnightlib:${property("deps.midnightlib_version")}")
     include("maven.modrinth:midnightlib:${property("deps.midnightlib_version")}")
@@ -92,11 +105,15 @@ dependencies {
 
     implementation("org.msgpack:msgpack-core:0.9.12")
 
+    // TODO add Soft integration
     // Soft integration with Roughly Enough Items: compile-only so REI stays optional at runtime
     modCompileOnly("me.shedaniel:RoughlyEnoughItems-api-fabric:26.1.819") {
         isTransitive = false
     }
     compileOnly("me.shedaniel.cloth:basic-math:0.6.1")
+
+    // Skyblocker
+    modCompileOnly("maven.modrinth:y6DuFGwJ:n5H2yDJu")
 
     modRuntimeOnly("me.djtheredstoner:DevAuth-fabric:1.2.2")
     modRuntimeOnly("maven.modrinth:modmenu:${property("deps.modmenu_version")}")
@@ -104,10 +121,7 @@ dependencies {
 
 loom {
     fabricModJsonPath = rootProject.file("src/main/resources/fabric.mod.json") // Useful for interface injection
-    accessWidenerPath = sc.process(
-        rootProject.file("src/main/resources/enhancedstorage.ct"),
-        "build/processed.ct"
-    )
+    accessWidenerPath = rootProject.file("src/main/resources/enhanced_storage.accesswidener")
 
     decompilerOptions.named("vineflower") {
         options.put("mark-corresponding-synthetics", "1") // Adds names to lambdas - useful for mixins
@@ -144,6 +158,7 @@ tasks {
             register("version", "mod.version")
             register("minecraft", "mod.mc_compat")
             register("loader_version", "deps.fabric_loader")
+            register("uilib", "deps.uilib_version")
         }
 
         filesMatching("fabric.mod.json") { expand(props) }

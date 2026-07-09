@@ -22,11 +22,12 @@
   "mixins": [
     "enhancedstorage.mixins.json"
   ],
-  "accessWidener": "enhancedstorage.ct",
+  "accessWidener": "enhanced_storage.accesswidener",
   "depends": {
     "fabricloader": ">=${loader_version}",
     "minecraft": "${minecraft}",
     "fabric-api": "*",
-    "midnightlib": ">=1.9.3"
+    "midnightlib": ">=1.9.3",
+    "uilib": ">=${uilib}"
   }
 }
