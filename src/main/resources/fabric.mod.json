@@ -12,7 +12,7 @@
     "sources": "https://github.com/kdgaming0/Enhanced-Storage"
   },
   "license": "GPL-3.0-only",
-  "icon": "assets/enhanced_storage/icon.png",
+  "icon": "assets/enhanced_storage/enhanced_storage_icon.png",
   "environment": "client",
   "entrypoints": {
     "client": [
