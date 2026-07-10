@@ -1,28 +1,30 @@
 package com.github.kdgaming0.enhancedstorage.screen;
 
+import com.daqem.uilib.api.screen.IScreenAccessor;
 import com.daqem.uilib.gui.AbstractContainerScreen;
 import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.daqem.uilib.gui.widget.ScrollContainerWidget;
+import com.github.kdgaming0.enhancedstorage.compat.RRVCompat;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayLayout;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayState;
 import com.github.kdgaming0.enhancedstorage.gui.component.PageCardComponent;
 import com.github.kdgaming0.enhancedstorage.mixin.AbstractContainerScreenAccessor;
 import com.github.kdgaming0.enhancedstorage.storage.StorageCache;
 import com.github.kdgaming0.enhancedstorage.storage.StorageKey;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.ChestMenu;
-import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
+import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> implements IHighlightClipProvider {
 
@@ -31,6 +33,8 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     private final StorageOverlayLayout layout = new StorageOverlayLayout();
 
     private final Map<Long, int[]> topSlotClipRects = new HashMap<>();
+
+    private final boolean rrvLoaded = FabricLoader.getInstance().isModLoaded("rrv");
 
     private static long cordKey(int x, int y) {
         return ((long) x << 32) | (y & 0xFFFFFFFFL);
@@ -88,6 +92,62 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     public void extractContents(@NonNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float a) {
         syncSlotPositions();
         super.extractContents(guiGraphics, mouseX, mouseY, a);
+        if (rrvLoaded) {
+            RRVCompat.renderHighlightAbove(this, guiGraphics, mouseX, mouseY, a);
+        }
+    }
+
+    @Override
+    public void extractBackground(@NotNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
+        if (rrvLoaded) {
+            sinkForeignRrvWidgets(mouseX, mouseY);
+        }
+        super.extractBackground(guiGraphics, mouseX, mouseY, partialTick);
+        // Rendering RRV's overlay early, in the background stratum, so everything this screen draws appears on top of it and not the other way around.
+        if (rrvLoaded) {
+            RRVCompat.renderOverlayBelow(guiGraphics, mouseX, mouseY, partialTick);
+        }
+    }
+
+    // Makes the Item list buttons from RRV render behind the menu instead of on top / block the mouse hovered from reaching the button
+    private void sinkForeignRrvWidgets(int mouseX, int mouseY) {
+        if (!(this instanceof IScreenAccessor accessor)) return;
+
+        List<Renderable> renderables = accessor.uilib$getRenderables();
+        List<Renderable> rrvWidgets = new ArrayList<>();
+
+        renderables.removeIf(r -> {
+            if (isRrvWidget(r)) {
+                Renderable original = (r instanceof HoverMaskedRenderable m) ? m.delegate() : r;
+                // RRV removed it from children => it's stale, let it die
+                if (original instanceof GuiEventListener l && !this.children().contains(l)) {
+                    return true; // remove and don't re-add
+                }
+                rrvWidgets.add(original);
+                return true;
+            }
+            return false;
+        });
+
+        if (rrvWidgets.isEmpty()) return;
+
+        boolean covered = isInsideOverlay(mouseX, mouseY);
+        List<Renderable> toInsert = new ArrayList<>(rrvWidgets.size());
+        for (Renderable r : rrvWidgets) {
+            toInsert.add(covered ? new HoverMaskedRenderable(this, r) : r);
+        }
+        renderables.addAll(0, toInsert);
+    }
+
+    private record HoverMaskedRenderable(StorageContainerScreen screen, Renderable delegate) implements Renderable {
+        @Override
+        public void extractRenderState(@NonNull GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+            if (screen.isInsideOverlay(mouseX, mouseY)) {
+                delegate.extractRenderState(graphics, -9999, -9999, a);  // Suppress when covered by this screen
+            } else {
+                delegate.extractRenderState(graphics, mouseX, mouseY, a); // Uncovered, do nothing
+            }
+        }
     }
 
     private boolean isInsideOverlay(double mx, double my) {
@@ -263,6 +323,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         };
         if (command == null) return;
 
+        assert Minecraft.getInstance().player != null;
         Minecraft.getInstance().player.connection.sendCommand(command);
     }
 
@@ -310,11 +371,27 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         return null;
     }
 
+    private boolean isOverPageOverview(double mouseX, double mouseY) {
+        ScrollContainerWidget overview = layout.getPageOverview();
+        if (overview == null) return false;
+        return mouseX >= overview.getX() && mouseX < overview.getX() + overview.getWidth()
+                && mouseY >= overview.getY() && mouseY < overview.getY() + overview.getHeight();
+    }
+
+    private static boolean isRrvWidget(Object o) {
+        if (o instanceof HoverMaskedRenderable masked) {
+            return true; // treat wrappers as RRV widgets so we can re-process them
+        }
+        return o.getClass().getName().startsWith("cc.cassian.rrv");
+    }
+
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        ScrollContainerWidget overview = layout.getPageOverview();
-        if (overview != null && overview.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) {
-            return true;
+        if (isOverPageOverview(mouseX, mouseY)) {
+            ScrollContainerWidget overview = layout.getPageOverview();
+            if (overview.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) {
+                return true;
+            }
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
@@ -353,47 +430,67 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
     @Override
     public boolean mouseClicked(@NonNull MouseButtonEvent event, boolean doubleClick) {
-        // 1. Widgets (scrollbar, search box) get first shot for click events
+        boolean coveredByGui = isInsideOverlay(event.x(), event.y());
+
+        // 1. Widgets get first shot
         for (GuiEventListener child : this.children()) {
-            if (child.isMouseOver(event.x(), event.y()) && child.mouseClicked(event, doubleClick)) {
+            if (coveredByGui && isRrvWidget(child)) continue;
+            if (child.mouseClicked(event, doubleClick)) {
                 this.setFocused(child);
+                if (!child.isFocused()) {
+                    child.setFocused(true);   // screen ref was stale; force the widget flag
+                }
                 if (event.button() == 0) this.setDragging(true);
                 return true;
             }
         }
 
-        // 2. Index/Storage Overview mode: use container slots for navigation
-        if (openKey.type() == StorageKey.Type.STORAGE_INDEX) {
+        // 2. Index mode: left-click on an item in the storage overview navigates to that page
+        if (openKey.type() == StorageKey.Type.STORAGE_INDEX && event.button() == 0) {
             Slot slot = findHoveredContainerSlot(event.x(), event.y());
-            if (slot != null) {
-                if (event.button() == 0) {
-                    if (slot.hasItem()) {
-                        StorageKey.fromIndexItem(slot.getItem().getHoverName())
-                                .ifPresent(this::onPageCardClicked);
-                    }
-                } else if (event.button() == 1) {
-                    this.slotClicked(slot, slot.index, 1, ContainerInput.PICKUP);
+            if (slot != null && slot.hasItem()) {
+                var key = StorageKey.fromIndexItem(slot.getItem().getHoverName());
+                if (key.isPresent()) {
+                    onPageCardClicked(key.get());
+                    return true;
                 }
-                return true;
             }
         }
 
-        // 3. Browse mode: clicks on the Storage Overview panel
+        // 3. Browse mode: left-clicking on the storage overview panel area runs /storage to open the storage page
         if (event.button() == 0
                 && openKey.type() != StorageKey.Type.STORAGE_INDEX
                 && this.menu.getCarried().isEmpty()
                 && isOverOverviewPanel(event.x(), event.y())) {
-
-            StorageKey clicked = indexItemAt(event.x(), event.y()).orElse(null);
-            if (clicked != null) {
-                onPageCardClicked(clicked); // jump straight to that page you clicked on
-            } else {
-                Minecraft.getInstance().player.connection.sendCommand("storage");
-            }
+            indexItemAt(event.x(), event.y()).ifPresentOrElse(
+                    this::onPageCardClicked,
+                    () -> {
+                        assert Minecraft.getInstance().player != null;
+                        Minecraft.getInstance().player.connection.sendCommand("storage");
+                    });
             return true;
         }
 
-        // 4. Everything else: real slot clicks (open page + player inventory)
+        // 4. Screen's own mouseClicked runs its child loop again before slot logic, which would give the hidden RRV widgets a second chance at the click.
+        // Pull them out of the children list for the duration of the call, and restore them afterward.
+        if (coveredByGui && this instanceof IScreenAccessor accessor) {
+            List<GuiEventListener> children = accessor.uilib$getChildren();
+            List<GuiEventListener> pulled = new ArrayList<>();
+            children.removeIf(c -> {
+                if (isRrvWidget(c)) {
+                    pulled.add(c);
+                    return true;
+                }
+                return false;
+            });
+            try {
+                return super.mouseClicked(event, doubleClick);
+            } finally {
+                children.addAll(pulled);
+            }
+        }
+
+        // 5. Everything else: real slot clicks (open page + player inventory)
         return super.mouseClicked(event, doubleClick);
     }
 }
