@@ -36,4 +36,10 @@ public class EnhancedStorageConfig extends MidnightConfig {
 
     @Entry(category = CATEGORY_GENERAL)
     public static boolean showItemTooltipsOnCachedItems = true;
+
+    @Entry(category = CATEGORY_GENERAL)
+    public static boolean rememberSearchOnReopen = false;
+
+    @Entry(category = CATEGORY_GENERAL)
+    public static boolean rememberScrollOnReopen = false;
 }

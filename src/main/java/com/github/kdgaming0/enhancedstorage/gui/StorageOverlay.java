@@ -14,7 +14,7 @@ import java.util.Objects;
 
 public class StorageOverlay extends AbstractScreen {
 
-    private final StorageOverlayState state = new StorageOverlayState();
+    private final StorageOverlayState state = StorageOverlayState.session();
     private final StorageOverlayLayout layout = new StorageOverlayLayout();
 
     public StorageOverlay() {
@@ -25,6 +25,7 @@ public class StorageOverlay extends AbstractScreen {
     protected void init() {
         layout.build(this, this.font, this.width, this.height,
                 state, null, 0, this::onPageCardClicked, this::onSearchChanged);
+        state.onStorageScreenOpened();
     }
 
     // Called by PageCardComponent when a card is clicked.
@@ -51,6 +52,12 @@ public class StorageOverlay extends AbstractScreen {
                 box.setFocused(true);
             }
         });
+    }
+
+    @Override
+    public void removed() {
+        super.removed();
+        state.onStorageScreenClosed();
     }
 
     @Override

@@ -161,6 +161,11 @@ public class StorageOverlayLayout {
                 }
                 return false;
             }
+            @Override
+            public void setScrollAmount(double amount) {
+                super.setScrollAmount(amount);
+                state.setScrollAmount(scrollAmount());
+            }
         };
 
         if (pageKeys.isEmpty()) {
@@ -226,6 +231,7 @@ public class StorageOverlayLayout {
         pageOverview.uilib$updateParentPosition(mainBackground.getTotalX() + INNER_PADDING, mainBackground.getTotalY() + INNER_PADDING);
         mainBackground.addWidget(pageOverview);
         this.pageOverview = pageOverview;
+        pageOverview.setScrollAmount(state.getScrollAmount());
 
         int mainBackgroundCenterX = mainBackgroundX + mainBackgroundWidth / 2;
 

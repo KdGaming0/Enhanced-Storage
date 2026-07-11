@@ -32,7 +32,7 @@ import java.util.*;
 public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> implements IHighlightClipProvider {
 
     private final StorageKey openKey;
-    private final StorageOverlayState state = new StorageOverlayState();
+    private final StorageOverlayState state = StorageOverlayState.session();
     private final StorageOverlayLayout layout = new StorageOverlayLayout();
 
     private final Map<Long, int[]> topSlotClipRects = new HashMap<>();
@@ -82,6 +82,14 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         this.topPos  = boxTop;
 
         syncSlotPositions();
+
+        state.onStorageScreenOpened();
+    }
+
+    @Override
+    public void removed() {
+        super.removed();
+        state.onStorageScreenClosed();
     }
 
     @Override
@@ -357,6 +365,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         };
         if (command == null) return;
 
+        state.beginNavigation();
         assert Minecraft.getInstance().player != null;
         Minecraft.getInstance().player.connection.sendCommand(command);
     }
@@ -511,6 +520,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
             indexItemAt(event.x(), event.y()).ifPresentOrElse(
                     this::onPageCardClicked,
                     () -> {
+                        state.beginNavigation();
                         assert Minecraft.getInstance().player != null;
                         Minecraft.getInstance().player.connection.sendCommand("storage");
                     });
