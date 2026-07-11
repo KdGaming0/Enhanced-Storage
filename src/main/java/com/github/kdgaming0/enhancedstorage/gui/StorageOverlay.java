@@ -5,6 +5,7 @@ import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
 import com.github.kdgaming0.enhancedstorage.storage.StorageCache;
 import com.github.kdgaming0.enhancedstorage.storage.StorageKey;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import org.jspecify.annotations.NonNull;
@@ -23,7 +24,7 @@ public class StorageOverlay extends AbstractScreen {
     @Override
     protected void init() {
         layout.build(this, this.font, this.width, this.height,
-                state, null, 0, this::onPageCardClicked);
+                state, null, 0, this::onPageCardClicked, this::onSearchChanged);
     }
 
     // Called by PageCardComponent when a card is clicked.
@@ -38,6 +39,18 @@ public class StorageOverlay extends AbstractScreen {
                 StorageCache.getInstance().get(key).isPresent());
 
         state.setOpenKey(key);
+    }
+
+    private void onSearchChanged() {
+        Minecraft.getInstance().schedule(() -> {
+            this.rebuildWidgets();
+
+            var box = layout.getSearchBox();
+            if (box != null) {
+                this.setFocused(box);
+                box.setFocused(true);
+            }
+        });
     }
 
     @Override

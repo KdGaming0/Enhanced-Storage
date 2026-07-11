@@ -7,6 +7,10 @@ public class StorageOverlayState {
 
     private @Nullable StorageKey openKey;
 
+    private String searchQuery = "";
+
+    public String getSearchQuery() { return searchQuery; }
+
     public @Nullable StorageKey getOpenKey() {
         return openKey;
     }
@@ -18,4 +22,10 @@ public class StorageOverlayState {
     public boolean isOpen(StorageKey key) {
         return key.equals(openKey);
     }
+
+    public void setSearchQuery(String query) {
+        this.searchQuery = query == null ? "" : query;
+    }
+
+    public boolean isSearching() { return !searchQuery.isBlank(); }
 }

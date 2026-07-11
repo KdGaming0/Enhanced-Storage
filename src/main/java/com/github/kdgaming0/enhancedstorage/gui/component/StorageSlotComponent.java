@@ -17,6 +17,9 @@ public class StorageSlotComponent extends AbstractComponent {
 
     private boolean hoverEnabled = true;
 
+    public enum SearchState { NONE, MATCH, NO_MATCH }
+    private SearchState searchState = SearchState.NONE;
+
     public StorageSlotComponent(int x, int y, int width, int height, Identifier baseTexture,
                                 @Nullable Identifier highlightBackTexture,
                                 @Nullable Identifier highlightFrontTexture,
@@ -41,6 +44,10 @@ public class StorageSlotComponent extends AbstractComponent {
         } else {
             this.item = null;
         }
+    }
+
+    public void setSearchState(SearchState searchState) {
+        this.searchState = searchState;
     }
 
     public boolean isHoverEnabled() {
@@ -68,6 +75,10 @@ public class StorageSlotComponent extends AbstractComponent {
 
         base.extractRenderStateBase(guiGraphics, mouseX, mouseY, partialTick, parentWidth, parentHeight);
 
+        if (searchState == SearchState.MATCH) {
+            guiGraphics.fill(getTotalX() + 1, getTotalY() + 1, getTotalX() + 17, getTotalY() + 17, 0x8033CC33);
+        }
+
         if (hovered && highlightBack != null) {
             highlightBack.extractRenderStateBase(guiGraphics, mouseX, mouseY, partialTick, parentWidth, parentHeight);
         }
@@ -78,6 +89,10 @@ public class StorageSlotComponent extends AbstractComponent {
 
         if (hovered && highlightFront != null) {
             highlightFront.extractRenderStateBase(guiGraphics, mouseX, mouseY, partialTick, parentWidth, parentHeight);
+        }
+
+        if (searchState == SearchState.NO_MATCH) {
+            guiGraphics.fill(getTotalX() + 1, getTotalY() + 1, getTotalX() + 17, getTotalY() + 17, 0xB0101010);
         }
     }
 

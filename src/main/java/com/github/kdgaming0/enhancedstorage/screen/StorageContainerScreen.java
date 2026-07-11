@@ -11,16 +11,19 @@ import com.github.kdgaming0.enhancedstorage.gui.component.PageCardComponent;
 import com.github.kdgaming0.enhancedstorage.mixin.AbstractContainerScreenAccessor;
 import com.github.kdgaming0.enhancedstorage.storage.StorageCache;
 import com.github.kdgaming0.enhancedstorage.storage.StorageKey;
+import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
 
@@ -40,6 +43,10 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         return ((long) x << 32) | (y & 0xFFFFFFFFL);
     }
 
+    private String liveMatchQuery = "";
+    private final Map<Integer, ItemStack> liveMatchStacks = new HashMap<>();
+    private final Map<Integer, Boolean> liveMatchResults = new HashMap<>();
+
     public StorageContainerScreen(ChestMenu menu, Inventory inventory, Component title, StorageKey openKey) {
         super(menu, inventory, title);
         this.openKey = openKey;
@@ -50,7 +57,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     protected void init() {
         super.init();
 
-        layout.build(this, this.font, this.width, this.height, state, openKey, this.menu.getRowCount(), this::onPageCardClicked);
+        layout.build(this, this.font, this.width, this.height, state, openKey, this.menu.getRowCount(), this::onPageCardClicked, this::onSearchChanged);
 
         SpriteComponent inventory = layout.getInventoryPanel();
         SpriteComponent overview = layout.getOverviewPanel();
@@ -313,6 +320,33 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         }
     }
 
+    private void onSearchChanged() {
+        Minecraft.getInstance().schedule(() -> {
+            this.rebuildWidgets();
+
+            var box = layout.getSearchBox();
+            if (box != null) {
+                this.setFocused(box);
+                box.setFocused(true);
+            }
+        });
+    }
+
+    private boolean liveSlotMatches(Slot slot) {
+        String query = state.getSearchQuery();
+        if (!query.equals(liveMatchQuery)) {
+            liveMatchStacks.clear();
+            liveMatchResults.clear();
+            liveMatchQuery = query;
+        }
+        ItemStack prev = liveMatchStacks.get(slot.index);
+        if (prev == null || !ItemStack.matches(prev, slot.getItem())) {
+            liveMatchStacks.put(slot.index, slot.getItem().copy());
+            liveMatchResults.put(slot.index, ItemSearch.matches(slot.getItem(), query));
+        }
+        return liveMatchResults.get(slot.index);
+    }
+
     private void onPageCardClicked(StorageKey key) {
         if (key.equals(openKey)) return;
 
@@ -406,7 +440,19 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
                     viewport.getX() - this.leftPos, viewport.getY() - this.topPos,
                     viewport.getX() + viewport.getWidth()  - this.leftPos,
                     viewport.getY() + viewport.getHeight() - this.topPos);
+            boolean searching = state.isSearching() && slot.y > -9000; // skip the offscreen nav row
+            boolean match = searching && liveSlotMatches(slot);
+
+            if (searching && match) {
+                graphics.fill(slot.x, slot.y, slot.x + 16, slot.y + 16, 0x8033CC33);
+            }
+
             super.extractSlot(graphics, slot, mouseX, mouseY);
+
+            if (searching && !match) {
+                graphics.fill(slot.x, slot.y, slot.x + 16, slot.y + 16, 0xB0101010);
+            }
+
             graphics.disableScissor();
         } else {
             super.extractSlot(graphics, slot, mouseX, mouseY);
@@ -492,5 +538,16 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
         // 5. Everything else: real slot clicks (open page + player inventory)
         return super.mouseClicked(event, doubleClick);
+    }
+
+    @Override
+    public boolean keyPressed(@NonNull KeyEvent event) {
+        var box = layout.getSearchBox();
+        // Stops E from closing the overlay when searching
+        if (box != null && box.isFocused() && !event.isEscape()) {
+            if (box.keyPressed(event)) return true;
+            return true;
+        }
+        return super.keyPressed(event);
     }
 }

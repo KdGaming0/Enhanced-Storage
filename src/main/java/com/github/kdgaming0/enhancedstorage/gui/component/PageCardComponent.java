@@ -8,6 +8,7 @@ import com.daqem.uilib.gui.component.text.TextComponent;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayState;
 import com.github.kdgaming0.enhancedstorage.storage.StorageKey;
+import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.WidgetSprites;
@@ -83,6 +84,8 @@ public class PageCardComponent extends AbstractComponent {
         super(x, y, width, height);
         this.key = key;
 
+        String searchQuery = state.getSearchQuery();
+
         if (live) {
             SpriteComponent background = new SpriteComponent(0, 0, width, height, getPageCardActiveTexture());
             this.addComponent(background);
@@ -118,6 +121,12 @@ public class PageCardComponent extends AbstractComponent {
                             live ? null : getStorageSlotHighlightFrontTexture(),
                             stack);
                     if (live) slotComponent.setHoverEnabled(false);
+                    if (!live && !searchQuery.isBlank()) {
+                        slotComponent.setSearchState(
+                                ItemSearch.matches(stack, searchQuery)
+                                        ? StorageSlotComponent.SearchState.MATCH
+                                        : StorageSlotComponent.SearchState.NO_MATCH);
+                    }
                     this.addComponent(slotComponent);
                 }
             }

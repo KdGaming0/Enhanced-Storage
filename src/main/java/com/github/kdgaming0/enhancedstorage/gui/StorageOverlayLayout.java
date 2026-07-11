@@ -4,6 +4,7 @@ import com.daqem.uilib.api.screen.IScreen;
 import com.daqem.uilib.gui.component.EmptyComponent;
 import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.daqem.uilib.gui.component.text.TextComponent;
+import com.daqem.uilib.gui.component.text.TruncatedTextComponent;
 import com.daqem.uilib.gui.widget.EditBoxWidget;
 import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
@@ -11,6 +12,7 @@ import com.github.kdgaming0.enhancedstorage.gui.component.PageCardComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.TooltipItemComponent;
 import com.github.kdgaming0.enhancedstorage.storage.StorageCache;
 import com.github.kdgaming0.enhancedstorage.storage.StorageKey;
+import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
 import de.hysky.skyblocker.config.SkyblockerConfigManager;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.Font;
@@ -87,6 +89,9 @@ public class StorageOverlayLayout {
     public SpriteComponent getOverviewPanel() { return overviewPanel; }
     public ScrollContainerWidget getPageOverview() { return pageOverview; }
 
+    private EditBoxWidget searchBox;
+    public EditBoxWidget getSearchBox() { return searchBox; }
+
     /**
      * Builds the full overlay onto the given screen.
      *
@@ -94,7 +99,7 @@ public class StorageOverlayLayout {
      * @param liveRows row count of the real menu (ignored when liveKey == null)
      */
     public void build(IScreen screen, Font font, int width, int height, StorageOverlayState state,
-                      @Nullable StorageKey liveKey, int liveRows, Consumer<StorageKey> onCardClick) {
+                      @Nullable StorageKey liveKey, int liveRows, Consumer<StorageKey> onCardClick, Runnable onSearchChanged) {
 
         int titleAreaHeight = font.lineHeight + 2;
 
@@ -105,6 +110,16 @@ public class StorageOverlayLayout {
                 .distinct()
                 .sorted(StorageKey.DISPLAY_ORDER)
                 .toList();
+
+        String query = state.getSearchQuery();
+        if (!query.isBlank()) {
+            pageKeys = pageKeys.stream()
+                    .filter(key -> key.equals(liveKey)
+                            || StorageCache.getInstance().get(key)
+                            .map(page -> ItemSearch.anyMatch(page.items(), query))
+                            .orElse(false))
+                    .toList();
+        }
 
         int cardWidth = CARD_BORDER * 2 + SLOTS_ACROSS * SLOT_SIZE;
 
@@ -149,11 +164,20 @@ public class StorageOverlayLayout {
         };
 
         if (pageKeys.isEmpty()) {
-            TextComponent emptyText = new TextComponent(4, 4,
-                    Component.literal("No storage pages cached yet. Open an Ender Chest or Backpack first."),
-                    0xFFAAAAAA);
+            Component message = query.isBlank()
+                    ? Component.literal("No storage pages cached yet. Open an Ender Chest or Backpack first.")
+                    : Component.literal("No storage pages contain \"" + query + "\".");
+
+            int rowHeight = titleAreaHeight + 8;
+            int textWidth = Math.min(font.width(message), rowContentWidth);
+            int textX = (rowContentWidth - textWidth) / 2;
+            int textY = (rowHeight - font.lineHeight) / 2 + 20;
+
+            TruncatedTextComponent emptyText = new TruncatedTextComponent(
+                    textX, textY, rowContentWidth - textX, message, 0xFFAAAAAA);
             emptyText.setDrawShadow(true);
-            EmptyComponent emptyRow = new EmptyComponent(0, 0, rowContentWidth, titleAreaHeight + 8);
+
+            EmptyComponent emptyRow = new EmptyComponent(0, 0, rowContentWidth, rowHeight);
             emptyRow.addComponent(emptyText);
             pageOverview.addComponent(emptyRow);
         }
@@ -266,8 +290,15 @@ public class StorageOverlayLayout {
         overview.addComponent(storageOverviewTitle);
 
         EditBoxWidget searchBox = new EditBoxWidget(font, 70, 1, 100, 12, Component.literal("Search"));
+        searchBox.setValue(state.getSearchQuery());
+        searchBox.setResponder(text -> {
+            if (text.equals(state.getSearchQuery())) return;
+            state.setSearchQuery(text);
+            onSearchChanged.run();
+        });
         searchBox.uilib$updateParentPosition(inventory.getTotalX(), inventory.getTotalY());
         screen.addWidget(searchBox);
+        this.searchBox = searchBox;
     }
 
     public static int computeColumns(int width) {

@@ -17,7 +17,7 @@ public final class RRVCompat {
         return renderingHighlightLate;
     }
 
-
+    // Render the RRV overlay below the Storage Overlay so the item list nav buttons don't interfere with the overlay when it is open.
     public static void renderOverlayBelow(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTicks) {
         renderingEarly = true;
         try {
@@ -27,6 +27,7 @@ public final class RRVCompat {
         }
     }
 
+    // Render the Filter Highlight Above again so they are visible
     public static void renderHighlightAbove(AbstractContainerScreen<?> screen, GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTicks) {
         renderingHighlightLate = true;
         try {
