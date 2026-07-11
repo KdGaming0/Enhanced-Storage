@@ -47,6 +47,8 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     private final Map<Integer, ItemStack> liveMatchStacks = new HashMap<>();
     private final Map<Integer, Boolean> liveMatchResults = new HashMap<>();
 
+    private boolean autoScrolledToOpenCard = false;
+
     public StorageContainerScreen(ChestMenu menu, Inventory inventory, Component title, StorageKey openKey) {
         super(menu, inventory, title);
         this.openKey = openKey;
@@ -58,6 +60,11 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         super.init();
 
         layout.build(this, this.font, this.width, this.height, state, openKey, this.menu.getRowCount(), this::onPageCardClicked, this::onSearchChanged);
+
+        if (!autoScrolledToOpenCard) {
+            layout.scrollLiveCardIntoView();
+            autoScrolledToOpenCard = true;
+        }
 
         SpriteComponent inventory = layout.getInventoryPanel();
         SpriteComponent overview = layout.getOverviewPanel();

@@ -69,6 +69,9 @@ public class StorageOverlayLayout {
     public static final int SCROLLBAR_GAP = 4;
     public static final int UNCACHED_CARD_HEIGHT = 50;
 
+    private int liveRowTop = -1;
+    private int liveRowBottom = -1;
+
     private int mainBackgroundX;
     private int mainBackgroundY;
     private int mainBackgroundWidth;
@@ -100,6 +103,9 @@ public class StorageOverlayLayout {
      */
     public void build(IScreen screen, Font font, int width, int height, StorageOverlayState state,
                       @Nullable StorageKey liveKey, int liveRows, Consumer<StorageKey> onCardClick, Runnable onSearchChanged) {
+
+        this.liveRowTop = -1;
+        this.liveRowBottom = -1;
 
         int titleAreaHeight = font.lineHeight + 2;
 
@@ -166,6 +172,10 @@ public class StorageOverlayLayout {
                 super.setScrollAmount(amount);
                 state.setScrollAmount(scrollAmount());
             }
+            @Override
+            protected double scrollRate() {
+                return EnhancedStorageConfig.overlayScrollSpeed;
+            }
         };
 
         if (pageKeys.isEmpty()) {
@@ -187,6 +197,7 @@ public class StorageOverlayLayout {
             pageOverview.addComponent(emptyRow);
         }
 
+        int contentY = 0;
         for (int i = 0; i < pageKeys.size(); i += columns) {
             List<StorageKey> rowKeys = pageKeys.subList(i, Math.min(i + columns, pageKeys.size()));
 
@@ -195,6 +206,12 @@ public class StorageOverlayLayout {
                     .mapToInt(key -> cardHeightForRow(key, liveKey, liveRows, titleAreaHeight))
                     .max()
                     .orElse(UNCACHED_CARD_HEIGHT);
+
+            // Checks if the current row being build has the live storage page, if so get it's Y position in the scroll component
+            if (liveKey != null && rowKeys.contains(liveKey)) {
+                liveRowTop = contentY;
+                liveRowBottom = contentY + rowHeight;
+            }
 
             EmptyComponent row = new EmptyComponent(0, 0, rowContentWidth, rowHeight);
             for (int col = 0; col < rowKeys.size(); col++) {
@@ -226,6 +243,7 @@ public class StorageOverlayLayout {
                 row.addComponent(pageCard);
             }
             pageOverview.addComponent(row);
+            contentY += rowHeight + pageOverview.getContentSpacing();
         }
 
         pageOverview.uilib$updateParentPosition(mainBackground.getTotalX() + INNER_PADDING, mainBackground.getTotalY() + INNER_PADDING);
@@ -369,5 +387,31 @@ public class StorageOverlayLayout {
                     return StorageOverlayLayout.CARD_BORDER * 2 + titleAreaHeight + rows * StorageOverlayLayout.SLOT_SIZE;
                 })
                 .orElse(StorageOverlayLayout.UNCACHED_CARD_HEIGHT);
+    }
+
+    // Scroll the live page into view if is not already in view
+    public void scrollLiveCardIntoView() {
+        if (pageOverview == null || liveRowTop < 0) return;
+        if (EnhancedStorageConfig.autoScrollToOpenPage == EnhancedStorageConfig.AutoScrollMode.OFF) return;
+
+        double scroll = pageOverview.scrollAmount();
+        int viewHeight = pageOverview.getHeight();
+        int rowHeight = liveRowBottom - liveRowTop;
+
+        boolean fullyVisible = liveRowTop >= scroll && liveRowBottom <= scroll + viewHeight;
+        boolean fullyHidden  = liveRowBottom <= scroll || liveRowTop >= scroll + viewHeight;
+
+        if (fullyVisible) return;
+        if (EnhancedStorageConfig.autoScrollToOpenPage == EnhancedStorageConfig.AutoScrollMode.IF_FULLY_HIDDEN && !fullyHidden) {
+            return;
+        }
+
+        if (liveRowTop < scroll || rowHeight >= viewHeight) {
+            pageOverview.setScrollAmount(liveRowTop);
+        } else if (liveRowBottom > scroll + viewHeight) {
+            // Below the viewport — scroll the minimum amount so its bottom lands on the edge.
+            pageOverview.setScrollAmount(liveRowBottom - viewHeight);
+        }
+        // else: already fully visible do nothing
     }
 }

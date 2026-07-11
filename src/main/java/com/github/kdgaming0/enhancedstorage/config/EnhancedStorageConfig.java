@@ -42,4 +42,16 @@ public class EnhancedStorageConfig extends MidnightConfig {
 
     @Entry(category = CATEGORY_GENERAL)
     public static boolean rememberScrollOnReopen = false;
+
+    public enum AutoScrollMode {
+        OFF,
+        IF_PARTLY_HIDDEN,
+        IF_FULLY_HIDDEN
+    }
+
+    @Entry(category = CATEGORY_GENERAL)
+    public static AutoScrollMode autoScrollToOpenPage = AutoScrollMode.IF_PARTLY_HIDDEN;
+
+    @Entry(category = CATEGORY_GENERAL, isSlider = true, min = 1, max = 60, precision = 1)
+    public static int overlayScrollSpeed = 18;
 }
