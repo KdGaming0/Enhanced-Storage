@@ -1,5 +1,6 @@
 package com.github.kdgaming0.enhancedstorage.mixin;
 
+import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.screen.StorageContainerScreen;
 import com.github.kdgaming0.enhancedstorage.storage.StorageKey;
 import net.minecraft.client.Minecraft;
@@ -14,6 +15,7 @@ public abstract class MinecraftMixin {
 
     @ModifyVariable(method = "setScreen", at = @At("HEAD"), argsOnly = true, name = "screen")
     private Screen enhancedstorage$swapScreen(Screen screen) {
+        if (!EnhancedStorageConfig.enableOverlay) return screen;
         if (!(screen instanceof ContainerScreen containerScreen)) return screen;
 
         return StorageKey.fromTitle(containerScreen.getTitle())

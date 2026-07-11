@@ -491,6 +491,13 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         return o.getClass().getName().startsWith("cc.cassian.rrv");
     }
 
+    // Call to reset the Storage Overlay if the cache changes while it open
+    public void rebuildForProfileChange() {
+        closeRenameDialog();
+        autoScrolledToOpenCard = false;
+        this.rebuildWidgets();
+    }
+
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (renameDialog != null) return true;

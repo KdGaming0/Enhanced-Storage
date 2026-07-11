@@ -19,7 +19,7 @@ public record StorageKey(Type type, int page) {
         BACKPACK
     }
 
-    private static final Pattern ENDER_CHEST_PATTERN = Pattern.compile("ender chest \\((\\d+)/9\\)");
+    private static final Pattern ENDER_CHEST_PATTERN = Pattern.compile("ender chest \\((\\d+)/\\d+\\)");
     private static final Pattern BACKPACK_PATTERN = Pattern.compile("backpack \\(slot #(\\d+)\\)");
     private static final Pattern ENDER_CHEST_ITEM_PATTERN = Pattern.compile("ender chest page (\\d+)");
     private static final Pattern BACKPACK_ITEM_PATTERN = Pattern.compile("backpack slot (\\d+)");
@@ -49,6 +49,10 @@ public record StorageKey(Type type, int page) {
 
     /** Identifies a storage page from an item in the storage index menu. */
     public static Optional<StorageKey> fromIndexItem(Component name) {
+        if (TextUtils.stripText(name).contains("locked") || TextUtils.stripText(name).contains("empty")) {
+            return Optional.empty();
+        }
+
         Matcher m = TextUtils.matcher(name, ENDER_CHEST_ITEM_PATTERN);
 
         if (m.find()) {

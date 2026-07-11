@@ -60,6 +60,13 @@ public final class StorageCache {
         dirty = true;
     }
 
+    public void retainOnly(StorageKey.Type type, Set<StorageKey> keep) {
+        boolean removed = pages.keySet().removeIf(k -> k.type() == type && !keep.contains(k));
+        if (removed) {
+            dirty = true;
+        }
+    }
+
     public Set<StorageKey> allKnown() {
         return Collections.unmodifiableSet(knownPages);
     }
@@ -75,8 +82,11 @@ public final class StorageCache {
     // ------------------------------------------------------------------
 
     private static Path cacheFile() {
+        String profile = StorageProfile.getInstance().current().orElse("default");
         return FabricLoader.getInstance().getConfigDir()
                 .resolve(EnhancedStorage.MOD_ID)
+                .resolve("profiles")
+                .resolve(profile)
                 .resolve("storage_cache.dat");
     }
 
@@ -190,5 +200,12 @@ public final class StorageCache {
 
         dirty = false;
         EnhancedStorage.LOGGER.info("Loaded storage cache: {} pages", loaded);
+    }
+
+    public void reloadForCurrentProfile() {
+        pages.clear();
+        knownPages.clear();
+        dirty = false;
+        loadFromDisk();
     }
 }

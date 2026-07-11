@@ -22,7 +22,7 @@ public class EnhancedStorageMixinPlugin implements IMixinConfigPlugin {
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
         if (mixinClassName.contains(".compat.RRV")) {
-            return FabricLoader.getInstance().isModLoaded("rrv"); // check RRV's actual mod id
+            return FabricLoader.getInstance().isModLoaded("rrv");
         }
         return true;
     }

@@ -2,7 +2,11 @@ package com.github.kdgaming0.enhancedstorage;
 
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlay;
+import com.github.kdgaming0.enhancedstorage.screen.StorageContainerScreen;
+import com.github.kdgaming0.enhancedstorage.storage.StorageCache;
 import com.github.kdgaming0.enhancedstorage.storage.StorageCaptureHandler;
+import com.github.kdgaming0.enhancedstorage.storage.StorageNames;
+import com.github.kdgaming0.enhancedstorage.storage.StorageProfile;
 import eu.midnightdust.lib.config.MidnightConfig;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -19,6 +23,21 @@ public class EnhancedStorage implements ClientModInitializer {
     public void onInitializeClient() {
 
         MidnightConfig.init(MOD_ID, EnhancedStorageConfig.class);
+
+        StorageProfile.getInstance().setOnChange(() -> {
+            StorageCache.getInstance().reloadForCurrentProfile();
+            StorageNames.getInstance().reloadForCurrentProfile();
+
+            // If a storage overlay is currently open, rebuild it against the new data.
+            Minecraft mc = Minecraft.getInstance();
+            mc.execute(() -> {
+                if (mc.screen instanceof StorageContainerScreen storageScreen) {
+                    storageScreen.rebuildForProfileChange();
+                }
+            });
+
+            LOGGER.info("Storage profile changed; caches reloaded.");
+        });
 
         StorageCaptureHandler.register();
 

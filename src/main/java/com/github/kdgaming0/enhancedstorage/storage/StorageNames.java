@@ -91,8 +91,11 @@ public final class StorageNames {
     // ------------------------------------------------------------------
 
     private static Path namesFile() {
+        String profile = StorageProfile.getInstance().current().orElse("default");
         return FabricLoader.getInstance().getConfigDir()
                 .resolve(EnhancedStorage.MOD_ID)
+                .resolve("profiles")
+                .resolve(profile)
                 .resolve("storage_names.dat");
     }
 
@@ -147,6 +150,13 @@ public final class StorageNames {
         dirty = false;
         loaded = true;
         EnhancedStorage.LOGGER.info("Loaded storage names: {} entries", names.size());
+    }
+
+    public void reloadForCurrentProfile() {
+        names.clear();
+        dirty = false;
+        loaded = false;
+        loadFromDisk();
     }
 
     public boolean isLoaded() {

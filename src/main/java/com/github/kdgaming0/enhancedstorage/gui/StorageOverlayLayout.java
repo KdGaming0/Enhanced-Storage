@@ -13,7 +13,6 @@ import com.github.kdgaming0.enhancedstorage.gui.component.TooltipItemComponent;
 import com.github.kdgaming0.enhancedstorage.storage.StorageCache;
 import com.github.kdgaming0.enhancedstorage.storage.StorageKey;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
-import de.hysky.skyblocker.config.SkyblockerConfigManager;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.events.GuiEventListener;
@@ -35,6 +34,7 @@ import static com.github.kdgaming0.enhancedstorage.EnhancedStorage.MOD_ID;
 public class StorageOverlayLayout {
 
     public static final boolean RRV_LOADED = FabricLoader.getInstance().isModLoaded("rrv");
+    public static final boolean SKYBLOCKER_LOADED = FabricLoader.getInstance().isModLoaded("skyblocker");
 
     private Identifier getMainBackgroundTexture() {
         return switch (EnhancedStorageConfig.backgroundType) {
@@ -358,7 +358,7 @@ public class StorageOverlayLayout {
 
     private static int computeTopMargin() {
         // Quick Nav buttons sit in a row just above and below the container, so add more margin to make space for them.
-        if (SkyblockerConfigManager.get().quickNav.enableQuickNav) {
+        if (SKYBLOCKER_LOADED && isSkyblockerQuickNavEnabled()) {
             return EnhancedStorageConfig.overviewTopMargin + EnhancedStorageConfig.extraTopAndBottomMarginForQuickNav;
         }
         return EnhancedStorageConfig.overviewTopMargin;
@@ -368,7 +368,7 @@ public class StorageOverlayLayout {
         int margin = EnhancedStorageConfig.overviewBottomMargin + 96; // 96 is the space for the inventory panel below the Storage overview panel, adding more will create spacing between the edge of the screen and the storage overview as a whole
 
         // Quick Nav buttons sit in a row just above and below the container, so add more margin to make space for them.
-        if (SkyblockerConfigManager.get().quickNav.enableQuickNav) {
+        if (SKYBLOCKER_LOADED && isSkyblockerQuickNavEnabled()) {
             margin += EnhancedStorageConfig.extraTopAndBottomMarginForQuickNav - 5;
         }
         if (RRV_LOADED) {
@@ -417,5 +417,13 @@ public class StorageOverlayLayout {
             pageOverview.setScrollAmount(liveRowBottom - viewHeight);
         }
         // else: already fully visible do nothing
+    }
+
+    private static boolean isSkyblockerQuickNavEnabled() {
+        try {
+            return de.hysky.skyblocker.config.SkyblockerConfigManager.get().quickNav.enableQuickNav;
+        } catch (NoClassDefFoundError e) {
+            return false;
+        }
     }
 }

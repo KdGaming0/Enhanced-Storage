@@ -5,6 +5,8 @@ import eu.midnightdust.lib.config.MidnightConfig;
 public class EnhancedStorageConfig extends MidnightConfig {
     public static final String CATEGORY_GENERAL = "general";
 
+    @Entry(category = CATEGORY_GENERAL)
+    public static boolean enableOverlay = true;
 
     @Entry(category = CATEGORY_GENERAL)
     public static BackgroundType backgroundType = BackgroundType.TRANSPARENT;

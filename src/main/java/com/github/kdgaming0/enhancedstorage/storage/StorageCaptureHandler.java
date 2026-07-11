@@ -1,5 +1,7 @@
 package com.github.kdgaming0.enhancedstorage.storage;
 
+import com.github.kdgaming0.enhancedstorage.util.TextUtils;
+import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -7,6 +9,8 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -18,6 +22,8 @@ public final class StorageCaptureHandler {
 
     /** Player inventory (27) + hotbar (9) slots appended at the end of every chest menu. */
     private static final int PLAYER_SLOT_COUNT = 36;
+
+    private static final Pattern PROFILE_ID_PATTERN = Pattern.compile("profile id:\\s*([0-9a-f-]{36})");
 
     private StorageCaptureHandler() {}
 
@@ -45,13 +51,38 @@ public final class StorageCaptureHandler {
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
                 client.execute(() -> {
-                    StorageCache.getInstance().loadFromDisk();
-                    StorageNames.getInstance().loadFromDisk();
+                    // Use last session's profile as the optimistic guess until we know for sure what skyblock profile just loaded in
+                    StorageProfile.getInstance().adoptLastKnownProfile();
+                    // When we then know the correct profile, we reload it if our guess is wrong
+                    StorageCache.getInstance().reloadForCurrentProfile();
+                    StorageNames.getInstance().reloadForCurrentProfile();
                 }));
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             StorageCache.getInstance().saveToDisk();
             StorageNames.getInstance().saveToDisk();
+        });
+
+        // Detect the real skyblock profile id from chat, which arrives a few seconds after JOIN.
+        ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
+            if (overlay) return;
+            Matcher m = PROFILE_ID_PATTERN.matcher(TextUtils.stripText(message));
+            if (!m.find()) return;
+
+            String newProfileId = m.group(1);
+            StorageProfile profile = StorageProfile.getInstance();
+
+            // Did the profile not change? Do nothing.
+            if (profile.current().filter(newProfileId::equals).isPresent()) {
+                return;
+            }
+
+            // Different profile, save the current one
+            StorageCache.getInstance().saveToDisk();
+            StorageNames.getInstance().saveToDisk();
+
+            // Change to the new profile
+            profile.onProfileIdSeen(newProfileId);
         });
     }
 
@@ -60,16 +91,13 @@ public final class StorageCaptureHandler {
         if (containerSlots <= 9) return;
 
         List<ItemStack> items = new ArrayList<>(containerSlots);
-        boolean anyItem = false;
         for (int i = 9; i < containerSlots; i++) {
             if (!shouldCaptureSlot(key, i)) continue;
 
             ItemStack stack = menu.slots.get(i).getItem();
-            if (!stack.isEmpty()) anyItem = true;
             items.add(stack.copy());
         }
 
-        if (!anyItem) return;
         StorageCache.getInstance().put(key, items);
     }
 
@@ -91,9 +119,18 @@ public final class StorageCaptureHandler {
 
         if (found.isEmpty()) return;
 
-        StorageCache.getInstance().replaceKnown(StorageKey.Type.ENDER_CHEST,
-                found.stream().filter(k -> k.type() == StorageKey.Type.ENDER_CHEST).collect(Collectors.toSet()));
-        StorageCache.getInstance().replaceKnown(StorageKey.Type.BACKPACK,
-                found.stream().filter(k -> k.type() == StorageKey.Type.BACKPACK).collect(Collectors.toSet()));
+        Set<StorageKey> foundEnder = found.stream()
+                .filter(k -> k.type() == StorageKey.Type.ENDER_CHEST)
+                .collect(Collectors.toSet());
+        Set<StorageKey> foundBackpack = found.stream()
+                .filter(k -> k.type() == StorageKey.Type.BACKPACK)
+                .collect(Collectors.toSet());
+
+        StorageCache cache = StorageCache.getInstance();
+        cache.replaceKnown(StorageKey.Type.ENDER_CHEST, foundEnder);
+        cache.replaceKnown(StorageKey.Type.BACKPACK, foundBackpack);
+
+        cache.retainOnly(StorageKey.Type.ENDER_CHEST, foundEnder);
+        cache.retainOnly(StorageKey.Type.BACKPACK, foundBackpack);
     }
 }
