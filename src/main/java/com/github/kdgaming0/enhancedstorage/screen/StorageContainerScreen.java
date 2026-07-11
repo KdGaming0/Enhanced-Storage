@@ -1,6 +1,7 @@
 package com.github.kdgaming0.enhancedstorage.screen;
 
 import com.daqem.uilib.api.screen.IScreenAccessor;
+import com.daqem.uilib.api.widget.IWidget;
 import com.daqem.uilib.gui.AbstractContainerScreen;
 import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.daqem.uilib.gui.widget.ScrollContainerWidget;
@@ -8,9 +9,11 @@ import com.github.kdgaming0.enhancedstorage.compat.RRVCompat;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayLayout;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayState;
 import com.github.kdgaming0.enhancedstorage.gui.component.PageCardComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.RenameDialogComponent;
 import com.github.kdgaming0.enhancedstorage.mixin.AbstractContainerScreenAccessor;
 import com.github.kdgaming0.enhancedstorage.storage.StorageCache;
 import com.github.kdgaming0.enhancedstorage.storage.StorageKey;
+import com.github.kdgaming0.enhancedstorage.storage.StorageNames;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
@@ -48,6 +51,8 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     private final Map<Integer, Boolean> liveMatchResults = new HashMap<>();
 
     private boolean autoScrolledToOpenCard = false;
+
+    private RenameDialogComponent renameDialog;
 
     public StorageContainerScreen(ChestMenu menu, Inventory inventory, Component title, StorageKey openKey) {
         super(menu, inventory, title);
@@ -107,6 +112,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
      */
     @Override
     protected boolean hasClickedOutside(double mx, double my, int xo, int yo) {
+        if (renameDialog != null) return false;
         return !isInsideOverlay(mx, my);
     }
 
@@ -116,6 +122,9 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         super.extractContents(guiGraphics, mouseX, mouseY, a);
         if (rrvLoaded) {
             RRVCompat.renderHighlightAbove(this, guiGraphics, mouseX, mouseY, a);
+        }
+        if (renameDialog != null) {
+            renameDialog.extractRenderStateBase(guiGraphics, mouseX, mouseY, a, this.width, this.height);
         }
     }
 
@@ -362,6 +371,53 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         return liveMatchResults.get(slot.index);
     }
 
+    private PageCardComponent cardTitleAt(double mx, double my) {
+        for (PageCardComponent card : layout.getPageCards()) {
+            if (card.isOverTitle(mx, my)) return card;
+        }
+        return null;
+    }
+
+    private void openRenameDialog(StorageKey key) {
+        this.renameDialog = new RenameDialogComponent(
+                this.width, this.height, this.font, key,
+                this::onRenameSave,
+                this::closeRenameDialog,
+                () -> onRenameReset(key));
+        state.setRenamingKey(key);
+
+        var box = this.renameDialog.getNameBox();
+        this.setFocused(box);
+        box.setFocused(true);
+    }
+
+    private void onRenameSave(String name) {
+        StorageKey key = state.getRenamingKey();
+        if (key != null) {
+            StorageNames.getInstance().set(key, name);
+            StorageNames.getInstance().saveToDisk();
+        }
+        closeRenameDialog();
+        refreshAfterRename();
+    }
+
+    private void onRenameReset(StorageKey key) {
+        StorageNames.getInstance().clear(key);
+        StorageNames.getInstance().saveToDisk();
+        closeRenameDialog();
+        refreshAfterRename();
+    }
+
+    private void closeRenameDialog() {
+        this.renameDialog = null;
+        state.setRenamingKey(null);
+        this.setFocused(null);
+    }
+
+    private void refreshAfterRename() {
+        Minecraft.getInstance().schedule(this::rebuildWidgets);
+    }
+
     private void onPageCardClicked(StorageKey key) {
         if (key.equals(openKey)) return;
 
@@ -437,6 +493,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (renameDialog != null) return true;
         if (isOverPageOverview(mouseX, mouseY)) {
             ScrollContainerWidget overview = layout.getPageOverview();
             if (overview.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) {
@@ -492,6 +549,34 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
     @Override
     public boolean mouseClicked(@NonNull MouseButtonEvent event, boolean doubleClick) {
+        // If the Rename Dialog is open, give it all the mouse clicks
+        if (renameDialog != null) {
+            for (IWidget widget : renameDialog.getWidgets()) {
+                if (widget.mouseClicked(event, doubleClick)) {
+                    if (widget instanceof GuiEventListener l) {
+                        this.setFocused(l);
+                        if (!l.isFocused()) l.setFocused(true);
+                    }
+                    return true;
+                }
+            }
+            if (event.button() == 0 && !renameDialog.isOverPanel(event.x(), event.y())) {
+                closeRenameDialog();
+            }
+            return true;
+        }
+
+        // Make it, so clicking the card title doesn't open the page, but double-clicking it opens the rename dialog.
+        if (event.button() == 0 && cardTitleAt(event.x(), event.y()) != null) {
+            if (doubleClick) {
+                PageCardComponent titled = cardTitleAt(event.x(), event.y());
+                if (titled != null) {
+                    openRenameDialog(titled.getKey());
+                }
+            }
+            return true;
+        }
+
         boolean coveredByGui = isInsideOverlay(event.x(), event.y());
 
         // 1. Widgets get first shot
@@ -559,6 +644,20 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
     @Override
     public boolean keyPressed(@NonNull KeyEvent event) {
+        if (renameDialog != null) {
+            if (event.isEscape()) {
+                closeRenameDialog();
+                return true;
+            }
+            var nameBox = renameDialog.getNameBox();
+            if (event.isConfirmation()) {
+                onRenameSave(nameBox.getValue());
+                return true;
+            }
+            nameBox.keyPressed(event);
+            return true;
+        }
+
         var box = layout.getSearchBox();
         // Stops E from closing the overlay when searching
         if (box != null && box.isFocused() && !event.isEscape()) {

@@ -8,6 +8,7 @@ import com.daqem.uilib.gui.component.text.TextComponent;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayState;
 import com.github.kdgaming0.enhancedstorage.storage.StorageKey;
+import com.github.kdgaming0.enhancedstorage.storage.StorageNames;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -73,6 +74,11 @@ public class PageCardComponent extends AbstractComponent {
 
     private final StorageKey key;
 
+    private final int titleLocalX;
+    private final int titleLocalY;
+    private final int titleLocalWidth;
+    private final int titleLocalHeight;
+
     public PageCardComponent(int x, int y, int width, int height,
                              StorageKey key,
                              StorageOverlayState state,
@@ -99,9 +105,21 @@ public class PageCardComponent extends AbstractComponent {
             this.addWidget(background);
         }
 
-        TextComponent pageTitle = new TextComponent(3, 3, Component.literal(key.displayName()), 0xFFAAAAAA);
+        // Show the custom name if the user set one, otherwise the default.
+        String displayName = StorageNames.getInstance().get(key).orElse(key.displayName());
+
+        int titleX = 3;
+        int titleY = 3;
+        TextComponent pageTitle = new TextComponent(titleX, titleY, Component.literal(displayName), 0xFFAAAAAA);
         pageTitle.setDrawShadow(true);
         this.addComponent(pageTitle);
+
+        var font = Minecraft.getInstance().font;
+        int textWidth = font.width(displayName);
+        this.titleLocalX = titleX;
+        this.titleLocalY = titleY;
+        this.titleLocalWidth = Math.min(textWidth, width - titleX * 2);
+        this.titleLocalHeight = font.lineHeight;
 
         if (cached) {
             int totalSlots = live ? ((height - cardBorder * 2 - titleAreaHeight) / slotSize) * slotsAcross : items.size();
@@ -131,7 +149,6 @@ public class PageCardComponent extends AbstractComponent {
                 }
             }
         } else {
-            var font = Minecraft.getInstance().font;
             Component label = Component.literal("Click To Open");
             int textX = (width - font.width(label)) / 2;
             int textY = (height - font.lineHeight) / 2;
@@ -144,6 +161,17 @@ public class PageCardComponent extends AbstractComponent {
     public StorageKey getKey() {
         return key;
     }
+
+    public boolean isOverTitle(double screenX, double screenY) {
+        int absX = getTotalX() + titleLocalX;
+        int absY = getTotalY() + titleLocalY;
+        return screenX >= absX && screenX < absX + titleLocalWidth
+                && screenY >= absY && screenY < absY + titleLocalHeight;
+    }
+
+    public int getTitleScreenX() { return getTotalX() + titleLocalX; }
+
+    public int getTitleScreenY() { return getTotalY() + titleLocalY; }
 
     // Controls the rendering order
     @Override

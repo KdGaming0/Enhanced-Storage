@@ -13,6 +13,7 @@ public class StorageOverlayState {
     }
 
     private @Nullable StorageKey openKey;
+    private @Nullable StorageKey renamingKey;
     private String searchQuery = "";
     private double scrollAmount = 0;
 
@@ -35,6 +36,7 @@ public class StorageOverlayState {
     }
 
     public void onStorageScreenClosed() {
+        renamingKey = null;
         if (isNavigating()) {
             return;
         }
@@ -60,4 +62,10 @@ public class StorageOverlayState {
     }
 
     public boolean isSearching() { return !searchQuery.isBlank(); }
+
+    public @Nullable StorageKey getRenamingKey() { return renamingKey; }
+
+    public void setRenamingKey(@Nullable StorageKey key) { this.renamingKey = key; }
+
+    public boolean isRenaming() { return renamingKey != null; }
 }

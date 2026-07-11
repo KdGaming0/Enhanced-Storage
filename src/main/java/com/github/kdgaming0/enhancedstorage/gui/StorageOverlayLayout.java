@@ -83,11 +83,13 @@ public class StorageOverlayLayout {
     public int getMainBackgroundHeight() { return mainBackgroundHeight; }
 
     private PageCardComponent openCard;
+    private final List<PageCardComponent> pageCards = new java.util.ArrayList<>();
     private SpriteComponent inventoryPanel;
     private SpriteComponent overviewPanel;
     private ScrollContainerWidget pageOverview;
 
     public PageCardComponent getOpenCard() { return openCard; }
+    public List<PageCardComponent> getPageCards() { return pageCards; }
     public SpriteComponent getInventoryPanel() { return inventoryPanel; }
     public SpriteComponent getOverviewPanel() { return overviewPanel; }
     public ScrollContainerWidget getPageOverview() { return pageOverview; }
@@ -106,6 +108,7 @@ public class StorageOverlayLayout {
 
         this.liveRowTop = -1;
         this.liveRowBottom = -1;
+        this.pageCards.clear();
 
         int titleAreaHeight = font.lineHeight + 2;
 
@@ -240,6 +243,7 @@ public class StorageOverlayLayout {
                         onCardClick
                 );
                 if (isLive) this.openCard = pageCard;
+                this.pageCards.add(pageCard);
                 row.addComponent(pageCard);
             }
             pageOverview.addComponent(row);

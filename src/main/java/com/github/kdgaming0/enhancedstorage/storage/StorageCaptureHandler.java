@@ -39,14 +39,20 @@ public final class StorageCaptureHandler {
             ScreenEvents.remove(screen).register(s -> {
                 capture(key, containerScreen.getMenu());
                 StorageCache.getInstance().saveToDisk();
+                StorageNames.getInstance().saveToDisk();
             });
         });
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
-                client.execute(() -> StorageCache.getInstance().loadFromDisk()));
+                client.execute(() -> {
+                    StorageCache.getInstance().loadFromDisk();
+                    StorageNames.getInstance().loadFromDisk();
+                }));
 
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) ->
-                StorageCache.getInstance().saveToDisk());
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+            StorageCache.getInstance().saveToDisk();
+            StorageNames.getInstance().saveToDisk();
+        });
     }
 
     private static void capture(StorageKey key, AbstractContainerMenu menu) {
