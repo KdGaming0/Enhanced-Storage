@@ -49,7 +49,7 @@ public class StorageOverlayState {
         }
     }
 
-    public String getSearchQuery() { return searchQuery; }
+    public String getSearchQuery() { return searchQuery == null ? "" : searchQuery; }
 
     public @Nullable StorageKey getOpenKey() {return openKey; }
 
@@ -57,11 +57,9 @@ public class StorageOverlayState {
 
     public boolean isOpen(StorageKey key) { return key.equals(openKey); }
 
-    public void setSearchQuery(String query) {
-        this.searchQuery = query == null ? "" : query;
-    }
+    public void setSearchQuery(String query) { this.searchQuery = query == null ? "" : query; }
 
-    public boolean isSearching() { return !searchQuery.isBlank(); }
+    public boolean isSearching() { return searchQuery != null && !searchQuery.isBlank(); }
 
     public @Nullable StorageKey getRenamingKey() { return renamingKey; }
 

@@ -25,6 +25,7 @@ import org.jetbrains.annotations.Nullable;
 import org.jspecify.annotations.NonNull;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -112,10 +113,15 @@ public class StorageOverlayLayout {
 
         int titleAreaHeight = font.lineHeight + 2;
 
+        boolean riftContext = liveKey != null && liveKey.type() == StorageKey.Type.RIFT;
+
         List<StorageKey> pageKeys = Stream.concat(
-                        StorageCache.getInstance().all().keySet().stream(),
-                        StorageCache.getInstance().allKnown().stream())
+                        Stream.ofNullable(liveKey),
+                        Stream.concat(
+                                StorageCache.getInstance().all().keySet().stream(),
+                                StorageCache.getInstance().allKnown().stream())).filter(Objects::nonNull)
                 .filter(k -> k.type() != StorageKey.Type.STORAGE_INDEX)
+                .filter(k -> riftContext == (k.type() == StorageKey.Type.RIFT))
                 .distinct()
                 .sorted(StorageKey.DISPLAY_ORDER)
                 .toList();
@@ -183,7 +189,9 @@ public class StorageOverlayLayout {
 
         if (pageKeys.isEmpty()) {
             Component message = query.isBlank()
-                    ? Component.literal("No storage pages cached yet. Open an Ender Chest or Backpack first.")
+                    ? Component.literal(riftContext
+                                        ? "No rift storage cached yet. Open a Rift Storage page first."
+                                        : "No storage pages cached yet. Open an Ender Chest or Backpack first.")
                     : Component.literal("No storage pages contain \"" + query + "\".");
 
             int rowHeight = titleAreaHeight + 8;
@@ -257,17 +265,19 @@ public class StorageOverlayLayout {
 
         int mainBackgroundCenterX = mainBackgroundX + mainBackgroundWidth / 2;
 
+        boolean showOverview = EnhancedStorageConfig.showStorageOverviewCard && !riftContext;
+
         int inventoryWidth = 176;
         int inventoryHeight = 96;
         int overviewWidth = 176;
         int overviewHeight = 85;
-        int combinedWidth = inventoryWidth + overviewWidth;
+        int combinedWidth = showOverview ? inventoryWidth + overviewWidth : inventoryWidth;
 
         int inventoryX = (width / 2) - (inventoryWidth / 2);
         int overviewX = inventoryX - overviewWidth;
 
         // If the screen is too narrow, shift the inventory and overview to be centered under the mainBackground instead of the screen
-        if (overviewX < mainBackgroundX) {
+        if (showOverview && overviewX < mainBackgroundX) {
             int blockX = mainBackgroundCenterX - (combinedWidth / 2);
             overviewX = blockX;
             inventoryX = blockX + overviewWidth;
@@ -280,11 +290,15 @@ public class StorageOverlayLayout {
         screen.addComponent(inventory);
         this.inventoryPanel = inventory;
 
-        SpriteComponent overview = new SpriteComponent(overviewX, overviewY, overviewWidth, overviewHeight, getOverviewTexture());
-        screen.addComponent(overview);
+        SpriteComponent overview = null;
+        if (showOverview) {
+            overview = new SpriteComponent(overviewX, overviewY, overviewWidth, overviewHeight, getOverviewTexture());
+            screen.addComponent(overview);
+        }
         this.overviewPanel = overview;
 
-        if (liveKey == null || liveKey.type() != StorageKey.Type.STORAGE_INDEX) {
+        if (overview != null && (liveKey == null || liveKey.type() != StorageKey.Type.STORAGE_INDEX)) {
+            SpriteComponent overviewPanel = overview;
             StorageCache.getInstance().get(new StorageKey(StorageKey.Type.STORAGE_INDEX, 0))
                     .map(StorageCache.CachedPage::items)
                     .ifPresent(items -> {
@@ -301,8 +315,8 @@ public class StorageOverlayLayout {
                             int x = startX + col * SLOT_SIZE;
                             TooltipItemComponent item = new TooltipItemComponent(x + 1, y + 1, stack, true);
                             item.setTooltipEnabled(EnhancedStorageConfig.showItemTooltipsOnCachedItems);
-                            item.updateParentPosition(overview.getTotalX(), overview.getTotalY(), overview.getWidth(), overview.getHeight());
-                            overview.addComponent(item);
+                            item.updateParentPosition(overviewPanel.getTotalX(), overviewPanel.getTotalY(), overviewPanel.getWidth(), overviewPanel.getHeight());
+                            overviewPanel.addComponent(item);
                         }
                     });
         }
@@ -312,10 +326,12 @@ public class StorageOverlayLayout {
         inventoryTitle.setDrawShadow(true);
         inventory.addComponent(inventoryTitle);
 
-        TextComponent storageOverviewTitle = new TextComponent(7, 3, Component.literal("Storage Overview"), 0xFFAAAAAA);
-        storageOverviewTitle.updateParentPosition(overview.getTotalX(), overview.getTotalY(), overview.getWidth(), overview.getHeight());
-        storageOverviewTitle.setDrawShadow(true);
-        overview.addComponent(storageOverviewTitle);
+        if (overview != null) {
+            TextComponent storageOverviewTitle = new TextComponent(7, 3, Component.literal("Storage Overview"), 0xFFAAAAAA);
+            storageOverviewTitle.updateParentPosition(overview.getTotalX(), overview.getTotalY(), overview.getWidth(), overview.getHeight());
+            storageOverviewTitle.setDrawShadow(true);
+            overview.addComponent(storageOverviewTitle);
+        }
 
         EditBoxWidget searchBox = new EditBoxWidget(font, 70, 1, 100, 12, Component.literal("Search"));
         searchBox.setValue(state.getSearchQuery());

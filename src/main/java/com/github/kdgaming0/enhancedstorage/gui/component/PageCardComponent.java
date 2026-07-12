@@ -90,7 +90,7 @@ public class PageCardComponent extends AbstractComponent {
         super(x, y, width, height);
         this.key = key;
 
-        String searchQuery = state.getSearchQuery();
+        String searchQuery = (state == null) ? "" : state.getSearchQuery();
 
         if (live) {
             SpriteComponent background = new SpriteComponent(0, 0, width, height, getPageCardActiveTexture());

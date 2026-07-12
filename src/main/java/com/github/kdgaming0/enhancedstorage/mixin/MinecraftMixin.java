@@ -15,10 +15,12 @@ public abstract class MinecraftMixin {
 
     @ModifyVariable(method = "setScreen", at = @At("HEAD"), argsOnly = true, name = "screen")
     private Screen enhancedstorage$swapScreen(Screen screen) {
-        if (!EnhancedStorageConfig.enableOverlay) return screen;
         if (!(screen instanceof ContainerScreen containerScreen)) return screen;
 
         return StorageKey.fromTitle(containerScreen.getTitle())
+                .filter(key -> key.type() == StorageKey.Type.RIFT
+                        ? EnhancedStorageConfig.enableRiftOverlay
+                        : EnhancedStorageConfig.enableOverlay)
                 .<Screen>map(key -> new StorageContainerScreen(
                         containerScreen.getMenu(),
                         Minecraft.getInstance().player.getInventory(),

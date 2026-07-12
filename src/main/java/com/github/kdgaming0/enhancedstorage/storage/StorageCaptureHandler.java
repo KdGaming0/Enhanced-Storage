@@ -1,9 +1,11 @@
 package com.github.kdgaming0.enhancedstorage.storage;
 
+import com.github.kdgaming0.enhancedstorage.screen.StorageContainerScreen;
 import com.github.kdgaming0.enhancedstorage.util.TextUtils;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
@@ -35,10 +37,19 @@ public final class StorageCaptureHandler {
             if (keyOpt.isEmpty()) return;
             StorageKey key = keyOpt.get();
 
+            if (key.type() == StorageKey.Type.RIFT) {
+                discoverRiftPages(containerScreen.getTitle());
+            }
+
             ScreenEvents.afterTick(screen).register(s -> {
                 capture(key, containerScreen.getMenu());
                 if (key.type() == StorageKey.Type.STORAGE_INDEX) {
+                    Set<StorageKey> before = Set.copyOf(StorageCache.getInstance().allKnown());
                     captureIndex(containerScreen.getMenu());
+                    if (!before.equals(StorageCache.getInstance().allKnown())
+                            && s instanceof StorageContainerScreen storageScreen) {
+                        Minecraft.getInstance().schedule(storageScreen::refreshCards);
+                    }
                 }
             });
 
@@ -132,5 +143,16 @@ public final class StorageCaptureHandler {
 
         cache.retainOnly(StorageKey.Type.ENDER_CHEST, foundEnder);
         cache.retainOnly(StorageKey.Type.BACKPACK, foundBackpack);
+    }
+
+    public static void discoverRiftPages(net.minecraft.network.chat.Component title) {
+        Matcher m = TextUtils.matcher(title, StorageKey.RIFT_PATTERN);
+        if (!m.matches()) return;
+
+        Set<StorageKey> allRift = new HashSet<>();
+        for (int p = 1; p <= Integer.parseInt(m.group(2)); p++) {
+            allRift.add(new StorageKey(StorageKey.Type.RIFT, p));
+        }
+        StorageCache.getInstance().replaceKnown(StorageKey.Type.RIFT, allRift);
     }
 }

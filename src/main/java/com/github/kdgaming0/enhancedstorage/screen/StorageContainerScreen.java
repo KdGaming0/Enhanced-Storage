@@ -12,6 +12,7 @@ import com.github.kdgaming0.enhancedstorage.gui.component.PageCardComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.RenameDialogComponent;
 import com.github.kdgaming0.enhancedstorage.mixin.AbstractContainerScreenAccessor;
 import com.github.kdgaming0.enhancedstorage.storage.StorageCache;
+import com.github.kdgaming0.enhancedstorage.storage.StorageCaptureHandler;
 import com.github.kdgaming0.enhancedstorage.storage.StorageKey;
 import com.github.kdgaming0.enhancedstorage.storage.StorageNames;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
@@ -64,6 +65,10 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     protected void init() {
         super.init();
 
+        if (openKey.type() == StorageKey.Type.RIFT) {
+            StorageCaptureHandler.discoverRiftPages(this.getTitle());
+        }
+
         layout.build(this, this.font, this.width, this.height, state, openKey, this.menu.getRowCount(), this::onPageCardClicked, this::onSearchChanged);
 
         if (!autoScrolledToOpenCard) {
@@ -72,15 +77,19 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         }
 
         SpriteComponent inventory = layout.getInventoryPanel();
-        SpriteComponent overview = layout.getOverviewPanel();
+        SpriteComponent overview = layout.getOverviewPanel(); // may be null (Rift, or overview card disabled)
 
         int storageLeft = layout.getMainBackgroundX();
         int boxTop = layout.getMainBackgroundY();
         int storageRight = storageLeft + layout.getMainBackgroundWidth();
 
-        int bottomLeft = Math.min(overview.getTotalX(), inventory.getTotalX());
-        int bottomRight = Math.max(overview.getTotalX() + overview.getWidth(), inventory.getTotalX() + inventory.getWidth());
-        int boxBottom = Math.max(overview.getTotalY() + overview.getHeight(), inventory.getTotalY() + inventory.getHeight());
+        int invLeft = inventory.getTotalX();
+        int invRight = inventory.getTotalX() + inventory.getWidth();
+        int invBottom = inventory.getTotalY() + inventory.getHeight();
+
+        int bottomLeft = (overview != null) ? Math.min(overview.getTotalX(), invLeft)  : invLeft;
+        int bottomRight = (overview != null) ? Math.max(overview.getTotalX() + overview.getWidth(), invRight) : invRight;
+        int boxBottom = (overview != null) ? Math.max(overview.getTotalY() + overview.getHeight(), invBottom) : invBottom;
 
         int boxLeft = Math.min(storageLeft,  bottomLeft);
         int boxRight = Math.max(storageRight, bottomRight);
@@ -309,7 +318,16 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
     private void syncIndexSlotPositions() {
         SpriteComponent overview = layout.getOverviewPanel();
-        if (overview == null) return;
+        if (overview == null) {
+            // When the Storage Overview card is disabled, we push every container slot offscreen so it doesn't render.
+            int slots = this.menu.getRowCount() * 9;
+            for (int i = 0; i < slots; i++) {
+                Slot slot = this.menu.slots.get(i);
+                slot.x = -9999;
+                slot.y = -9999;
+            }
+            return;
+        }
 
         final int offX = this.leftPos;
         final int offY = this.topPos;
@@ -422,7 +440,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         if (key.equals(openKey)) return;
 
         String command = switch (key.type()) {
-            case ENDER_CHEST -> "ec " + key.page();
+            case ENDER_CHEST, RIFT -> "ec " + key.page();
             case BACKPACK    -> "backpack " + key.page();
             case STORAGE_INDEX -> null;
         };
@@ -485,7 +503,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     }
 
     private static boolean isRrvWidget(Object o) {
-        if (o instanceof HoverMaskedRenderable masked) {
+        if (o instanceof HoverMaskedRenderable) {
             return true; // treat wrappers as RRV widgets so we can re-process them
         }
         return o.getClass().getName().startsWith("cc.cassian.rrv");
@@ -495,6 +513,10 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     public void rebuildForProfileChange() {
         closeRenameDialog();
         autoScrolledToOpenCard = false;
+        this.rebuildWidgets();
+    }
+
+    public void refreshCards() {
         this.rebuildWidgets();
     }
 
@@ -560,6 +582,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         if (renameDialog != null) {
             for (IWidget widget : renameDialog.getWidgets()) {
                 if (widget.mouseClicked(event, doubleClick)) {
+                    //noinspection ConstantValue
                     if (widget instanceof GuiEventListener l) {
                         this.setFocused(l);
                         if (!l.isFocused()) l.setFocused(true);

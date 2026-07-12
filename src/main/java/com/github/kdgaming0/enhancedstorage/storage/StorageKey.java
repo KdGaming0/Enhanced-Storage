@@ -16,13 +16,15 @@ public record StorageKey(Type type, int page) {
     public enum Type {
         STORAGE_INDEX,
         ENDER_CHEST,
-        BACKPACK
+        BACKPACK,
+        RIFT
     }
 
     private static final Pattern ENDER_CHEST_PATTERN = Pattern.compile("ender chest \\((\\d+)/\\d+\\)");
     private static final Pattern BACKPACK_PATTERN = Pattern.compile("backpack \\(slot #(\\d+)\\)");
     private static final Pattern ENDER_CHEST_ITEM_PATTERN = Pattern.compile("ender chest page (\\d+)");
     private static final Pattern BACKPACK_ITEM_PATTERN = Pattern.compile("backpack slot (\\d+)");
+    public static final Pattern RIFT_PATTERN = Pattern.compile("rift storage \\((\\d+)/(\\d+)\\)");
 
     /**
      * Tries to identify a storage page from a screen title.
@@ -38,6 +40,11 @@ public record StorageKey(Type type, int page) {
         m = TextUtils.matcher(title, BACKPACK_PATTERN);
         if (m.find()) {
             return Optional.of(new StorageKey(Type.BACKPACK, Integer.parseInt(m.group(1))));
+        }
+
+        m = TextUtils.matcher(title, RIFT_PATTERN);
+        if (m.matches()) {
+            return Optional.of(new StorageKey(Type.RIFT, Integer.parseInt(m.group(1))));
         }
 
         if (TextUtils.matches(title, "storage")) {
@@ -76,6 +83,7 @@ public record StorageKey(Type type, int page) {
             case ENDER_CHEST -> "Ender Chest " + page + "/9";
             case BACKPACK -> "Backpack #" + page;
             case STORAGE_INDEX -> "Storage";
+            case RIFT -> "Rift Storage #" + page;
         };
     }
 
