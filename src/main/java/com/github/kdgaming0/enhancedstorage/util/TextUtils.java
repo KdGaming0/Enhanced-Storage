@@ -8,7 +8,8 @@ import java.util.regex.Pattern;
 
 public class TextUtils {
 
-    private TextUtils() {}
+    private TextUtils() {
+    }
 
     /**
      * Converts a Text component into raw plain text, with formatting codes stripped.

@@ -18,9 +18,8 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.resources.Identifier;
-
+import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 import org.jspecify.annotations.NonNull;
 
@@ -36,6 +35,91 @@ public class StorageOverlayLayout {
 
     public static final boolean RRV_LOADED = FabricLoader.getInstance().isModLoaded("rrv");
     public static final boolean SKYBLOCKER_LOADED = FabricLoader.getInstance().isModLoaded("skyblocker");
+    public static final int SLOTS_ACROSS = 9;
+    public static final int SLOT_SIZE = 18;
+    public static final int CARD_BORDER = 3;
+    public static final int CARD_SPACING = 3;
+    public static final int INNER_PADDING = 6;
+    public static final int SCROLLBAR_WIDTH = 6;
+    public static final int SCROLLBAR_GAP = 4;
+    public static final int UNCACHED_CARD_HEIGHT = 50;
+    private final List<PageCardComponent> pageCards = new java.util.ArrayList<>();
+    private int liveRowTop = -1;
+    private int liveRowBottom = -1;
+    private int mainBackgroundX;
+    private int mainBackgroundY;
+    private int mainBackgroundWidth;
+    private int mainBackgroundHeight;
+    private PageCardComponent openCard;
+    private SpriteComponent inventoryPanel;
+    private SpriteComponent overviewPanel;
+    private ScrollContainerWidget pageOverview;
+    private EditBoxWidget searchBox;
+
+    public static int computeColumns(int width) {
+        int cardWidth = CARD_BORDER * 2 + SLOTS_ACROSS * SLOT_SIZE;
+        int maxAvailableWidth = width - EnhancedStorageConfig.horizontalMargin
+                - INNER_PADDING * 2 - SCROLLBAR_WIDTH - SCROLLBAR_GAP;
+        return Math.clamp((maxAvailableWidth + CARD_SPACING) / (cardWidth + CARD_SPACING),
+                1, EnhancedStorageConfig.maxPagePerRow);
+    }
+
+    public static int computeMainBackgroundWidth(int width) {
+        int cardWidth = CARD_BORDER * 2 + SLOTS_ACROSS * SLOT_SIZE;
+        int columns = computeColumns(width);
+        int rowContentWidth = columns * cardWidth + (columns - 1) * CARD_SPACING;
+        return rowContentWidth + INNER_PADDING * 2 + SCROLLBAR_WIDTH + SCROLLBAR_GAP;
+    }
+
+    public static int computeMainBackgroundHeight(int height) {
+        return height - computeTopMargin() - computeBottomMargin();
+    }
+
+    public static int computeMainBackgroundX(int width) {
+        return (width / 2) - (computeMainBackgroundWidth(width) / 2);
+    }
+
+    public static int computeMainBackgroundY() {
+        return computeTopMargin();
+    }
+
+    private static int computeTopMargin() {
+        // Quick Nav buttons sit in a row just above and below the container, so add more margin to make space for them.
+        if (SKYBLOCKER_LOADED && isSkyblockerQuickNavEnabled()) {
+            return EnhancedStorageConfig.overviewTopMargin + EnhancedStorageConfig.extraTopAndBottomMarginForQuickNav;
+        }
+        return EnhancedStorageConfig.overviewTopMargin;
+    }
+
+    private static int computeBottomMargin() {
+        int margin = EnhancedStorageConfig.overviewBottomMargin + 96; // 96 is the space for the inventory panel below the Storage overview panel, adding more will create spacing between the edge of the screen and the storage overview as a whole
+
+        // Quick Nav buttons sit in a row just above and below the container, so add more margin to make space for them.
+        if (SKYBLOCKER_LOADED && isSkyblockerQuickNavEnabled()) {
+            margin += EnhancedStorageConfig.extraTopAndBottomMarginForQuickNav - 5;
+        }
+        if (RRV_LOADED) {
+            margin += EnhancedStorageConfig.extraBottomMarginForRecipeSearchBar;
+        }
+        return margin;
+    }
+
+    private static int cardHeightFor(StorageKey key, int titleAreaHeight) {
+        return StorageCache.getInstance().get(key)
+                .map(page -> {
+                    int rows = Math.max(1, Math.ceilDiv(page.items().size(), StorageOverlayLayout.SLOTS_ACROSS));
+                    return StorageOverlayLayout.CARD_BORDER * 2 + titleAreaHeight + rows * StorageOverlayLayout.SLOT_SIZE;
+                })
+                .orElse(StorageOverlayLayout.UNCACHED_CARD_HEIGHT);
+    }
+
+    private static boolean isSkyblockerQuickNavEnabled() {
+        try {
+            return de.hysky.skyblocker.config.SkyblockerConfigManager.get().quickNav.enableQuickNav;
+        } catch (NoClassDefFoundError e) {
+            return false;
+        }
+    }
 
     private Identifier getMainBackgroundTexture() {
         return switch (EnhancedStorageConfig.backgroundType) {
@@ -61,42 +145,45 @@ public class StorageOverlayLayout {
         };
     }
 
-    public static final int SLOTS_ACROSS = 9;
-    public static final int SLOT_SIZE = 18;
-    public static final int CARD_BORDER = 3;
-    public static final int CARD_SPACING = 3;
-    public static final int INNER_PADDING = 6;
-    public static final int SCROLLBAR_WIDTH = 6;
-    public static final int SCROLLBAR_GAP = 4;
-    public static final int UNCACHED_CARD_HEIGHT = 50;
+    public int getMainBackgroundX() {
+        return mainBackgroundX;
+    }
 
-    private int liveRowTop = -1;
-    private int liveRowBottom = -1;
+    public int getMainBackgroundY() {
+        return mainBackgroundY;
+    }
 
-    private int mainBackgroundX;
-    private int mainBackgroundY;
-    private int mainBackgroundWidth;
-    private int mainBackgroundHeight;
+    public int getMainBackgroundWidth() {
+        return mainBackgroundWidth;
+    }
 
-    public int getMainBackgroundX()      { return mainBackgroundX; }
-    public int getMainBackgroundY()      { return mainBackgroundY; }
-    public int getMainBackgroundWidth()  { return mainBackgroundWidth; }
-    public int getMainBackgroundHeight() { return mainBackgroundHeight; }
+    public int getMainBackgroundHeight() {
+        return mainBackgroundHeight;
+    }
 
-    private PageCardComponent openCard;
-    private final List<PageCardComponent> pageCards = new java.util.ArrayList<>();
-    private SpriteComponent inventoryPanel;
-    private SpriteComponent overviewPanel;
-    private ScrollContainerWidget pageOverview;
+    public PageCardComponent getOpenCard() {
+        return openCard;
+    }
 
-    public PageCardComponent getOpenCard() { return openCard; }
-    public List<PageCardComponent> getPageCards() { return pageCards; }
-    public SpriteComponent getInventoryPanel() { return inventoryPanel; }
-    public SpriteComponent getOverviewPanel() { return overviewPanel; }
-    public ScrollContainerWidget getPageOverview() { return pageOverview; }
+    public List<PageCardComponent> getPageCards() {
+        return pageCards;
+    }
 
-    private EditBoxWidget searchBox;
-    public EditBoxWidget getSearchBox() { return searchBox; }
+    public SpriteComponent getInventoryPanel() {
+        return inventoryPanel;
+    }
+
+    public SpriteComponent getOverviewPanel() {
+        return overviewPanel;
+    }
+
+    public ScrollContainerWidget getPageOverview() {
+        return pageOverview;
+    }
+
+    public EditBoxWidget getSearchBox() {
+        return searchBox;
+    }
 
     /**
      * Builds the full overlay onto the given screen.
@@ -160,6 +247,7 @@ public class StorageOverlayLayout {
                 // Only claim the scrollbar in automatic (getChildAt) dispatch. Everything else falls through so container slot logic can run.
                 return this.visible && this.isOverScrollbar(x, y);
             }
+
             @Override
             public boolean mouseClicked(@NonNull MouseButtonEvent event, boolean doubleClick) {
                 if (updateScrolling(event)) return true;
@@ -176,11 +264,13 @@ public class StorageOverlayLayout {
                 }
                 return false;
             }
+
             @Override
             public void setScrollAmount(double amount) {
                 super.setScrollAmount(amount);
                 state.setScrollAmount(scrollAmount());
             }
+
             @Override
             protected double scrollRate() {
                 return EnhancedStorageConfig.overlayScrollSpeed;
@@ -345,68 +435,11 @@ public class StorageOverlayLayout {
         this.searchBox = searchBox;
     }
 
-    public static int computeColumns(int width) {
-        int cardWidth = CARD_BORDER * 2 + SLOTS_ACROSS * SLOT_SIZE;
-        int maxAvailableWidth = width - EnhancedStorageConfig.horizontalMargin
-                - INNER_PADDING * 2 - SCROLLBAR_WIDTH - SCROLLBAR_GAP;
-        return Math.clamp((maxAvailableWidth + CARD_SPACING) / (cardWidth + CARD_SPACING),
-                1, EnhancedStorageConfig.maxPagePerRow);
-    }
-
-    public static int computeMainBackgroundWidth(int width) {
-        int cardWidth = CARD_BORDER * 2 + SLOTS_ACROSS * SLOT_SIZE;
-        int columns = computeColumns(width);
-        int rowContentWidth = columns * cardWidth + (columns - 1) * CARD_SPACING;
-        return rowContentWidth + INNER_PADDING * 2 + SCROLLBAR_WIDTH + SCROLLBAR_GAP;
-    }
-
-    public static int computeMainBackgroundHeight(int height) {
-        return height - computeTopMargin() - computeBottomMargin();
-    }
-
-    public static int computeMainBackgroundX(int width) {
-        return (width / 2) - (computeMainBackgroundWidth(width) / 2);
-    }
-
-    public static int computeMainBackgroundY() {
-        return computeTopMargin();
-    }
-
-    private static int computeTopMargin() {
-        // Quick Nav buttons sit in a row just above and below the container, so add more margin to make space for them.
-        if (SKYBLOCKER_LOADED && isSkyblockerQuickNavEnabled()) {
-            return EnhancedStorageConfig.overviewTopMargin + EnhancedStorageConfig.extraTopAndBottomMarginForQuickNav;
-        }
-        return EnhancedStorageConfig.overviewTopMargin;
-    }
-
-    private static int computeBottomMargin() {
-        int margin = EnhancedStorageConfig.overviewBottomMargin + 96; // 96 is the space for the inventory panel below the Storage overview panel, adding more will create spacing between the edge of the screen and the storage overview as a whole
-
-        // Quick Nav buttons sit in a row just above and below the container, so add more margin to make space for them.
-        if (SKYBLOCKER_LOADED && isSkyblockerQuickNavEnabled()) {
-            margin += EnhancedStorageConfig.extraTopAndBottomMarginForQuickNav - 5;
-        }
-        if (RRV_LOADED) {
-            margin += EnhancedStorageConfig.extraBottomMarginForRecipeSearchBar;
-        }
-        return margin;
-    }
-
     private int cardHeightForRow(StorageKey key, @Nullable StorageKey liveKey, int liveRows, int titleAreaHeight) {
         if (key.equals(liveKey)) {
             return CARD_BORDER * 2 + titleAreaHeight + (liveRows - 1) * SLOT_SIZE;
         }
         return cardHeightFor(key, titleAreaHeight);
-    }
-
-    private static int cardHeightFor(StorageKey key, int titleAreaHeight) {
-        return StorageCache.getInstance().get(key)
-                .map(page -> {
-                    int rows = Math.max(1, Math.ceilDiv(page.items().size(), StorageOverlayLayout.SLOTS_ACROSS));
-                    return StorageOverlayLayout.CARD_BORDER * 2 + titleAreaHeight + rows * StorageOverlayLayout.SLOT_SIZE;
-                })
-                .orElse(StorageOverlayLayout.UNCACHED_CARD_HEIGHT);
     }
 
     // Scroll the live page into view if is not already in view
@@ -419,7 +452,7 @@ public class StorageOverlayLayout {
         int rowHeight = liveRowBottom - liveRowTop;
 
         boolean fullyVisible = liveRowTop >= scroll && liveRowBottom <= scroll + viewHeight;
-        boolean fullyHidden  = liveRowBottom <= scroll || liveRowTop >= scroll + viewHeight;
+        boolean fullyHidden = liveRowBottom <= scroll || liveRowTop >= scroll + viewHeight;
 
         if (fullyVisible) return;
         if (EnhancedStorageConfig.autoScrollToOpenPage == EnhancedStorageConfig.AutoScrollMode.IF_FULLY_HIDDEN && !fullyHidden) {
@@ -433,13 +466,5 @@ public class StorageOverlayLayout {
             pageOverview.setScrollAmount(liveRowBottom - viewHeight);
         }
         // else: already fully visible do nothing
-    }
-
-    private static boolean isSkyblockerQuickNavEnabled() {
-        try {
-            return de.hysky.skyblocker.config.SkyblockerConfigManager.get().quickNav.enableQuickNav;
-        } catch (NoClassDefFoundError e) {
-            return false;
-        }
     }
 }

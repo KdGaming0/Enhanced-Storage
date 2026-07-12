@@ -16,8 +16,6 @@ public class StorageSlotComponent extends AbstractComponent {
     private final @Nullable TooltipItemComponent item;
 
     private boolean hoverEnabled = true;
-
-    public enum SearchState { NONE, MATCH, NO_MATCH }
     private SearchState searchState = SearchState.NONE;
 
     public StorageSlotComponent(int x, int y, int width, int height, Identifier baseTexture,
@@ -26,7 +24,7 @@ public class StorageSlotComponent extends AbstractComponent {
                                 @Nullable ItemStack stack) {
         super(x, y, width, height);
 
-        this.base = new SpriteComponent(0,0, width, height, baseTexture);
+        this.base = new SpriteComponent(0, 0, width, height, baseTexture);
         this.addComponent(this.base);
 
         this.highlightBack = highlightBackTexture == null ? null
@@ -38,7 +36,7 @@ public class StorageSlotComponent extends AbstractComponent {
         if (this.highlightFront != null) this.addComponent(this.highlightFront);
 
         if (stack != null && !stack.isEmpty()) {
-            this.item = new TooltipItemComponent(1,1,stack,true);
+            this.item = new TooltipItemComponent(1, 1, stack, true);
             this.item.setTooltipEnabled(EnhancedStorageConfig.showItemTooltipsOnCachedItems);
             this.addComponent(this.item);
         } else {
@@ -97,5 +95,8 @@ public class StorageSlotComponent extends AbstractComponent {
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int parentWidth, int parentHeight) {}
+    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int parentWidth, int parentHeight) {
+    }
+
+    public enum SearchState {NONE, MATCH, NO_MATCH}
 }

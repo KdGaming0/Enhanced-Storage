@@ -9,7 +9,8 @@ import java.util.List;
 
 public class ItemSearch {
 
-    private ItemSearch() {}
+    private ItemSearch() {
+    }
 
     public static boolean matches(ItemStack stack, String query) {
         if (query.isBlank()) return false;

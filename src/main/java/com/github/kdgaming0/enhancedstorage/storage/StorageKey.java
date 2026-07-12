@@ -13,18 +13,12 @@ import java.util.regex.Pattern;
  */
 public record StorageKey(Type type, int page) {
 
-    public enum Type {
-        STORAGE_INDEX,
-        ENDER_CHEST,
-        BACKPACK,
-        RIFT
-    }
-
+    public static final Pattern RIFT_PATTERN = Pattern.compile("rift storage \\((\\d+)/(\\d+)\\)");
+    public static final Comparator<StorageKey> DISPLAY_ORDER = Comparator.comparing(StorageKey::type).thenComparingInt(StorageKey::page);
     private static final Pattern ENDER_CHEST_PATTERN = Pattern.compile("ender chest \\((\\d+)/\\d+\\)");
     private static final Pattern BACKPACK_PATTERN = Pattern.compile("backpack \\(slot #(\\d+)\\)");
     private static final Pattern ENDER_CHEST_ITEM_PATTERN = Pattern.compile("ender chest page (\\d+)");
     private static final Pattern BACKPACK_ITEM_PATTERN = Pattern.compile("backpack slot (\\d+)");
-    public static final Pattern RIFT_PATTERN = Pattern.compile("rift storage \\((\\d+)/(\\d+)\\)");
 
     /**
      * Tries to identify a storage page from a screen title.
@@ -54,7 +48,9 @@ public record StorageKey(Type type, int page) {
         return Optional.empty();
     }
 
-    /** Identifies a storage page from an item in the storage index menu. */
+    /**
+     * Identifies a storage page from an item in the storage index menu.
+     */
     public static Optional<StorageKey> fromIndexItem(Component name) {
         if (TextUtils.stripText(name).contains("locked") || TextUtils.stripText(name).contains("empty")) {
             return Optional.empty();
@@ -74,6 +70,18 @@ public record StorageKey(Type type, int page) {
         return Optional.empty();
     }
 
+    public static Optional<StorageKey> fromId(String id) {
+        int sep = id.lastIndexOf('_');
+        if (sep < 0) return Optional.empty();
+        try {
+            Type type = Type.valueOf(id.substring(0, sep).toUpperCase());
+            int page = Integer.parseInt(id.substring(sep + 1));
+            return Optional.of(new StorageKey(type, page));
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
+    }
+
     public String id() {
         return type.name().toLowerCase() + "_" + page;
     }
@@ -87,17 +95,10 @@ public record StorageKey(Type type, int page) {
         };
     }
 
-    public static final Comparator<StorageKey> DISPLAY_ORDER = Comparator.comparing(StorageKey::type).thenComparingInt(StorageKey::page);
-
-    public static Optional<StorageKey> fromId(String id) {
-        int sep = id.lastIndexOf('_');
-        if (sep < 0) return Optional.empty();
-        try {
-            Type type = Type.valueOf(id.substring(0, sep).toUpperCase());
-            int page = Integer.parseInt(id.substring(sep + 1));
-            return Optional.of(new StorageKey(type, page));
-        } catch (IllegalArgumentException e) {
-            return Optional.empty();
-        }
+    public enum Type {
+        STORAGE_INDEX,
+        ENDER_CHEST,
+        BACKPACK,
+        RIFT
     }
 }

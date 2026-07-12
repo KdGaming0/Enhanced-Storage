@@ -25,31 +25,44 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class StorageNames {
 
+    /**
+     * Custom names are just short cosmetic strings; cap them to keep the UI sane.
+     */
+    public static final int MAX_NAME_LENGTH = 32;
     private static final StorageNames INSTANCE = new StorageNames();
+    private final Map<StorageKey, String> names = new ConcurrentHashMap<>();
+    private boolean dirty = false;
+    private boolean loaded = false;
+    private StorageNames() {
+    }
 
     public static StorageNames getInstance() {
         return INSTANCE;
     }
 
-    /** Custom names are just short cosmetic strings; cap them to keep the UI sane. */
-    public static final int MAX_NAME_LENGTH = 32;
-
-    private final Map<StorageKey, String> names = new ConcurrentHashMap<>();
-    private boolean dirty = false;
-    private boolean loaded = false;
-
-    private StorageNames() {}
-
     // ------------------------------------------------------------------
     // In-memory API
     // ------------------------------------------------------------------
 
-    /** Returns the custom name for this key, if one has been set. */
+    private static Path namesFile() {
+        String profile = StorageProfile.getInstance().current().orElse("default");
+        return FabricLoader.getInstance().getConfigDir()
+                .resolve(EnhancedStorage.MOD_ID)
+                .resolve("profiles")
+                .resolve(profile)
+                .resolve("storage_names.dat");
+    }
+
+    /**
+     * Returns the custom name for this key, if one has been set.
+     */
     public Optional<String> get(StorageKey key) {
         return Optional.ofNullable(names.get(key));
     }
 
-    /** True if this key has a non-blank custom name. */
+    /**
+     * True if this key has a non-blank custom name.
+     */
     public boolean has(StorageKey key) {
         String v = names.get(key);
         return v != null && !v.isBlank();
@@ -75,31 +88,26 @@ public final class StorageNames {
         }
     }
 
-    /** Removes the custom name for a key (revert to default). */
+    /**
+     * Removes the custom name for a key (revert to default).
+     */
     public void clear(StorageKey key) {
         if (names.remove(key) != null) {
             dirty = true;
         }
     }
 
-    public Map<StorageKey, String> all() {
-        return java.util.Collections.unmodifiableMap(names);
-    }
-
     // ------------------------------------------------------------------
     // Disk persistence
     // ------------------------------------------------------------------
 
-    private static Path namesFile() {
-        String profile = StorageProfile.getInstance().current().orElse("default");
-        return FabricLoader.getInstance().getConfigDir()
-                .resolve(EnhancedStorage.MOD_ID)
-                .resolve("profiles")
-                .resolve(profile)
-                .resolve("storage_names.dat");
+    public Map<StorageKey, String> all() {
+        return java.util.Collections.unmodifiableMap(names);
     }
 
-    /** Writes all custom names to disk. No-op if nothing changed. */
+    /**
+     * Writes all custom names to disk. No-op if nothing changed.
+     */
     public void saveToDisk() {
         if (!dirty) return;
 
@@ -121,7 +129,9 @@ public final class StorageNames {
         }
     }
 
-    /** Loads custom names from disk. Safe to call more than once. */
+    /**
+     * Loads custom names from disk. Safe to call more than once.
+     */
     public void loadFromDisk() {
         Path file = namesFile();
         if (!Files.exists(file)) {

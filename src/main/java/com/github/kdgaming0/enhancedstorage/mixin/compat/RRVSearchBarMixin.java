@@ -1,5 +1,6 @@
 package com.github.kdgaming0.enhancedstorage.mixin.compat;
 
+import cc.cassian.rrv.common.overlay.itemlist.view.SearchBar;
 import com.github.kdgaming0.enhancedstorage.screen.StorageContainerScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -7,7 +8,6 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import cc.cassian.rrv.common.overlay.itemlist.view.SearchBar;
 
 @Mixin(value = SearchBar.class, remap = false)
 public abstract class RRVSearchBarMixin {

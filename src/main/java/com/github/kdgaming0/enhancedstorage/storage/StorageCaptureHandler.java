@@ -22,12 +22,15 @@ import java.util.stream.Collectors;
  */
 public final class StorageCaptureHandler {
 
-    /** Player inventory (27) + hotbar (9) slots appended at the end of every chest menu. */
+    /**
+     * Player inventory (27) + hotbar (9) slots appended at the end of every chest menu.
+     */
     private static final int PLAYER_SLOT_COUNT = 36;
 
     private static final Pattern PROFILE_ID_PATTERN = Pattern.compile("profile id:\\s*([0-9a-f-]{36})");
 
-    private StorageCaptureHandler() {}
+    private StorageCaptureHandler() {
+    }
 
     public static void register() {
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {

@@ -7,21 +7,24 @@ import org.jspecify.annotations.Nullable;
 public class StorageOverlayState {
 
     private static final StorageOverlayState SESSION = new StorageOverlayState();
+    private @Nullable StorageKey openKey;
+    private @Nullable StorageKey renamingKey;
+    private String searchQuery = "";
+    private double scrollAmount = 0;
+    // Used to tell page switch from closing the menu and reopening it
+    private long navigatingUntil = 0;
 
     public static StorageOverlayState session() {
         return SESSION;
     }
 
-    private @Nullable StorageKey openKey;
-    private @Nullable StorageKey renamingKey;
-    private String searchQuery = "";
-    private double scrollAmount = 0;
+    public double getScrollAmount() {
+        return scrollAmount;
+    }
 
-    // Used to tell page switch from closing the menu and reopening it
-    private long navigatingUntil = 0;
-
-    public double getScrollAmount() { return scrollAmount; }
-    public void setScrollAmount(double amount) { this.scrollAmount = amount; }
+    public void setScrollAmount(double amount) {
+        this.scrollAmount = amount;
+    }
 
     public void beginNavigation() {
         navigatingUntil = System.currentTimeMillis() + 2000;
@@ -49,21 +52,39 @@ public class StorageOverlayState {
         }
     }
 
-    public String getSearchQuery() { return searchQuery == null ? "" : searchQuery; }
+    public String getSearchQuery() {
+        return searchQuery == null ? "" : searchQuery;
+    }
 
-    public @Nullable StorageKey getOpenKey() {return openKey; }
+    public void setSearchQuery(String query) {
+        this.searchQuery = query == null ? "" : query;
+    }
 
-    public void setOpenKey(@Nullable StorageKey openKey) { this.openKey = openKey; }
+    public @Nullable StorageKey getOpenKey() {
+        return openKey;
+    }
 
-    public boolean isOpen(StorageKey key) { return key.equals(openKey); }
+    public void setOpenKey(@Nullable StorageKey openKey) {
+        this.openKey = openKey;
+    }
 
-    public void setSearchQuery(String query) { this.searchQuery = query == null ? "" : query; }
+    public boolean isOpen(StorageKey key) {
+        return key.equals(openKey);
+    }
 
-    public boolean isSearching() { return searchQuery != null && !searchQuery.isBlank(); }
+    public boolean isSearching() {
+        return searchQuery != null && !searchQuery.isBlank();
+    }
 
-    public @Nullable StorageKey getRenamingKey() { return renamingKey; }
+    public @Nullable StorageKey getRenamingKey() {
+        return renamingKey;
+    }
 
-    public void setRenamingKey(@Nullable StorageKey key) { this.renamingKey = key; }
+    public void setRenamingKey(@Nullable StorageKey key) {
+        this.renamingKey = key;
+    }
 
-    public boolean isRenaming() { return renamingKey != null; }
+    public boolean isRenaming() {
+        return renamingKey != null;
+    }
 }

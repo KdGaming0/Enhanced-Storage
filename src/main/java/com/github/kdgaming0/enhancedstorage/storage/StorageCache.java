@@ -23,22 +23,35 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class StorageCache {
 
     private static final StorageCache INSTANCE = new StorageCache();
+    private final Map<StorageKey, CachedPage> pages = new ConcurrentHashMap<>();
+    private final Set<StorageKey> knownPages = ConcurrentHashMap.newKeySet();
+    private boolean dirty = false;
+    private StorageCache() {
+    }
 
     public static StorageCache getInstance() {
         return INSTANCE;
     }
 
-    public record CachedPage(List<ItemStack> items, long capturedAt) {}
-
-    private final Map<StorageKey, CachedPage> pages = new ConcurrentHashMap<>();
-    private final Set<StorageKey> knownPages = ConcurrentHashMap.newKeySet();
-    private boolean dirty = false;
-
-    private StorageCache() {}
+    private static Path cacheFile() {
+        String profile = StorageProfile.getInstance().current().orElse("default");
+        return FabricLoader.getInstance().getConfigDir()
+                .resolve(EnhancedStorage.MOD_ID)
+                .resolve("profiles")
+                .resolve(profile)
+                .resolve("storage_cache.dat");
+    }
 
     // ------------------------------------------------------------------
     // In-memory API
     // ------------------------------------------------------------------
+
+    private static Optional<RegistryOps<Tag>> registryOps() {
+        Minecraft client = Minecraft.getInstance();
+        if (client.level == null) return Optional.empty();
+        HolderLookup.Provider registries = client.level.registryAccess();
+        return Optional.of(registries.createSerializationContext(NbtOps.INSTANCE));
+    }
 
     public void put(StorageKey key, List<ItemStack> items) {
         pages.put(key, new CachedPage(List.copyOf(items), System.currentTimeMillis()));
@@ -71,33 +84,19 @@ public final class StorageCache {
         return Collections.unmodifiableSet(knownPages);
     }
 
+    // ------------------------------------------------------------------
+    // Disk persistence
+    // ------------------------------------------------------------------
+
     public void clear() {
         pages.clear();
         knownPages.clear();
         dirty = true;
     }
 
-    // ------------------------------------------------------------------
-    // Disk persistence
-    // ------------------------------------------------------------------
-
-    private static Path cacheFile() {
-        String profile = StorageProfile.getInstance().current().orElse("default");
-        return FabricLoader.getInstance().getConfigDir()
-                .resolve(EnhancedStorage.MOD_ID)
-                .resolve("profiles")
-                .resolve(profile)
-                .resolve("storage_cache.dat");
-    }
-
-    private static Optional<RegistryOps<Tag>> registryOps() {
-        Minecraft client = Minecraft.getInstance();
-        if (client.level == null) return Optional.empty();
-        HolderLookup.Provider registries = client.level.registryAccess();
-        return Optional.of(registries.createSerializationContext(NbtOps.INSTANCE));
-    }
-
-    /** Writes the whole cache to disk. */
+    /**
+     * Writes the whole cache to disk.
+     */
     public void saveToDisk() {
         if (!dirty) return;
         Optional<RegistryOps<Tag>> opsOpt = registryOps();
@@ -141,7 +140,9 @@ public final class StorageCache {
         }
     }
 
-    /** Loads the cache file. Must be called once a world is joined */
+    /**
+     * Loads the cache file. Must be called once a world is joined
+     */
     public void loadFromDisk() {
         Path file = cacheFile();
         if (!Files.exists(file)) return;
@@ -207,5 +208,8 @@ public final class StorageCache {
         knownPages.clear();
         dirty = false;
         loadFromDisk();
+    }
+
+    public record CachedPage(List<ItemStack> items, long capturedAt) {
     }
 }

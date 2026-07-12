@@ -28,38 +28,6 @@ import static com.github.kdgaming0.enhancedstorage.EnhancedStorage.MOD_ID;
  */
 public class PageCardComponent extends AbstractComponent {
 
-    private static Identifier getPageCardIdleTexture() {
-        return switch (EnhancedStorageConfig.backgroundType) {
-            case TRANSPARENT -> Identifier.fromNamespaceAndPath(MOD_ID, "transparent/page_card_idle_trans");
-            case DARK -> Identifier.fromNamespaceAndPath(MOD_ID, "dark/page_card_idle_dark");
-            default -> Identifier.fromNamespaceAndPath(MOD_ID, "light/page_card_idle");
-        };
-    }
-
-    private static Identifier getPageCardActiveTexture() {
-        return switch (EnhancedStorageConfig.backgroundType) {
-            case TRANSPARENT -> Identifier.fromNamespaceAndPath(MOD_ID, "transparent/page_card_active_trans");
-            case DARK -> Identifier.fromNamespaceAndPath(MOD_ID, "dark/page_card_active_dark");
-            default -> Identifier.fromNamespaceAndPath(MOD_ID, "light/page_card_active");
-        };
-    }
-
-    private Identifier getStorageSlotTexture() {
-        return switch (EnhancedStorageConfig.backgroundType) {
-            case TRANSPARENT -> Identifier.fromNamespaceAndPath(MOD_ID, "transparent/storage_slot_trans");
-            case DARK -> Identifier.fromNamespaceAndPath(MOD_ID, "dark/storage_slot_dark");
-            default -> Identifier.fromNamespaceAndPath(MOD_ID, "light/storage_slot");
-        };
-    }
-
-    private static Identifier getStorageSlotHighlightFrontTexture() {
-        return Identifier.fromNamespaceAndPath(MOD_ID, "light/storage_slot_highlight_front");
-    }
-
-    private static Identifier getStorageSlotHighlightBackTexture() {
-        return Identifier.fromNamespaceAndPath(MOD_ID, "light/storage_slot_highlight_back");
-    }
-
     private static final WidgetSprites CARD_SPRITES = new WidgetSprites(
             getPageCardIdleTexture(),
             getPageCardIdleTexture(),
@@ -73,7 +41,6 @@ public class PageCardComponent extends AbstractComponent {
     );
 
     private final StorageKey key;
-
     private final int titleLocalX;
     private final int titleLocalY;
     private final int titleLocalWidth;
@@ -158,6 +125,38 @@ public class PageCardComponent extends AbstractComponent {
         }
     }
 
+    private static Identifier getPageCardIdleTexture() {
+        return switch (EnhancedStorageConfig.backgroundType) {
+            case TRANSPARENT -> Identifier.fromNamespaceAndPath(MOD_ID, "transparent/page_card_idle_trans");
+            case DARK -> Identifier.fromNamespaceAndPath(MOD_ID, "dark/page_card_idle_dark");
+            default -> Identifier.fromNamespaceAndPath(MOD_ID, "light/page_card_idle");
+        };
+    }
+
+    private static Identifier getPageCardActiveTexture() {
+        return switch (EnhancedStorageConfig.backgroundType) {
+            case TRANSPARENT -> Identifier.fromNamespaceAndPath(MOD_ID, "transparent/page_card_active_trans");
+            case DARK -> Identifier.fromNamespaceAndPath(MOD_ID, "dark/page_card_active_dark");
+            default -> Identifier.fromNamespaceAndPath(MOD_ID, "light/page_card_active");
+        };
+    }
+
+    private static Identifier getStorageSlotHighlightFrontTexture() {
+        return Identifier.fromNamespaceAndPath(MOD_ID, "light/storage_slot_highlight_front");
+    }
+
+    private static Identifier getStorageSlotHighlightBackTexture() {
+        return Identifier.fromNamespaceAndPath(MOD_ID, "light/storage_slot_highlight_back");
+    }
+
+    private Identifier getStorageSlotTexture() {
+        return switch (EnhancedStorageConfig.backgroundType) {
+            case TRANSPARENT -> Identifier.fromNamespaceAndPath(MOD_ID, "transparent/storage_slot_trans");
+            case DARK -> Identifier.fromNamespaceAndPath(MOD_ID, "dark/storage_slot_dark");
+            default -> Identifier.fromNamespaceAndPath(MOD_ID, "light/storage_slot");
+        };
+    }
+
     public StorageKey getKey() {
         return key;
     }
@@ -169,9 +168,13 @@ public class PageCardComponent extends AbstractComponent {
                 && screenY >= absY && screenY < absY + titleLocalHeight;
     }
 
-    public int getTitleScreenX() { return getTotalX() + titleLocalX; }
+    public int getTitleScreenX() {
+        return getTotalX() + titleLocalX;
+    }
 
-    public int getTitleScreenY() { return getTotalY() + titleLocalY; }
+    public int getTitleScreenY() {
+        return getTotalY() + titleLocalY;
+    }
 
     // Controls the rendering order
     @Override
@@ -191,5 +194,6 @@ public class PageCardComponent extends AbstractComponent {
     }
 
     @Override
-    public void extractRenderState(@NotNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int parentWidth, int parentHeight) {}
+    public void extractRenderState(@NotNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int parentWidth, int parentHeight) {
+    }
 }

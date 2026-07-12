@@ -14,7 +14,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(AbstractContainerScreen.class)
 public abstract class ContainerScreenHighlightClipMixin {
 
-    @Shadow protected Slot hoveredSlot;
+    @Shadow
+    protected Slot hoveredSlot;
 
     @Inject(method = "extractSlotHighlightBack", at = @At("HEAD"))
     private void enhancedstorage$clipBackStart(GuiGraphicsExtractor graphics, CallbackInfo ci) {

@@ -42,23 +42,31 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     private final Map<Long, int[]> topSlotClipRects = new HashMap<>();
 
     private final boolean rrvLoaded = FabricLoader.getInstance().isModLoaded("rrv");
-
-    private static long cordKey(int x, int y) {
-        return ((long) x << 32) | (y & 0xFFFFFFFFL);
-    }
-
-    private String liveMatchQuery = "";
     private final Map<Integer, ItemStack> liveMatchStacks = new HashMap<>();
     private final Map<Integer, Boolean> liveMatchResults = new HashMap<>();
-
+    private String liveMatchQuery = "";
     private boolean autoScrolledToOpenCard = false;
-
     private RenameDialogComponent renameDialog;
 
     public StorageContainerScreen(ChestMenu menu, Inventory inventory, Component title, StorageKey openKey) {
         super(menu, inventory, title);
         this.openKey = openKey;
         this.state.setOpenKey(openKey);
+    }
+
+    private static long cordKey(int x, int y) {
+        return ((long) x << 32) | (y & 0xFFFFFFFFL);
+    }
+
+    private static boolean inRect(double px, double py, int x, int y, int w, int h) {
+        return px >= x && px < x + w && py >= y && py < y + h;
+    }
+
+    private static boolean isRrvWidget(Object o) {
+        if (o instanceof HoverMaskedRenderable) {
+            return true; // treat wrappers as RRV widgets so we can re-process them
+        }
+        return o.getClass().getName().startsWith("cc.cassian.rrv");
     }
 
     @Override
@@ -87,11 +95,11 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         int invRight = inventory.getTotalX() + inventory.getWidth();
         int invBottom = inventory.getTotalY() + inventory.getHeight();
 
-        int bottomLeft = (overview != null) ? Math.min(overview.getTotalX(), invLeft)  : invLeft;
+        int bottomLeft = (overview != null) ? Math.min(overview.getTotalX(), invLeft) : invLeft;
         int bottomRight = (overview != null) ? Math.max(overview.getTotalX() + overview.getWidth(), invRight) : invRight;
         int boxBottom = (overview != null) ? Math.max(overview.getTotalY() + overview.getHeight(), invBottom) : invBottom;
 
-        int boxLeft = Math.min(storageLeft,  bottomLeft);
+        int boxLeft = Math.min(storageLeft, bottomLeft);
         int boxRight = Math.max(storageRight, bottomRight);
 
         var accessor = (AbstractContainerScreenAccessor) this;
@@ -100,7 +108,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
         // Set the bounds of the overlay so other mods get the correct size to anchor around
         this.leftPos = boxLeft;
-        this.topPos  = boxTop;
+        this.topPos = boxTop;
 
         syncSlotPositions();
 
@@ -114,7 +122,8 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     }
 
     @Override
-    protected void extractLabels(@NonNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY) {}
+    protected void extractLabels(@NonNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY) {
+    }
 
     /**
      * Calculates what counts as "inside" and only return true if the click is outside the overlay visual parts.
@@ -179,17 +188,6 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         renderables.addAll(0, toInsert);
     }
 
-    private record HoverMaskedRenderable(StorageContainerScreen screen, Renderable delegate) implements Renderable {
-        @Override
-        public void extractRenderState(@NonNull GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
-            if (screen.isInsideOverlay(mouseX, mouseY)) {
-                delegate.extractRenderState(graphics, -9999, -9999, a);  // Suppress when covered by this screen
-            } else {
-                delegate.extractRenderState(graphics, mouseX, mouseY, a); // Uncovered, do nothing
-            }
-        }
-    }
-
     private boolean isInsideOverlay(double mx, double my) {
         // Page overview panel
         ScrollContainerWidget pageOverview = layout.getPageOverview();
@@ -217,10 +215,6 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         }
 
         return false;
-    }
-
-    private static boolean inRect(double px, double py, int x, int y, int w, int h) {
-        return px >= x && px < x + w && py >= y && py < y + h;
     }
 
     private void syncSlotPositions() {
@@ -275,9 +269,9 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
             int absY = originalY + (visible / 9) * 18;
 
             // Clip rect stays in SCREEN space — scissor is never translated.
-            int clipLeft   = Math.max(absX, viewport.getX());
-            int clipTop    = Math.max(absY, viewport.getY());
-            int clipRight  = Math.min(absX + 16, viewport.getX() + viewport.getWidth());
+            int clipLeft = Math.max(absX, viewport.getX());
+            int clipTop = Math.max(absY, viewport.getY());
+            int clipRight = Math.min(absX + 16, viewport.getX() + viewport.getWidth());
             int clipBottom = Math.min(absY + 16, viewport.getY() + viewport.getHeight());
 
             // Slot fields are RELATIVE to (leftPos, topPos) now.
@@ -335,7 +329,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         // Match the cached-item layout in StorageOverlayLayout:
         // startX = 7, rowYs = {14, 42, 60}, item drawn at (+1, +1)
         int startX = overview.getTotalX() + 7 + 1;
-        int baseY  = overview.getTotalY();
+        int baseY = overview.getTotalY();
         final int[] rowYs = {14, 42, 60};
 
         int containerSlots = this.menu.getRowCount() * 9;
@@ -441,7 +435,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
         String command = switch (key.type()) {
             case ENDER_CHEST, RIFT -> "ec " + key.page();
-            case BACKPACK    -> "backpack " + key.page();
+            case BACKPACK -> "backpack " + key.page();
             case STORAGE_INDEX -> null;
         };
         if (command == null) return;
@@ -469,7 +463,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
         int col = localX / 18;
         int row;
-        if      (localY >= 14 && localY < 32) row = 0; // ender chest pages
+        if (localY >= 14 && localY < 32) row = 0; // ender chest pages
         else if (localY >= 42 && localY < 60) row = 1; // backpacks 1-9
         else if (localY >= 60 && localY < 78) row = 2; // backpacks 10-18
         else return Optional.empty();
@@ -500,13 +494,6 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         if (overview == null) return false;
         return mouseX >= overview.getX() && mouseX < overview.getX() + overview.getWidth()
                 && mouseY >= overview.getY() && mouseY < overview.getY() + overview.getHeight();
-    }
-
-    private static boolean isRrvWidget(Object o) {
-        if (o instanceof HoverMaskedRenderable) {
-            return true; // treat wrappers as RRV widgets so we can re-process them
-        }
-        return o.getClass().getName().startsWith("cc.cassian.rrv");
     }
 
     // Call to reset the Storage Overlay if the cache changes while it open
@@ -540,7 +527,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
             ScrollContainerWidget viewport = layout.getPageOverview();
             graphics.enableScissor(
                     viewport.getX() - this.leftPos, viewport.getY() - this.topPos,
-                    viewport.getX() + viewport.getWidth()  - this.leftPos,
+                    viewport.getX() + viewport.getWidth() - this.leftPos,
                     viewport.getY() + viewport.getHeight() - this.topPos);
             boolean searching = state.isSearching() && slot.y > -9000; // skip the offscreen nav row
             boolean match = searching && liveSlotMatches(slot);
@@ -695,5 +682,16 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
             return true;
         }
         return super.keyPressed(event);
+    }
+
+    private record HoverMaskedRenderable(StorageContainerScreen screen, Renderable delegate) implements Renderable {
+        @Override
+        public void extractRenderState(@NonNull GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+            if (screen.isInsideOverlay(mouseX, mouseY)) {
+                delegate.extractRenderState(graphics, -9999, -9999, a);  // Suppress when covered by this screen
+            } else {
+                delegate.extractRenderState(graphics, mouseX, mouseY, a); // Uncovered, do nothing
+            }
+        }
     }
 }

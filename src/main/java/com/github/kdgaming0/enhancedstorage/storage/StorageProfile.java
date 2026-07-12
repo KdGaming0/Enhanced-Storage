@@ -19,56 +19,15 @@ import java.util.Optional;
 public final class StorageProfile {
 
     private static final StorageProfile INSTANCE = new StorageProfile();
-    public static StorageProfile getInstance() { return INSTANCE; }
-
-    /** Called when the active profile actually changes. */
-    public interface Listener {
-        void onProfileChanged(String newProfileId);
-    }
-
     private volatile String currentProfileId;   // null = unknown
     private Runnable onChange;                  // set by the mod init
 
-    private StorageProfile() {}
-
-    public Optional<String> current() {
-        return Optional.ofNullable(currentProfileId);
+    private StorageProfile() {
     }
 
-    /** Registers the callback fired whenever the active profile changes. */
-    public void setOnChange(Runnable onChange) {
-        this.onChange = onChange;
+    public static StorageProfile getInstance() {
+        return INSTANCE;
     }
-
-    /**
-     * Called at world-join. Loads the last-seen profile from disk and adopts it
-     * as the optimistic guess, WITHOUT firing the change callback (nothing is
-     * open yet, and the caches will be loaded by the join handler anyway).
-     */
-    public void adoptLastKnownProfile() {
-        this.currentProfileId = readPersistedProfile().orElse(null);
-    }
-
-    /**
-     * Called when a "Profile ID: <uuid>" line is seen in chat. If it matches
-     * what we already have, does nothing. If it differs (or we had none),
-     * switches profiles: persists the new id and fires the change callback.
-     */
-    public void onProfileIdSeen(String profileId) {
-        if (profileId == null || profileId.isBlank()) return;
-        if (profileId.equals(currentProfileId)) return;   // 99% path: unchanged
-
-        this.currentProfileId = profileId;
-        persistProfile(profileId);
-
-        if (onChange != null) {
-            onChange.run();
-        }
-    }
-
-    // ------------------------------------------------------------------
-    // Persistence of the "last profile" pointer (a tiny text file)
-    // ------------------------------------------------------------------
 
     private static Path profilePointerFile() {
         return FabricLoader.getInstance().getConfigDir()
@@ -98,5 +57,53 @@ public final class StorageProfile {
         } catch (IOException e) {
             EnhancedStorage.LOGGER.error("Failed to persist last profile pointer", e);
         }
+    }
+
+    public Optional<String> current() {
+        return Optional.ofNullable(currentProfileId);
+    }
+
+    /**
+     * Registers the callback fired whenever the active profile changes.
+     */
+    public void setOnChange(Runnable onChange) {
+        this.onChange = onChange;
+    }
+
+    // ------------------------------------------------------------------
+    // Persistence of the "last profile" pointer (a tiny text file)
+    // ------------------------------------------------------------------
+
+    /**
+     * Called at world-join. Loads the last-seen profile from disk and adopts it
+     * as the optimistic guess, WITHOUT firing the change callback (nothing is
+     * open yet, and the caches will be loaded by the join handler anyway).
+     */
+    public void adoptLastKnownProfile() {
+        this.currentProfileId = readPersistedProfile().orElse(null);
+    }
+
+    /**
+     * Called when a "Profile ID: <uuid>" line is seen in chat. If it matches
+     * what we already have, does nothing. If it differs (or we had none),
+     * switches profiles: persists the new id and fires the change callback.
+     */
+    public void onProfileIdSeen(String profileId) {
+        if (profileId == null || profileId.isBlank()) return;
+        if (profileId.equals(currentProfileId)) return;   // 99% path: unchanged
+
+        this.currentProfileId = profileId;
+        persistProfile(profileId);
+
+        if (onChange != null) {
+            onChange.run();
+        }
+    }
+
+    /**
+     * Called when the active profile actually changes.
+     */
+    public interface Listener {
+        void onProfileChanged(String newProfileId);
     }
 }

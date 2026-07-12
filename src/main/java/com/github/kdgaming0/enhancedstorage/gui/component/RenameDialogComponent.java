@@ -29,9 +29,9 @@ public class RenameDialogComponent extends AbstractComponent {
 
     // Scrim + panel colours (ARGB). The panel is a simple filled rect with a
     // lighter border so the dialog reads clearly over any background type.
-    private static final int SCRIM_COLOR   = 0xC0000000;
-    private static final int PANEL_FILL    = 0xF0202020;
-    private static final int PANEL_BORDER  = 0xFF000000;
+    private static final int SCRIM_COLOR = 0xC0000000;
+    private static final int PANEL_FILL = 0xF0202020;
+    private static final int PANEL_BORDER = 0xFF000000;
     private static final int PANEL_HILIGHT = 0xFF555555;
 
     private final StorageKey key;
@@ -108,11 +108,17 @@ public class RenameDialogComponent extends AbstractComponent {
         }
     }
 
-    public StorageKey getKey() { return key; }
+    public StorageKey getKey() {
+        return key;
+    }
 
-    public EditBoxWidget getNameBox() { return nameBox; }
+    public EditBoxWidget getNameBox() {
+        return nameBox;
+    }
 
-    /** True if the point is inside the dialog panel (not just the scrim). */
+    /**
+     * True if the point is inside the dialog panel (not just the scrim).
+     */
     public boolean isOverPanel(double x, double y) {
         return x >= panelX && x < panelX + PANEL_WIDTH
                 && y >= panelY && y < panelY + PANEL_HEIGHT;

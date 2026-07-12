@@ -19,14 +19,22 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(MouseHandler.class)
 public abstract class MouseHandlerMixin {
 
-    @Shadow private double xpos;
-    @Shadow private double ypos;
-    @Shadow private boolean mouseGrabbed;
-    @Shadow @Final private Minecraft minecraft;
+    @Shadow
+    private double xpos;
+    @Shadow
+    private double ypos;
+    @Shadow
+    private boolean mouseGrabbed;
+    @Shadow
+    @Final
+    private Minecraft minecraft;
 
-    @Unique private double enhancedstorage$savedX;
-    @Unique private double enhancedstorage$savedY;
-    @Unique private long enhancedstorage$grabbedAt = Long.MIN_VALUE;
+    @Unique
+    private double enhancedstorage$savedX;
+    @Unique
+    private double enhancedstorage$savedY;
+    @Unique
+    private long enhancedstorage$grabbedAt = Long.MIN_VALUE;
 
     // Menu is closing: remember where the cursor was, and when.
     @Inject(method = "grabMouse", at = @At("HEAD"))
