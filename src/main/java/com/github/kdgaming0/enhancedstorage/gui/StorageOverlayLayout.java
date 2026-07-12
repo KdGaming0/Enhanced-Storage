@@ -185,6 +185,17 @@ public class StorageOverlayLayout {
         return searchBox;
     }
 
+    private static int getTitleTextColor() {
+        return switch (EnhancedStorageConfig.backgroundType) {
+            case LIGHT -> 0xFF000000; // vanilla black
+            default -> 0xFFAAAAAA;
+        };
+    }
+
+    private static boolean shouldDrawTitleShadow() {
+        return EnhancedStorageConfig.backgroundType != EnhancedStorageConfig.BackgroundType.LIGHT;
+    }
+
     /**
      * Builds the full overlay onto the given screen.
      *
@@ -290,8 +301,8 @@ public class StorageOverlayLayout {
             int textY = (rowHeight - font.lineHeight) / 2 + 20;
 
             TruncatedTextComponent emptyText = new TruncatedTextComponent(
-                    textX, textY, rowContentWidth - textX, message, 0xFFAAAAAA);
-            emptyText.setDrawShadow(true);
+                    textX, textY, rowContentWidth - textX, message, getTitleTextColor());
+            emptyText.setDrawShadow(shouldDrawTitleShadow());
 
             EmptyComponent emptyRow = new EmptyComponent(0, 0, rowContentWidth, rowHeight);
             emptyRow.addComponent(emptyText);
@@ -411,15 +422,18 @@ public class StorageOverlayLayout {
                     });
         }
 
-        TextComponent inventoryTitle = new TextComponent(7, 3, Component.literal("Inventory"), 0xFFAAAAAA);
+        TextComponent inventoryTitle = new TextComponent(7, 3, Component.literal("Inventory"), getTitleTextColor());
         inventoryTitle.updateParentPosition(inventory.getTotalX(), inventory.getTotalY(), inventory.getWidth(), inventory.getHeight());
-        inventoryTitle.setDrawShadow(true);
+        inventoryTitle.setDrawShadow(shouldDrawTitleShadow());
         inventory.addComponent(inventoryTitle);
 
         if (overview != null) {
-            TextComponent storageOverviewTitle = new TextComponent(7, 3, Component.literal("Storage Overview"), 0xFFAAAAAA);
+            boolean overviewActive = liveKey != null && liveKey.type() == StorageKey.Type.STORAGE_INDEX;
+            int titleColor = overviewActive ? 0xFFFFD24A : getTitleTextColor();
+
+            TextComponent storageOverviewTitle = new TextComponent(7, 3, Component.literal("Storage Overview"), titleColor);
             storageOverviewTitle.updateParentPosition(overview.getTotalX(), overview.getTotalY(), overview.getWidth(), overview.getHeight());
-            storageOverviewTitle.setDrawShadow(true);
+            storageOverviewTitle.setDrawShadow(shouldDrawTitleShadow());
             overview.addComponent(storageOverviewTitle);
         }
 

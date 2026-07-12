@@ -28,18 +28,6 @@ import static com.github.kdgaming0.enhancedstorage.EnhancedStorage.MOD_ID;
  */
 public class PageCardComponent extends AbstractComponent {
 
-    private static final WidgetSprites CARD_SPRITES = new WidgetSprites(
-            getPageCardIdleTexture(),
-            getPageCardIdleTexture(),
-            getPageCardIdleTexture()
-    );
-
-    private static final WidgetSprites CARD_ACTIVE_SPRITES = new WidgetSprites(
-            getPageCardActiveTexture(),
-            getPageCardActiveTexture(),
-            getPageCardActiveTexture()
-    );
-
     private final StorageKey key;
     private final int titleLocalX;
     private final int titleLocalY;
@@ -63,10 +51,15 @@ public class PageCardComponent extends AbstractComponent {
             SpriteComponent background = new SpriteComponent(0, 0, width, height, getPageCardActiveTexture());
             this.addComponent(background);
         } else {
+            WidgetSprites idleSprites = new WidgetSprites(
+                    getPageCardIdleTexture(), getPageCardIdleTexture(), getPageCardIdleTexture());
+            WidgetSprites activeSprites = new WidgetSprites(
+                    getPageCardActiveTexture(), getPageCardActiveTexture(), getPageCardActiveTexture());
+
             PageCardButtonWidget background = new PageCardButtonWidget(
                     0, 0, width, height,
                     Component.empty(),
-                    () -> state.isOpen(key) ? CARD_ACTIVE_SPRITES : CARD_SPRITES,
+                    () -> state.isOpen(key) ? activeSprites : idleSprites,
                     btn -> onClick.accept(key)
             );
             this.addWidget(background);
@@ -77,8 +70,8 @@ public class PageCardComponent extends AbstractComponent {
 
         int titleX = 3;
         int titleY = 3;
-        TextComponent pageTitle = new TextComponent(titleX, titleY, Component.literal(displayName), 0xFFAAAAAA);
-        pageTitle.setDrawShadow(true);
+        TextComponent pageTitle = new TextComponent(titleX, titleY, Component.literal(displayName), getTitleTextColor());
+        pageTitle.setDrawShadow(shouldDrawTitleShadow());
         this.addComponent(pageTitle);
 
         var font = Minecraft.getInstance().font;
@@ -119,10 +112,21 @@ public class PageCardComponent extends AbstractComponent {
             Component label = Component.literal("Click To Open");
             int textX = (width - font.width(label)) / 2;
             int textY = (height - font.lineHeight) / 2;
-            TextComponent pageInfo = new TextComponent(textX, textY, label, 0xFFAAAAAA);
-            pageInfo.setDrawShadow(true);
+            TextComponent pageInfo = new TextComponent(textX, textY, label, getTitleTextColor());
+            pageInfo.setDrawShadow(shouldDrawTitleShadow());
             this.addComponent(pageInfo);
         }
+    }
+
+    private static int getTitleTextColor() {
+        return switch (EnhancedStorageConfig.backgroundType) {
+            case LIGHT -> 0xFF000000; // vanilla black
+            default -> 0xFFAAAAAA;
+        };
+    }
+
+    private static boolean shouldDrawTitleShadow() {
+        return EnhancedStorageConfig.backgroundType != EnhancedStorageConfig.BackgroundType.LIGHT;
     }
 
     private static Identifier getPageCardIdleTexture() {
