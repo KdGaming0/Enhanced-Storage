@@ -1,52 +1,63 @@
 {
   "enhanced_storage.midnightconfig.title": "Enhanced Storage",
-  "enhanced_storage.midnightconfig.category.storage": "Storage",
+  "enhanced_storage.midnightconfig.category.general": "General",
 
-  "enhanced_storage.midnightconfig.storageOverlayHeader": "Storage Overlay Settings",
-  "enhanced_storage.midnightconfig.enableStorageOverlay": "Enable Storage Overlay",
-  "enhanced_storage.midnightconfig.enableStorageOverlay.tooltip": "Toggle the custom storage dashboard on or off.",
-  "enhanced_storage.midnightconfig.enableRiftStorageOverlay": "Enable Rift Storage Overlay",
-  "enhanced_storage.midnightconfig.enableRiftStorageOverlay.tooltip": "Toggle the overlay for the two-page Rift Storage menu. Independent of the main storage overlay.",
-  "enhanced_storage.midnightconfig.overlayColumns": "Overlay Columns",
-  "enhanced_storage.midnightconfig.overlayColumns.tooltip": "Number of page columns displayed in the scroll panel (1–6).",
-  "enhanced_storage.midnightconfig.overlayTopPadding": "Overlay Top Padding",
-  "enhanced_storage.midnightconfig.overlayTopPadding.tooltip": "Gap (px) above the overlay. Lower = taller overlay with more page rows.",
-  "enhanced_storage.midnightconfig.overlayBottomPadding": "Overlay Bottom Padding",
-  "enhanced_storage.midnightconfig.overlayBottomPadding.tooltip": "Gap (px) below the inventory. Lower = taller overlay with more page rows, but may overlap the RRV category buttons / Skyblocker buttons under the search bar.",
-  "enhanced_storage.midnightconfig.overlayPageGap": "Page Spacing",
-  "enhanced_storage.midnightconfig.overlayPageGap.tooltip": "Spacing (px) between page cards, horizontally and vertically.",
-  "enhanced_storage.midnightconfig.inverseScroll": "Inverse Scroll",
-  "enhanced_storage.midnightconfig.inverseScroll.tooltip": "Reverse the scroll direction.",
-  "enhanced_storage.midnightconfig.scrollSpeed": "Scroll Speed",
-  "enhanced_storage.midnightconfig.scrollSpeed.tooltip": "Mouse-wheel scroll multiplier (0.5–5.0).",
-  "enhanced_storage.midnightconfig.showEmptyPages": "Show Empty Pages",
-  "enhanced_storage.midnightconfig.showEmptyPages.tooltip": "Display pages that have not been visited yet.",
-  "enhanced_storage.midnightconfig.showUnavailablePages": "Show Unavailable Pages",
-  "enhanced_storage.midnightconfig.showUnavailablePages.tooltip": "Display locked ender chest pages and locked or empty backpack slots. Clicking them is always blocked.",
-  "enhanced_storage.midnightconfig.autoScrollToActivePage": "Auto-Scroll to Active Page",
-  "enhanced_storage.midnightconfig.autoScrollToActivePage.tooltip": "Automatically snap scroll so the open page is visible.",
-  "enhanced_storage.midnightconfig.showPreviewTooltips": "Show Preview Tooltips",
-  "enhanced_storage.midnightconfig.showPreviewTooltips.tooltip": "Display item tooltips when hovering over non-active page previews.",
-  "enhanced_storage.midnightconfig.searchHighlightColor": "Search Highlight Color",
-  "enhanced_storage.midnightconfig.searchHighlightColor.tooltip": "Colour applied to matching items during search (#RRGGBB or #RRGGBBAA).",
-  "enhanced_storage.midnightconfig.overlayTheme": "Overlay Theme",
-  "enhanced_storage.midnightconfig.overlayTheme.tooltip": "Visual style for the storage overlay sprites.",
-  "enhanced_storage.midnightconfig.storageOverviewVisibility": "Storage Overview Panel",
-  "enhanced_storage.midnightconfig.storageOverviewVisibility.tooltip": "When to show the storage overview panel left of the inventory. Hiding it re-centers the inventory.",
-  "enhanced_storage.midnightconfig.shiftLeftClickOpensHub": "Shift+Left-Click Opens Hub",
-  "enhanced_storage.midnightconfig.shiftLeftClickOpensHub.tooltip": "Also open the storage hub when Shift+Left-clicking a nav-panel slot. Right-click always opens the hub; plain left-click always opens that page.",
-  "enhanced_storage.midnightconfig.saveCursorPositionMode": "Save Cursor Position",
-  "enhanced_storage.midnightconfig.saveCursorPositionMode.tooltip": "Keep the cursor where it was when moving between inventory screens. Defers to SkyBlock-Enhancements when that mod's cursor saving is enabled.",
+  "enhanced_storage.midnightconfig.enableOverlay": "Enable Storage Overlay",
+  "enhanced_storage.midnightconfig.enableOverlay.tooltip": "Toggle the unified storage overlay on or off. When disabled, the vanilla chest GUI is shown.",
 
-  "enhanced_storage.midnightconfig.enum.OverlayTheme.LIGHT": "Light",
-  "enhanced_storage.midnightconfig.enum.OverlayTheme.DARK": "Dark",
-  "enhanced_storage.midnightconfig.enum.OverlayTheme.TRANSPARENT": "Transparent",
+  "enhanced_storage.midnightconfig.enableRiftOverlay": "Enable Rift Storage Overlay",
+  "enhanced_storage.midnightconfig.enableRiftOverlay.tooltip": "Toggle the overlay for the Rift Storage menu. Independent of the main storage overlay.",
 
-  "enhanced_storage.midnightconfig.enum.StorageOverviewVisibility.ALWAYS_SHOW": "Always Show",
-  "enhanced_storage.midnightconfig.enum.StorageOverviewVisibility.HIDE_ON_PAGES": "Hide on Storage Pages",
-  "enhanced_storage.midnightconfig.enum.StorageOverviewVisibility.ALWAYS_HIDE": "Always Hide",
+  "enhanced_storage.midnightconfig.showStorageOverviewCard": "Show Storage Overview Card",
+  "enhanced_storage.midnightconfig.showStorageOverviewCard.tooltip": "Display the storage overview card beside the inventory. Hiding it re-centers the inventory.",
 
-  "enhanced_storage.midnightconfig.enum.CursorPositionMode.DISABLED": "Disabled",
-  "enhanced_storage.midnightconfig.enum.CursorPositionMode.STORAGE_OVERLAY_ONLY": "Storage Overlay Only",
-  "enhanced_storage.midnightconfig.enum.CursorPositionMode.ALL_CONTAINERS": "All Containers"
+  "enhanced_storage.midnightconfig.backgroundType": "Background Style",
+  "enhanced_storage.midnightconfig.backgroundType.tooltip": "Visual style for the overlay background: light, dark, or transparent.",
+
+  "enhanced_storage.midnightconfig.maxPagePerRow": "Pages Per Row",
+  "enhanced_storage.midnightconfig.maxPagePerRow.tooltip": "Number of page columns shown in the scroll panel (1–5).",
+
+  "enhanced_storage.midnightconfig.horizontalMargin": "Horizontal Margin",
+  "enhanced_storage.midnightconfig.horizontalMargin.tooltip": "Gap (px) on the left and right of the overlay.",
+
+  "enhanced_storage.midnightconfig.overviewTopMargin": "Overview Top Margin",
+  "enhanced_storage.midnightconfig.overviewTopMargin.tooltip": "Gap (px) above the overlay. Lower = taller overlay with more page rows.",
+
+  "enhanced_storage.midnightconfig.overviewBottomMargin": "Overview Bottom Margin",
+  "enhanced_storage.midnightconfig.overviewBottomMargin.tooltip": "Gap (px) below the overlay. Lower = taller overlay with more page rows.",
+
+  "enhanced_storage.midnightconfig.extraTopAndBottomMarginForQuickNav": "Extra Margin for Quick Nav",
+  "enhanced_storage.midnightconfig.extraTopAndBottomMarginForQuickNav.tooltip": "Extra top/bottom margin (px) to leave room for Skyblocker quick-nav buttons.",
+
+  "enhanced_storage.midnightconfig.extraBottomMarginForRecipeSearchBar": "Extra Margin for RRV Search Bar",
+  "enhanced_storage.midnightconfig.extraBottomMarginForRecipeSearchBar.tooltip": "Extra bottom margin (px) to leave room for the RRV search bar.",
+
+  "enhanced_storage.midnightconfig.showItemTooltipsOnCachedItems": "Show Tooltips on Cached Items",
+  "enhanced_storage.midnightconfig.showItemTooltipsOnCachedItems.tooltip": "Display item tooltips when hovering over cached items on non-active pages.",
+
+  "enhanced_storage.midnightconfig.rememberSearchOnReopen": "Remember Search on Reopen",
+  "enhanced_storage.midnightconfig.rememberSearchOnReopen.tooltip": "Keep the previous search term when the overlay is reopened.",
+
+  "enhanced_storage.midnightconfig.rememberScrollOnReopen": "Remember Scroll on Reopen",
+  "enhanced_storage.midnightconfig.rememberScrollOnReopen.tooltip": "Keep the previous scroll position when the overlay is reopened.",
+
+  "enhanced_storage.midnightconfig.autoScrollToOpenPage": "Auto-Scroll to Open Page",
+  "enhanced_storage.midnightconfig.autoScrollToOpenPage.tooltip": "When to automatically scroll so the currently open page is visible.",
+
+  "enhanced_storage.midnightconfig.overlayScrollSpeed": "Scroll Speed",
+  "enhanced_storage.midnightconfig.overlayScrollSpeed.tooltip": "Mouse-wheel scroll speed for the overlay (1–60).",
+
+  "enhanced_storage.midnightconfig.saveCursorPosition": "Save Cursor Position",
+  "enhanced_storage.midnightconfig.saveCursorPosition.tooltip": "Keep the cursor where it was when moving between storage pages.",
+
+  "enhanced_storage.midnightconfig.saveCursorPositionWindow": "Cursor Save Window",
+  "enhanced_storage.midnightconfig.saveCursorPositionWindow.tooltip": "Time window (seconds) during which the saved cursor position is restored.",
+
+  "enhanced_storage.midnightconfig.enum.BackgroundType.LIGHT": "Light",
+  "enhanced_storage.midnightconfig.enum.BackgroundType.DARK": "Dark",
+  "enhanced_storage.midnightconfig.enum.BackgroundType.TRANSPARENT": "Transparent",
+
+  "enhanced_storage.midnightconfig.enum.AutoScrollMode.OFF": "Off",
+  "enhanced_storage.midnightconfig.enum.AutoScrollMode.IF_PARTLY_HIDDEN": "If Partly Hidden",
+  "enhanced_storage.midnightconfig.enum.AutoScrollMode.IF_FULLY_HIDDEN": "If Fully Hidden"
 }
