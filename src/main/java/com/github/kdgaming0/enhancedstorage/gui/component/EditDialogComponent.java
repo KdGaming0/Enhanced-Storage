@@ -6,12 +6,20 @@ import com.daqem.uilib.gui.component.AbstractComponent;
 import com.daqem.uilib.gui.component.text.TextComponent;
 import com.daqem.uilib.gui.widget.ButtonWidget;
 import com.daqem.uilib.gui.widget.EditBoxWidget;
+import com.daqem.uilib.util.ValidationErrors;
 import com.github.kdgaming0.enhancedstorage.storage.StorageKey;
 import com.github.kdgaming0.enhancedstorage.storage.StorageNames;
+import com.github.kdgaming0.enhancedstorage.storage.StorageOrder;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.IntFunction;
 
 /**
  * A modal dialog for renaming a storage page. Rendered on top of the storage
@@ -22,10 +30,10 @@ import org.jetbrains.annotations.NotNull;
  * <p>This component is purely visual + input; the owning screen supplies the
  * callbacks that actually persist, clear, or discard the name.</p>
  */
-public class RenameDialogComponent extends AbstractComponent {
+public class EditDialogComponent extends AbstractComponent {
 
     private static final int PANEL_WIDTH = 200;
-    private static final int PANEL_HEIGHT = 88;
+    private static final int PANEL_HEIGHT = 132;
 
     // Scrim + panel colours (ARGB). The panel is a simple filled rect with a
     // lighter border so the dialog reads clearly over any background type.
@@ -36,9 +44,10 @@ public class RenameDialogComponent extends AbstractComponent {
 
     private final StorageKey key;
     private final EditBoxWidget nameBox;
-
+    private final EditBoxWidget positionBox;
     private final int panelX;
     private final int panelY;
+    private @Nullable TextComponent takenHint;
 
     /**
      * @param screenWidth  full screen width  (scrim spans this)
@@ -49,47 +58,82 @@ public class RenameDialogComponent extends AbstractComponent {
      * @param onCancel     discards without changes
      * @param onReset      clears the custom name; null hides the Reset button
      */
-    public RenameDialogComponent(int screenWidth, int screenHeight, Font font,
-                                 StorageKey key,
-                                 java.util.function.Consumer<String> onSave,
-                                 Runnable onCancel,
-                                 Runnable onReset) {
+    public EditDialogComponent(int screenWidth, int screenHeight, Font font,
+                               StorageKey key,
+                               int defaultPosition, IntFunction<String> positionTakenBy,
+                               BiConsumer<String, String> onSave,
+                               Runnable onCancel,
+                               Runnable onReset) {
         super(0, 0, screenWidth, screenHeight);
         this.key = key;
 
         this.panelX = (screenWidth - PANEL_WIDTH) / 2;
         this.panelY = (screenHeight - PANEL_HEIGHT) / 2;
 
-        boolean hasCustom = StorageNames.getInstance().has(key);
+        boolean hasCustom = StorageNames.getInstance().has(key) || StorageOrder.getInstance().has(key);
 
         // Title
         String defaultName = key.displayName();
         TextComponent title = new TextComponent(
                 panelX + 8, panelY + 8,
-                Component.literal("Rename \"" + defaultName + "\""),
+                Component.literal("Edit \"" + defaultName + "\""),
                 0xFFFFFFFF);
         title.setDrawShadow(true);
         this.addComponent(title);
 
+        TextComponent nameLabel = new TextComponent(panelX + 8, panelY + 22,
+                Component.literal("Name"), 0xFFAAAAAA);
+        nameLabel.setDrawShadow(true);
+        this.addComponent(nameLabel);
+
         // Edit box, prefilled with the current custom name (if any).
         int boxX = panelX + 8;
-        int boxY = panelY + 24;
         int boxWidth = PANEL_WIDTH - 16;
-        this.nameBox = new EditBoxWidget(font, boxX, boxY, boxWidth, 16,
+        this.nameBox = new EditBoxWidget(font, boxX, panelY + 32, boxWidth, 16,
                 Component.literal("Page name"));
         this.nameBox.setValue(StorageNames.getInstance().get(key).orElse(""));
         this.addWidget(this.nameBox);
 
-        // Buttons. Reset only appears when a custom name already exists; when it
-        // does, all three share a row, otherwise Save/Cancel split the width.
+        // Position row
+        String posLabelText = defaultPosition > 0
+                ? "Position (default: " + defaultPosition + ")"
+                : "Position (blank = default)";
+        TextComponent posLabel = new TextComponent(panelX + 8, panelY + 54,
+                Component.literal(posLabelText), 0xFFAAAAAA);
+        posLabel.setDrawShadow(true);
+        this.addComponent(posLabel);
+
+        this.positionBox = new EditBoxWidget(font, boxX, panelY + 64, boxWidth, 16, Component.literal("Position")) {
+            @Override
+            public List<Component> validateInput(String input) {
+                List<Component> errors = new ArrayList<>();
+                if (input.isEmpty()) return errors;
+                try {
+                    int pos = Integer.parseInt(input);
+                    if (pos < -999) errors.add(ValidationErrors.minValue(-999));
+                    if (pos > 9999) errors.add(ValidationErrors.maxValue(9999));
+                } catch (NumberFormatException e) {
+                    errors.add(ValidationErrors.invalidNumber());
+                }
+                return errors;
+            }
+        };
+        this.positionBox.setValue(StorageOrder.getInstance().get(key)
+                .map(String::valueOf).orElse(""));
+        this.addWidget(this.positionBox);
+
+        // Add buttons, the reset button only appears when a custom name is set.
         int btnY = panelY + PANEL_HEIGHT - 26;
         int gap = 6;
         int innerWidth = PANEL_WIDTH - 16;
 
+        Runnable doSave = () -> onSave.accept(nameBox.getValue(), positionBox.getValue());
+
+        final ButtonWidget saveBtn;
         if (hasCustom && onReset != null) {
             int btnWidth = (innerWidth - gap * 2) / 3;
-            ButtonWidget saveBtn = new ButtonWidget(panelX + 8, btnY, btnWidth, 20,
-                    Component.literal("Save"), b -> onSave.accept(nameBox.getValue()));
+            saveBtn = new ButtonWidget(panelX + 8, btnY, btnWidth, 20,
+                    Component.literal("Save"), b -> doSave.run());
             ButtonWidget resetBtn = new ButtonWidget(panelX + 8 + btnWidth + gap, btnY, btnWidth, 20,
                     Component.literal("Reset"), b -> onReset.run());
             ButtonWidget cancelBtn = new ButtonWidget(panelX + 8 + (btnWidth + gap) * 2, btnY, btnWidth, 20,
@@ -99,12 +143,40 @@ public class RenameDialogComponent extends AbstractComponent {
             this.addWidget(cancelBtn);
         } else {
             int btnWidth = (innerWidth - gap) / 2;
-            ButtonWidget saveBtn = new ButtonWidget(panelX + 8, btnY, btnWidth, 20,
-                    Component.literal("Save"), b -> onSave.accept(nameBox.getValue()));
+            saveBtn = new ButtonWidget(panelX + 8, btnY, btnWidth, 20,
+                    Component.literal("Save"), b -> doSave.run());
             ButtonWidget cancelBtn = new ButtonWidget(panelX + 8 + btnWidth + gap, btnY, btnWidth, 20,
                     Component.literal("Cancel"), b -> onCancel.run());
             this.addWidget(saveBtn);
             this.addWidget(cancelBtn);
+        }
+
+        this.positionBox.setResponder(text -> {
+            saveBtn.active = positionBox.validateInput(text).isEmpty();
+            updateTakenHint(text, positionTakenBy);
+        });
+    }
+
+    private void updateTakenHint(String text, IntFunction<String> positionTakenBy) {
+        String takenByName = null;
+        try {
+            if (!text.isEmpty()) takenByName = positionTakenBy.apply(Integer.parseInt(text));
+        } catch (NumberFormatException ignored) {
+            // invalid number: validation already shows red, no hint needed
+        }
+
+        if (takenByName != null) {
+            if (takenHint == null) {
+                takenHint = new TextComponent(panelX + 8, panelY + 84,
+                        Component.literal("Position used by \"" + takenByName + "\""), 0xFFFFAA00);
+                takenHint.setDrawShadow(true);
+                this.addComponent(takenHint);
+            } else {
+                takenHint.setText(Component.literal("Position used by \"" + takenByName + "\""));
+            }
+        } else if (takenHint != null) {
+            this.getComponents().remove(takenHint);
+            takenHint = null;
         }
     }
 
@@ -114,6 +186,14 @@ public class RenameDialogComponent extends AbstractComponent {
 
     public EditBoxWidget getNameBox() {
         return nameBox;
+    }
+
+    public EditBoxWidget getPositionBox() {
+        return positionBox;
+    }
+
+    public EditBoxWidget getFocusedBox() {
+        return positionBox.isFocused() ? positionBox : nameBox;
     }
 
     /**

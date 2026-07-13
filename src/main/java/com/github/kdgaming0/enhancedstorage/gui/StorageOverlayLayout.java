@@ -12,6 +12,7 @@ import com.github.kdgaming0.enhancedstorage.gui.component.PageCardComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.TooltipItemComponent;
 import com.github.kdgaming0.enhancedstorage.storage.StorageCache;
 import com.github.kdgaming0.enhancedstorage.storage.StorageKey;
+import com.github.kdgaming0.enhancedstorage.storage.StorageOrder;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.Font;
@@ -23,8 +24,7 @@ import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 import org.jspecify.annotations.NonNull;
 
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -43,7 +43,8 @@ public class StorageOverlayLayout {
     public static final int SCROLLBAR_WIDTH = 6;
     public static final int SCROLLBAR_GAP = 4;
     public static final int UNCACHED_CARD_HEIGHT = 50;
-    private final List<PageCardComponent> pageCards = new java.util.ArrayList<>();
+    private final List<PageCardComponent> pageCards = new ArrayList<>();
+    private final List<StorageKey> defaultOrder = new ArrayList<>();
     private int liveRowTop = -1;
     private int liveRowBottom = -1;
     private int mainBackgroundX;
@@ -121,6 +122,58 @@ public class StorageOverlayLayout {
         }
     }
 
+    private static int getTitleTextColor() {
+        return switch (EnhancedStorageConfig.backgroundType) {
+            case LIGHT -> 0xFF000000; // vanilla black
+            default -> 0xFFAAAAAA;
+        };
+    }
+
+    private static boolean shouldDrawTitleShadow() {
+        return EnhancedStorageConfig.backgroundType != EnhancedStorageConfig.BackgroundType.LIGHT;
+    }
+
+    private static List<StorageKey> applyCustomOrder(List<StorageKey> defaultOrder) {
+        StorageOrder order = StorageOrder.getInstance();
+
+        // Split into customs (with a requested position) and the rest (default flow).
+        record Custom(StorageKey key, int pos, int defaultIndex) {}
+        List<Custom> customs = new ArrayList<>();
+        List<StorageKey> defaults = new ArrayList<>();
+
+        for (int i = 0; i < defaultOrder.size(); i++) {
+            StorageKey key = defaultOrder.get(i);
+            Optional<Integer> pos = order.get(key);
+            if (pos.isPresent()) customs.add(new Custom(key, pos.get(), i));
+            else defaults.add(key);
+        }
+
+        // Place lower requested positions first; ties keep default flow order.
+        customs.sort(Comparator.comparingInt(Custom::pos).thenComparingInt(Custom::defaultIndex));
+
+        // Build the final list by walking target slots, inserting customs where they ask
+        // and filling every other slot from the default-flow queue.
+        List<StorageKey> result = new ArrayList<>();
+        Deque<StorageKey> defaultQueue = new ArrayDeque<>(defaults);
+        int nextCustom = 0;
+
+        for (int slot = 1; !defaultQueue.isEmpty() || nextCustom < customs.size(); slot++) {
+            // Any custom whose requested slot is this one (or earlier, if clamped low) goes here.
+            if (nextCustom < customs.size() && customs.get(nextCustom).pos() <= slot) {
+                result.add(customs.get(nextCustom).key());
+                nextCustom++;
+            } else if (!defaultQueue.isEmpty()) {
+                result.add(defaultQueue.poll());
+            } else {
+                // Only customs left with positions beyond the current slot (e.g. "30"): append them.
+                result.add(customs.get(nextCustom).key());
+                nextCustom++;
+            }
+        }
+
+        return result;
+    }
+
     private Identifier getMainBackgroundTexture() {
         return switch (EnhancedStorageConfig.backgroundType) {
             case TRANSPARENT -> Identifier.fromNamespaceAndPath(MOD_ID, "transparent/main_panel_trans");
@@ -185,17 +238,6 @@ public class StorageOverlayLayout {
         return searchBox;
     }
 
-    private static int getTitleTextColor() {
-        return switch (EnhancedStorageConfig.backgroundType) {
-            case LIGHT -> 0xFF000000; // vanilla black
-            default -> 0xFFAAAAAA;
-        };
-    }
-
-    private static boolean shouldDrawTitleShadow() {
-        return EnhancedStorageConfig.backgroundType != EnhancedStorageConfig.BackgroundType.LIGHT;
-    }
-
     /**
      * Builds the full overlay onto the given screen.
      *
@@ -223,6 +265,10 @@ public class StorageOverlayLayout {
                 .distinct()
                 .sorted(StorageKey.DISPLAY_ORDER)
                 .toList();
+
+        this.defaultOrder.clear();
+        this.defaultOrder.addAll(pageKeys);
+        pageKeys = applyCustomOrder(pageKeys);
 
         String query = state.getSearchQuery();
         if (!query.isBlank()) {
@@ -480,5 +526,10 @@ public class StorageOverlayLayout {
             pageOverview.setScrollAmount(liveRowBottom - viewHeight);
         }
         // else: already fully visible do nothing
+    }
+
+    public int defaultPositionOf(StorageKey key) {
+        int i = defaultOrder.indexOf(key);
+        return i < 0 ? -1 : i + 1;
     }
 }

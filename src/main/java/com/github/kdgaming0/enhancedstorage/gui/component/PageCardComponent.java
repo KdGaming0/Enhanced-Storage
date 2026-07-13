@@ -34,6 +34,8 @@ public class PageCardComponent extends AbstractComponent {
     private final int titleLocalWidth;
     private final int titleLocalHeight;
 
+    private final boolean cached;
+
     public PageCardComponent(int x, int y, int width, int height,
                              StorageKey key,
                              StorageOverlayState state,
@@ -44,6 +46,7 @@ public class PageCardComponent extends AbstractComponent {
                              Consumer<StorageKey> onClick) {
         super(x, y, width, height);
         this.key = key;
+        this.cached = cached;
 
         String searchQuery = (state == null) ? "" : state.getSearchQuery();
 
@@ -163,6 +166,10 @@ public class PageCardComponent extends AbstractComponent {
 
     public StorageKey getKey() {
         return key;
+    }
+
+    public boolean isCached() {
+        return cached;
     }
 
     public boolean isOverTitle(double screenX, double screenY) {

@@ -9,12 +9,9 @@ import com.github.kdgaming0.enhancedstorage.compat.RRVCompat;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayLayout;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayState;
 import com.github.kdgaming0.enhancedstorage.gui.component.PageCardComponent;
-import com.github.kdgaming0.enhancedstorage.gui.component.RenameDialogComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.EditDialogComponent;
 import com.github.kdgaming0.enhancedstorage.mixin.AbstractContainerScreenAccessor;
-import com.github.kdgaming0.enhancedstorage.storage.StorageCache;
-import com.github.kdgaming0.enhancedstorage.storage.StorageCaptureHandler;
-import com.github.kdgaming0.enhancedstorage.storage.StorageKey;
-import com.github.kdgaming0.enhancedstorage.storage.StorageNames;
+import com.github.kdgaming0.enhancedstorage.storage.*;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
@@ -30,6 +27,7 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 
@@ -46,7 +44,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     private final Map<Integer, Boolean> liveMatchResults = new HashMap<>();
     private String liveMatchQuery = "";
     private boolean autoScrolledToOpenCard = false;
-    private RenameDialogComponent renameDialog;
+    private EditDialogComponent renameDialog;
 
     public StorageContainerScreen(ChestMenu menu, Inventory inventory, Component title, StorageKey openKey) {
         super(menu, inventory, title);
@@ -384,6 +382,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     }
 
     private PageCardComponent cardTitleAt(double mx, double my) {
+        if (!isOverPageOverview(mx, my)) return null;
         for (PageCardComponent card : layout.getPageCards()) {
             if (card.isOverTitle(mx, my)) return card;
         }
@@ -391,23 +390,47 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     }
 
     private void openRenameDialog(StorageKey key) {
-        this.renameDialog = new RenameDialogComponent(
+        this.renameDialog = new EditDialogComponent(
                 this.width, this.height, this.font, key,
+                layout.defaultPositionOf(key),
+                pos -> nameOfCardAtPosition(key, pos),
                 this::onRenameSave,
                 this::closeRenameDialog,
                 () -> onRenameReset(key));
-        state.setRenamingKey(key);
 
         var box = this.renameDialog.getNameBox();
         this.setFocused(box);
         box.setFocused(true);
     }
 
-    private void onRenameSave(String name) {
-        StorageKey key = state.getRenamingKey();
+    private @Nullable String nameOfCardAtPosition(StorageKey editingKey, int position) {
+        return StorageOrder.getInstance().all().entrySet().stream()
+                .filter(entry -> !entry.getKey().equals(editingKey) && entry.getValue() == position)
+                .map(entry -> {
+                    StorageKey otherKey = entry.getKey();
+                    return StorageNames.getInstance().get(otherKey).orElse(otherKey.displayName());
+                })
+                .findFirst()
+                .orElse(null);
+    }
+
+    private void onRenameSave(String name, String position) {
+        StorageKey key = (renameDialog != null) ? renameDialog.getKey() : null;
         if (key != null) {
             StorageNames.getInstance().set(key, name);
             StorageNames.getInstance().saveToDisk();
+
+            Integer pos = null;
+            String trimmed = position == null ? "" : position.trim();
+            if (!trimmed.isEmpty() && !trimmed.equals("-")) {
+                try {
+                    pos = Integer.valueOf(trimmed);
+                } catch (NumberFormatException ignored) {
+                    // validation should prevent this
+                }
+            }
+            StorageOrder.getInstance().set(key, pos);
+            StorageOrder.getInstance().saveToDisk();
         }
         closeRenameDialog();
         refreshAfterRename();
@@ -416,13 +439,14 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     private void onRenameReset(StorageKey key) {
         StorageNames.getInstance().clear(key);
         StorageNames.getInstance().saveToDisk();
+        StorageOrder.getInstance().clear(key);
+        StorageOrder.getInstance().saveToDisk();
         closeRenameDialog();
         refreshAfterRename();
     }
 
     private void closeRenameDialog() {
         this.renameDialog = null;
-        state.setRenamingKey(null);
         this.setFocused(null);
     }
 
@@ -503,6 +527,20 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         this.rebuildWidgets();
     }
 
+    private PageCardComponent cachedCardAt(double mx, double my) {
+        // Don't click cards that are scrolled outside the viewport
+        if (!isOverPageOverview(mx, my)) return null;
+        for (PageCardComponent card : layout.getPageCards()) {
+            if (card == layout.getOpenCard()) continue;  // live card: title only
+            if (!card.isCached()) continue;              // "Click To Open" cards: title only
+            if (inRect(mx, my, card.getTotalX(), card.getTotalY(),
+                    card.getWidth(), card.getHeight())) {
+                return card;
+            }
+        }
+        return null;
+    }
+
     public void refreshCards() {
         this.rebuildWidgets();
     }
@@ -569,6 +607,8 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         if (renameDialog != null) {
             for (IWidget widget : renameDialog.getWidgets()) {
                 if (widget.mouseClicked(event, doubleClick)) {
+                    renameDialog.getNameBox().setFocused(false);
+                    renameDialog.getPositionBox().setFocused(false);
                     //noinspection ConstantValue
                     if (widget instanceof GuiEventListener l) {
                         this.setFocused(l);
@@ -583,15 +623,14 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
             return true;
         }
 
-        // Make it, so clicking the card title doesn't open the page, but double-clicking it opens the rename dialog.
-        if (event.button() == 0 && cardTitleAt(event.x(), event.y()) != null) {
-            if (doubleClick) {
-                PageCardComponent titled = cardTitleAt(event.x(), event.y());
-                if (titled != null) {
-                    openRenameDialog(titled.getKey());
-                }
+        // Makes Right-click opens the edit dialog: on the title of any card, or anywhere on a cached (non-live) card.
+        if (event.button() == 1) {
+            PageCardComponent target = cardTitleAt(event.x(), event.y());
+            if (target == null) target = cachedCardAt(event.x(), event.y());
+            if (target != null) {
+                openRenameDialog(target.getKey());
+                return true;
             }
-            return true;
         }
 
         boolean coveredByGui = isInsideOverlay(event.x(), event.y());
@@ -666,12 +705,15 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
                 closeRenameDialog();
                 return true;
             }
-            var nameBox = renameDialog.getNameBox();
             if (event.isConfirmation()) {
-                onRenameSave(nameBox.getValue());
+                if (renameDialog.getPositionBox()
+                        .validateInput(renameDialog.getPositionBox().getValue()).isEmpty()) {
+                    onRenameSave(renameDialog.getNameBox().getValue(),
+                            renameDialog.getPositionBox().getValue());
+                }
                 return true;
             }
-            nameBox.keyPressed(event);
+            renameDialog.getFocusedBox().keyPressed(event);
             return true;
         }
 
