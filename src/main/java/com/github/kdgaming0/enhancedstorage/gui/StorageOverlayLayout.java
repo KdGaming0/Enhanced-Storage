@@ -146,7 +146,8 @@ public class StorageOverlayLayout {
         StorageOrder order = StorageOrder.getInstance();
 
         // Split into customs (with a requested position) and the rest (default flow).
-        record Custom(StorageKey key, int pos, int defaultIndex) {}
+        record Custom(StorageKey key, int pos, int defaultIndex) {
+        }
         List<Custom> customs = new ArrayList<>();
         List<StorageKey> defaults = new ArrayList<>();
 
@@ -181,6 +182,45 @@ public class StorageOverlayLayout {
         }
 
         return result;
+    }
+
+    private static Identifier getSettingsIcon() {
+        return Identifier.fromNamespaceAndPath(MOD_ID, "icons/gear_icon");
+    }
+
+    private static Identifier getThemeIcon() {
+        return switch (EnhancedStorageConfig.backgroundType) {
+            case DARK -> Identifier.fromNamespaceAndPath(MOD_ID, "icons/icon_dark");
+            case LIGHT -> Identifier.fromNamespaceAndPath(MOD_ID, "icons/icon_light");
+            default -> Identifier.fromNamespaceAndPath(MOD_ID, "icons/icon_transparent");
+        };
+    }
+
+    private static String themeDisplayName() {
+        return switch (EnhancedStorageConfig.backgroundType) {
+            case DARK -> "Dark";
+            case LIGHT -> "Light";
+            default -> "Transparent";
+        };
+    }
+
+    public static void cycleTheme() {
+        EnhancedStorageConfig.backgroundType = switch (EnhancedStorageConfig.backgroundType) {
+            case TRANSPARENT -> EnhancedStorageConfig.BackgroundType.DARK;
+            case DARK -> EnhancedStorageConfig.BackgroundType.LIGHT;
+            case LIGHT -> EnhancedStorageConfig.BackgroundType.TRANSPARENT;
+        };
+        EnhancedStorageConfig.write(MOD_ID);
+    }
+
+    private static ItemStack buildToolkitIcon() {
+        ItemStack stack = new ItemStack(Items.PAPER);
+        stack.set(DataComponents.ITEM_MODEL,
+                Identifier.fromNamespaceAndPath("hypixel_skyblock",
+                        "item/island_relevant/foraging_2/hunting_toolkit"));
+        stack.set(DataComponents.CUSTOM_NAME,
+                Component.literal("Toolkits").withStyle(s -> s.withItalic(false)));
+        return stack;
     }
 
     private Identifier getMainBackgroundTexture() {
@@ -585,45 +625,6 @@ public class StorageOverlayLayout {
             return CARD_BORDER * 2 + titleAreaHeight + (liveRows - 1) * SLOT_SIZE;
         }
         return cardHeightFor(key, titleAreaHeight);
-    }
-
-    private static Identifier getSettingsIcon() {
-        return Identifier.fromNamespaceAndPath(MOD_ID, "icons/gear_icon");
-    }
-
-    private static Identifier getThemeIcon() {
-        return switch (EnhancedStorageConfig.backgroundType) {
-            case DARK -> Identifier.fromNamespaceAndPath(MOD_ID, "icons/icon_dark");
-            case LIGHT -> Identifier.fromNamespaceAndPath(MOD_ID, "icons/icon_light");
-            default -> Identifier.fromNamespaceAndPath(MOD_ID, "icons/icon_transparent");
-        };
-    }
-
-    private static String themeDisplayName() {
-        return switch (EnhancedStorageConfig.backgroundType) {
-            case DARK -> "Dark";
-            case LIGHT -> "Light";
-            default -> "Transparent";
-        };
-    }
-
-    public static void cycleTheme() {
-        EnhancedStorageConfig.backgroundType = switch (EnhancedStorageConfig.backgroundType) {
-            case TRANSPARENT -> EnhancedStorageConfig.BackgroundType.DARK;
-            case DARK -> EnhancedStorageConfig.BackgroundType.LIGHT;
-            case LIGHT -> EnhancedStorageConfig.BackgroundType.TRANSPARENT;
-        };
-        EnhancedStorageConfig.write(MOD_ID);
-    }
-
-    private static ItemStack buildToolkitIcon() {
-        ItemStack stack = new ItemStack(Items.PAPER);
-        stack.set(DataComponents.ITEM_MODEL,
-                Identifier.fromNamespaceAndPath("hypixel_skyblock",
-                        "item/island_relevant/foraging_2/hunting_toolkit"));
-        stack.set(DataComponents.CUSTOM_NAME,
-                Component.literal("Toolkits").withStyle(s -> s.withItalic(false)));
-        return stack;
     }
 
     // Scroll the live page into view if is not already in view

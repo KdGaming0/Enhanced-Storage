@@ -26,6 +26,7 @@ public final class StorageCache {
     private final Map<StorageKey, CachedPage> pages = new ConcurrentHashMap<>();
     private final Set<StorageKey> knownPages = ConcurrentHashMap.newKeySet();
     private boolean dirty = false;
+
     private StorageCache() {
     }
 

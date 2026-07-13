@@ -33,6 +33,7 @@ public final class StorageNames {
     private final Map<StorageKey, String> names = new ConcurrentHashMap<>();
     private boolean dirty = false;
     private boolean loaded = false;
+
     private StorageNames() {
     }
 
