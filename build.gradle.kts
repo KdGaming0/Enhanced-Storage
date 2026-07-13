@@ -170,24 +170,23 @@ if (sc.current.version in compatibleVersions) {
                 accessToken.set(providers.environmentVariable("MODRINTH_TOKEN"))
                 minecraftVersions.addAll(compatibleVersions)
                 requires { slug = "P7dR8mSH" } // Fabric API
+                requires { slug = "AOEDs9Al" } // UI Lib
                 optional { slug = "mOgUt4GM" } // ModMenu
                 embeds   { slug = "codAaoxh" } // MidnightLib
             }
         }
 
-        /*
         val curseforgeId = providers.gradleProperty("publish.curseforge").orNull
         if (!curseforgeId.isNullOrEmpty()) {
             curseforge {
                 projectId.set(curseforgeId)
                 accessToken.set(providers.environmentVariable("CURSEFORGE_TOKEN"))
                 minecraftVersions.addAll(compatibleVersions)
-                client.set(true)
-                server.set(true)
-
-                requires("fabric-api")
+                requires { slug = "306612" } // Fabric API
+                //requires { slug = "" } // UI Lib
+                optional { slug = "308702" } // ModMenu
+                embeds   { slug = "488090" } // MidnightLib
             }
         }
-        */
     }
 }
