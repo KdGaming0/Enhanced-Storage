@@ -46,35 +46,12 @@ repositories {
     exclusiveContent {
         forRepository {
             maven {
-                url = uri("https://maven.azureaaron.net/releases")
-            }
-        }
-        filter {
-            includeGroup("net.azureaaron")
-        }
-    }
-
-    exclusiveContent {
-        forRepository {
-            maven {
                 name = "Cassian's Maven"
                 url = uri("https://maven.cassian.cc")
             }
         }
         filter {
             includeGroupAndSubgroups("cc.cassian")
-        }
-    }
-
-    exclusiveContent {
-        forRepository {
-            maven {
-                name = "shedaniel's Maven"
-                url = uri("https://maven.shedaniel.me")
-            }
-        }
-        filter {
-            includeGroupAndSubgroups("me.shedaniel")
         }
     }
 
@@ -100,17 +77,7 @@ dependencies {
     modImplementation("maven.modrinth:midnightlib:${property("deps.midnightlib_version")}")
     include("maven.modrinth:midnightlib:${property("deps.midnightlib_version")}")
 
-    modImplementation("net.azureaaron:hm-api:${property("deps.hm_api_version")}")
-    include("net.azureaaron:hm-api:${property("deps.hm_api_version")}")
-
     implementation("org.msgpack:msgpack-core:0.9.12")
-
-    // TODO add Soft integration
-    // Soft integration with Roughly Enough Items: compile-only so REI stays optional at runtime
-    modCompileOnly("me.shedaniel:RoughlyEnoughItems-api-fabric:26.1.819") {
-        isTransitive = false
-    }
-    compileOnly("me.shedaniel.cloth:basic-math:0.6.1")
 
     // Skyblocker
     modCompileOnly("maven.modrinth:y6DuFGwJ:n5H2yDJu")
