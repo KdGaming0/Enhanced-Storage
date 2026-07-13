@@ -15,6 +15,9 @@ public class EnhancedStorageConfig extends MidnightConfig {
     public static boolean showStorageOverviewCard = true;
 
     @Entry(category = CATEGORY_GENERAL)
+    public static boolean showToolkitButtons = true;
+
+    @Entry(category = CATEGORY_GENERAL)
     public static BackgroundType backgroundType = BackgroundType.TRANSPARENT;
 
     @Entry(category = CATEGORY_GENERAL, isSlider = true, min = 1, max = 5, precision = 1)

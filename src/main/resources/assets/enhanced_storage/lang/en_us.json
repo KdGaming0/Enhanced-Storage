@@ -11,6 +11,9 @@
   "enhanced_storage.midnightconfig.showStorageOverviewCard": "Show Storage Overview Card",
   "enhanced_storage.midnightconfig.showStorageOverviewCard.tooltip": "Display the storage overview card beside the inventory. Hiding it re-centers the inventory.",
 
+  "enhanced_storage.midnightconfig.showToolkitButtons": "Show Toolkit Buttons",
+  "enhanced_storage.midnightconfig.showToolkitButtons.tooltip": "Show Hunting and Farming Toolkit buttons beside the inventory panel.",
+
   "enhanced_storage.midnightconfig.backgroundType": "Background Style",
   "enhanced_storage.midnightconfig.backgroundType.tooltip": "Visual style for the overlay background: light, dark, or transparent.",
 

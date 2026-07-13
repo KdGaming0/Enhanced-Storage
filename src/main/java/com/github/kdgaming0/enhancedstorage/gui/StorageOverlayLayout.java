@@ -5,9 +5,11 @@ import com.daqem.uilib.gui.component.EmptyComponent;
 import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.daqem.uilib.gui.component.text.TextComponent;
 import com.daqem.uilib.gui.component.text.TruncatedTextComponent;
+import com.daqem.uilib.gui.widget.ButtonWidget;
 import com.daqem.uilib.gui.widget.EditBoxWidget;
 import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
+import com.github.kdgaming0.enhancedstorage.gui.component.ItemButtonComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.PageCardComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.TooltipItemComponent;
 import com.github.kdgaming0.enhancedstorage.storage.StorageCache;
@@ -18,9 +20,11 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import org.jetbrains.annotations.Nullable;
 import org.jspecify.annotations.NonNull;
 
@@ -56,6 +60,8 @@ public class StorageOverlayLayout {
     private SpriteComponent overviewPanel;
     private ScrollContainerWidget pageOverview;
     private EditBoxWidget searchBox;
+    private ItemButtonComponent toolkitButton;
+    private int @Nullable [] toolkitButtonBounds;
 
     public static int computeColumns(int width) {
         int cardWidth = CARD_BORDER * 2 + SLOTS_ACROSS * SLOT_SIZE;
@@ -198,6 +204,14 @@ public class StorageOverlayLayout {
         };
     }
 
+    public ItemButtonComponent getToolkitButton() {
+        return toolkitButton;
+    }
+
+    public int @Nullable [] getToolkitButtonBounds() {
+        return toolkitButtonBounds;
+    }
+
     public int getMainBackgroundX() {
         return mainBackgroundX;
     }
@@ -245,11 +259,14 @@ public class StorageOverlayLayout {
      * @param liveRows row count of the real menu (ignored when liveKey == null)
      */
     public void build(IScreen screen, Font font, int width, int height, StorageOverlayState state,
-                      @Nullable StorageKey liveKey, int liveRows, Consumer<StorageKey> onCardClick, Runnable onSearchChanged) {
+                      @Nullable StorageKey liveKey, int liveRows, Consumer<StorageKey> onCardClick,
+                      Runnable onSearchChanged, Consumer<String> onToolkitClick) {
 
         this.liveRowTop = -1;
         this.liveRowBottom = -1;
         this.pageCards.clear();
+        this.toolkitButton = null;
+        this.toolkitButtonBounds = null;
 
         int titleAreaHeight = font.lineHeight + 2;
 
@@ -493,6 +510,18 @@ public class StorageOverlayLayout {
         searchBox.uilib$updateParentPosition(inventory.getTotalX(), inventory.getTotalY());
         screen.addWidget(searchBox);
         this.searchBox = searchBox;
+
+        if (EnhancedStorageConfig.showToolkitButtons && !riftContext) {
+            int size = 24;
+            int btnX = inventory.getTotalX() + inventoryWidth + 2;
+            int btnY = inventory.getTotalY() + 2;
+
+            ItemButtonComponent toolkit = new ItemButtonComponent(btnX, btnY, size, size, buildToolkitIcon());
+            toolkit.updateParentPosition(0, 0, width, height);
+            screen.addComponent(toolkit);
+            this.toolkitButton = toolkit;
+            this.toolkitButtonBounds = new int[]{btnX, btnY, size, size};
+        }
     }
 
     private int cardHeightForRow(StorageKey key, @Nullable StorageKey liveKey, int liveRows, int titleAreaHeight) {
@@ -500,6 +529,16 @@ public class StorageOverlayLayout {
             return CARD_BORDER * 2 + titleAreaHeight + (liveRows - 1) * SLOT_SIZE;
         }
         return cardHeightFor(key, titleAreaHeight);
+    }
+
+    private static ItemStack buildToolkitIcon() {
+        ItemStack stack = new ItemStack(Items.PAPER);
+        stack.set(DataComponents.ITEM_MODEL,
+                Identifier.fromNamespaceAndPath("hypixel_skyblock",
+                        "item/island_relevant/foraging_2/hunting_toolkit"));
+        stack.set(DataComponents.CUSTOM_NAME,
+                Component.literal("Toolkits").withStyle(s -> s.withItalic(false)));
+        return stack;
     }
 
     // Scroll the live page into view if is not already in view

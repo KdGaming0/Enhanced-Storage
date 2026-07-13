@@ -24,7 +24,7 @@ public class StorageOverlay extends AbstractScreen {
     @Override
     protected void init() {
         layout.build(this, this.font, this.width, this.height,
-                state, null, 0, this::onPageCardClicked, this::onSearchChanged);
+                state, null, 0, this::onPageCardClicked, this::onSearchChanged, this::runToolkitCommand);
         state.onStorageScreenOpened();
     }
 
@@ -52,6 +52,12 @@ public class StorageOverlay extends AbstractScreen {
                 box.setFocused(true);
             }
         });
+    }
+
+    private void runToolkitCommand(String command) {
+        state.beginNavigation();
+        assert Minecraft.getInstance().player != null;
+        Minecraft.getInstance().player.connection.sendCommand(command);
     }
 
     @Override

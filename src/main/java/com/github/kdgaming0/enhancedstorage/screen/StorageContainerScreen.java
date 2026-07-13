@@ -75,7 +75,8 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
             StorageCaptureHandler.discoverRiftPages(this.getTitle());
         }
 
-        layout.build(this, this.font, this.width, this.height, state, openKey, this.menu.getRowCount(), this::onPageCardClicked, this::onSearchChanged);
+        layout.build(this, this.font, this.width, this.height, state, openKey, this.menu.getRowCount(),
+                this::onPageCardClicked, this::onSearchChanged, this::runToolkitCommand);
 
         if (!autoScrolledToOpenCard) {
             layout.scrollLiveCardIntoView();
@@ -469,6 +470,12 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         Minecraft.getInstance().player.connection.sendCommand(command);
     }
 
+    private void runToolkitCommand(String command) {
+        state.beginNavigation();
+        assert Minecraft.getInstance().player != null;
+        Minecraft.getInstance().player.connection.sendCommand(command);
+    }
+
     private boolean isOverOverviewPanel(double mx, double my) {
         SpriteComponent overview = layout.getOverviewPanel();
         return overview != null && inRect(mx, my,
@@ -620,6 +627,13 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
             if (event.button() == 0 && !renameDialog.isOverPanel(event.x(), event.y())) {
                 closeRenameDialog();
             }
+            return true;
+        }
+
+        int[] tb = layout.getToolkitButtonBounds();
+        if (tb != null && (event.button() == 0 || event.button() == 1)
+                && inRect(event.x(), event.y(), tb[0], tb[1], tb[2], tb[3])) {
+            runToolkitCommand(event.button() == 0 ? "farmingtoolkit" : "huntingtoolkit");
             return true;
         }
 
