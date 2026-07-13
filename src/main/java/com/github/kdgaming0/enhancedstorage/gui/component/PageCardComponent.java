@@ -88,6 +88,14 @@ public class PageCardComponent extends AbstractComponent {
             int totalSlots = live ? ((height - cardBorder * 2 - titleAreaHeight) / slotSize) * slotsAcross : items.size();
             int pageRows = Math.max(1, Math.ceilDiv(totalSlots, slotsAcross));
 
+            // The whole slot grid is one tiled sprite (18x18 tile mcmeta) — one draw call
+            // instead of one per slot.
+            SpriteComponent slotGrid = new SpriteComponent(
+                    cardBorder, titleAreaHeight + 2,
+                    slotsAcross * slotSize, pageRows * slotSize,
+                    getStorageSlotTexture());
+            this.addComponent(slotGrid);
+
             for (int slotRow = 0; slotRow < pageRows; slotRow++) {
                 for (int slotCol = 0; slotCol < slotsAcross; slotCol++) {
                     int slotIndex = slotRow * slotsAcross + slotCol;
@@ -97,7 +105,6 @@ public class PageCardComponent extends AbstractComponent {
                             cardBorder + slotCol * slotSize,
                             (titleAreaHeight + 2) + slotRow * slotSize,
                             slotSize, slotSize,
-                            getStorageSlotTexture(),
                             live ? null : getStorageSlotHighlightBackTexture(),
                             live ? null : getStorageSlotHighlightFrontTexture(),
                             stack);

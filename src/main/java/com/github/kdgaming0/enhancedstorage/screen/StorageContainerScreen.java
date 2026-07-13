@@ -16,6 +16,7 @@ import com.github.kdgaming0.enhancedstorage.storage.*;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
 import eu.midnightdust.lib.config.MidnightConfig;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.util.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Renderable;
@@ -45,6 +46,8 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     private final Map<Integer, ItemStack> liveMatchStacks = new HashMap<>();
     private final Map<Integer, Boolean> liveMatchResults = new HashMap<>();
     private String liveMatchQuery = "";
+    private static final long SEARCH_REBUILD_DELAY_MS = 150;
+    private long searchRebuildDueAt = -1;
     private boolean autoScrolledToOpenCard = false;
     private EditDialogComponent renameDialog;
 
@@ -358,7 +361,15 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     }
 
     private void onSearchChanged() {
-        Minecraft.getInstance().schedule(() -> {
+        // Debounce: a full rebuild per keystroke is expensive, so wait for a short pause in typing.
+        searchRebuildDueAt = Util.getMillis() + SEARCH_REBUILD_DELAY_MS;
+    }
+
+    @Override
+    protected void containerTick() {
+        super.containerTick();
+        if (searchRebuildDueAt >= 0 && Util.getMillis() >= searchRebuildDueAt) {
+            searchRebuildDueAt = -1;
             this.rebuildWidgets();
 
             var box = layout.getSearchBox();
@@ -366,7 +377,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
                 this.setFocused(box);
                 box.setFocused(true);
             }
-        });
+        }
     }
 
     private boolean liveSlotMatches(Slot slot) {
@@ -573,6 +584,10 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
     @Override
     protected void extractSlot(@NonNull GuiGraphicsExtractor graphics, Slot slot, int mouseX, int mouseY) {
+        // Slots parked offscreen (nav row, hidden index rows) still cost full item extraction
+        // plus every other mod's slot hooks — skip them entirely.
+        if (slot.y < -9000) return;
+
         int containerSlots = this.menu.getRowCount() * 9;
 
         if (slot.index < containerSlots && openKey.type() != StorageKey.Type.STORAGE_INDEX) {
@@ -581,7 +596,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
                     viewport.getX() - this.leftPos, viewport.getY() - this.topPos,
                     viewport.getX() + viewport.getWidth() - this.leftPos,
                     viewport.getY() + viewport.getHeight() - this.topPos);
-            boolean searching = state.isSearching() && slot.y > -9000; // skip the offscreen nav row
+            boolean searching = state.isSearching();
             boolean match = searching && liveSlotMatches(slot);
 
             if (searching && match) {

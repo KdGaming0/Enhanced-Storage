@@ -2,6 +2,11 @@
   "enhanced_storage.midnightconfig.title": "Enhanced Storage",
   "enhanced_storage.midnightconfig.category.general": "General",
 
+  "enhanced_storage.midnightconfig.sectionVisibility": "§lOverlay Visibility",
+  "enhanced_storage.midnightconfig.sectionAppearance": "§lAppearance & Layout",
+  "enhanced_storage.midnightconfig.sectionBehavior": "§lBehavior",
+  "enhanced_storage.midnightconfig.sectionPerformance": "§lPerformance",
+
   "enhanced_storage.midnightconfig.enableOverlay": "Enable Storage Overlay",
   "enhanced_storage.midnightconfig.enableOverlay.tooltip": "Toggle the unified storage overlay on or off. When disabled, the vanilla chest GUI is shown.",
 
@@ -44,9 +49,6 @@
   "enhanced_storage.midnightconfig.extraBottomMarginForRecipeSearchBar": "Extra Margin for RRV Search Bar",
   "enhanced_storage.midnightconfig.extraBottomMarginForRecipeSearchBar.tooltip": "Extra bottom margin (px) to leave room for the RRV search bar.",
 
-  "enhanced_storage.midnightconfig.showItemTooltipsOnCachedItems": "Show Tooltips on Cached Items",
-  "enhanced_storage.midnightconfig.showItemTooltipsOnCachedItems.tooltip": "Display item tooltips when hovering over cached items on non-active pages.",
-
   "enhanced_storage.midnightconfig.rememberSearchOnReopen": "Remember Search on Reopen",
   "enhanced_storage.midnightconfig.rememberSearchOnReopen.tooltip": "Keep the previous search term when the overlay is reopened.",
 
@@ -64,6 +66,12 @@
 
   "enhanced_storage.midnightconfig.saveCursorPositionWindow": "Cursor Save Window",
   "enhanced_storage.midnightconfig.saveCursorPositionWindow.tooltip": "Time window (seconds) during which the saved cursor position is restored.",
+
+  "enhanced_storage.midnightconfig.showItemTooltipsOnCachedItems": "Show Tooltips on Cached Items",
+  "enhanced_storage.midnightconfig.showItemTooltipsOnCachedItems.tooltip": "Display item tooltips when hovering over cached items on non-active pages.",
+
+  "enhanced_storage.midnightconfig.fastCachedItemDecorations": "Fast Cached Item Rendering",
+  "enhanced_storage.midnightconfig.fastCachedItemDecorations.tooltip": "Draw stack counts and durability bars on cached items directly, skipping other mods' item overlay hooks (e.g. SkyHanni item tips) on cached pages. Can give some FPS improvement; disable to restore other mods' overlays on cached items.",
 
   "enhanced_storage.midnightconfig.enum.BackgroundType.LIGHT": "Light",
   "enhanced_storage.midnightconfig.enum.BackgroundType.DARK": "Dark",

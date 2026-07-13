@@ -5,6 +5,9 @@ import eu.midnightdust.lib.config.MidnightConfig;
 public class EnhancedStorageConfig extends MidnightConfig {
     public static final String CATEGORY_GENERAL = "general";
 
+    @Comment(category = CATEGORY_GENERAL, centered = true)
+    public static Comment sectionVisibility;
+
     @Entry(category = CATEGORY_GENERAL)
     public static boolean enableOverlay = true;
 
@@ -22,6 +25,12 @@ public class EnhancedStorageConfig extends MidnightConfig {
 
     @Entry(category = CATEGORY_GENERAL)
     public static boolean showThemeButton = true;
+
+    @Comment(category = CATEGORY_GENERAL)
+    public static Comment spacerAppearance;
+
+    @Comment(category = CATEGORY_GENERAL, centered = true)
+    public static Comment sectionAppearance;
 
     @Entry(category = CATEGORY_GENERAL)
     public static BackgroundType backgroundType = BackgroundType.TRANSPARENT;
@@ -49,9 +58,11 @@ public class EnhancedStorageConfig extends MidnightConfig {
     @Entry(category = CATEGORY_GENERAL, isSlider = true, min = 0, max = 50, precision = 1)
     public static int extraBottomMarginForRecipeSearchBar = 35;
 
+    @Comment(category = CATEGORY_GENERAL)
+    public static Comment spacerBehavior;
 
-    @Entry(category = CATEGORY_GENERAL)
-    public static boolean showItemTooltipsOnCachedItems = true;
+    @Comment(category = CATEGORY_GENERAL, centered = true)
+    public static Comment sectionBehavior;
 
     @Entry(category = CATEGORY_GENERAL)
     public static boolean rememberSearchOnReopen = false;
@@ -70,6 +81,18 @@ public class EnhancedStorageConfig extends MidnightConfig {
 
     @Entry(category = CATEGORY_GENERAL, isSlider = true, min = 0.01, max = 5, precision = 1000)
     public static double saveCursorPositionWindow = 0.5;
+
+    @Comment(category = CATEGORY_GENERAL)
+    public static Comment spacerPerformance;
+
+    @Comment(category = CATEGORY_GENERAL, centered = true)
+    public static Comment sectionPerformance;
+
+    @Entry(category = CATEGORY_GENERAL)
+    public static boolean showItemTooltipsOnCachedItems = true;
+
+    @Entry(category = CATEGORY_GENERAL)
+    public static boolean fastCachedItemDecorations = true;
 
     public enum BackgroundType {
         LIGHT, DARK, TRANSPARENT

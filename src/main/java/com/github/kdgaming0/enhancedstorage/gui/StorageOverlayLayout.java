@@ -1,5 +1,6 @@
 package com.github.kdgaming0.enhancedstorage.gui;
 
+import com.daqem.uilib.api.component.IComponent;
 import com.daqem.uilib.api.screen.IScreen;
 import com.daqem.uilib.gui.component.EmptyComponent;
 import com.daqem.uilib.gui.component.sprite.SpriteComponent;
@@ -18,6 +19,7 @@ import com.github.kdgaming0.enhancedstorage.storage.StorageOrder;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.core.component.DataComponents;
@@ -411,6 +413,29 @@ public class StorageOverlayLayout {
             @Override
             protected double scrollRate() {
                 return EnhancedStorageConfig.overlayScrollSpeed;
+            }
+
+            @Override
+            protected void extractWidgetRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
+                guiGraphics.enableScissor(this.getX(), this.getY(),
+                        this.getX() + this.getWidth(), this.getY() + this.getHeight());
+
+                List<IComponent> rows = getComponents();
+                int currentY = -(int) this.scrollAmount();
+                for (int i = 0; i < rows.size(); i++) {
+                    IComponent row = rows.get(i);
+                    row.setY(currentY);
+                    if (currentY + row.getHeight() > 0 && currentY < this.getHeight()) {
+                        row.extractRenderStateBase(guiGraphics, mouseX, mouseY, partialTick, this.getWidth(), this.getHeight());
+                    }
+                    currentY += row.getHeight();
+                    if (i < rows.size() - 1) {
+                        currentY += getContentSpacing();
+                    }
+                }
+
+                guiGraphics.disableScissor();
+                this.extractScrollbar(guiGraphics, mouseX, mouseY);
             }
         };
 

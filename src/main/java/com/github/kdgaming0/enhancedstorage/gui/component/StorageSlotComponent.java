@@ -10,7 +10,6 @@ import org.jetbrains.annotations.Nullable;
 
 public class StorageSlotComponent extends AbstractComponent {
 
-    private final SpriteComponent base;
     private final @Nullable SpriteComponent highlightBack;
     private final @Nullable SpriteComponent highlightFront;
     private final @Nullable TooltipItemComponent item;
@@ -18,14 +17,11 @@ public class StorageSlotComponent extends AbstractComponent {
     private boolean hoverEnabled = true;
     private SearchState searchState = SearchState.NONE;
 
-    public StorageSlotComponent(int x, int y, int width, int height, Identifier baseTexture,
+    public StorageSlotComponent(int x, int y, int width, int height,
                                 @Nullable Identifier highlightBackTexture,
                                 @Nullable Identifier highlightFrontTexture,
                                 @Nullable ItemStack stack) {
         super(x, y, width, height);
-
-        this.base = new SpriteComponent(0, 0, width, height, baseTexture);
-        this.addComponent(this.base);
 
         this.highlightBack = highlightBackTexture == null ? null
                 : new SpriteComponent(0, 0, width, height, highlightBackTexture);
@@ -66,31 +62,41 @@ public class StorageSlotComponent extends AbstractComponent {
                 && guiGraphics.containsPointInScissor(mouseX, mouseY);
     }
 
-    // Controls the rendering order: base -> back highlight -> item -> front highlight.
+    // Controls the rendering order: back highlight -> item -> front highlight.
+    // (The slot background itself is drawn by the card as one tiled sprite.)
     @Override
     public void extractRenderStateBase(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int parentWidth, int parentHeight) {
-        boolean hovered = isHovered(guiGraphics, mouseX, mouseY);
-
-        base.extractRenderStateBase(guiGraphics, mouseX, mouseY, partialTick, parentWidth, parentHeight);
-
-        if (searchState == SearchState.MATCH) {
-            guiGraphics.fill(getTotalX() + 1, getTotalY() + 1, getTotalX() + 17, getTotalY() + 17, 0x8033CC33);
+        // Scissor only clips GPU output — skip the CPU-side extraction entirely for slots
+        // scrolled outside the viewport (cards straddling the viewport edge).
+        int totalX = getTotalX();
+        int totalY = getTotalY();
+        if (!guiGraphics.containsPointInScissor(totalX, totalY)
+                && !guiGraphics.containsPointInScissor(totalX, totalY + getHeight() - 1)) {
+            return;
         }
 
+        boolean hovered = isHovered(guiGraphics, mouseX, mouseY);
+
+        if (searchState == SearchState.MATCH) {
+            guiGraphics.fill(totalX + 1, totalY + 1, totalX + 17, totalY + 17, 0x8033CC33);
+        }
+
+        // Children are leaves — extract them directly instead of via extractRenderStateBase,
+        // which allocates two filtered stream lists per component per frame.
         if (hovered && highlightBack != null) {
-            highlightBack.extractRenderStateBase(guiGraphics, mouseX, mouseY, partialTick, parentWidth, parentHeight);
+            highlightBack.extractRenderState(guiGraphics, mouseX, mouseY, partialTick, parentWidth, parentHeight);
         }
 
         if (item != null) {
-            item.extractRenderStateBase(guiGraphics, mouseX, mouseY, partialTick, parentWidth, parentHeight);
+            item.extractRenderState(guiGraphics, mouseX, mouseY, partialTick, parentWidth, parentHeight);
         }
 
         if (hovered && highlightFront != null) {
-            highlightFront.extractRenderStateBase(guiGraphics, mouseX, mouseY, partialTick, parentWidth, parentHeight);
+            highlightFront.extractRenderState(guiGraphics, mouseX, mouseY, partialTick, parentWidth, parentHeight);
         }
 
         if (searchState == SearchState.NO_MATCH) {
-            guiGraphics.fill(getTotalX() + 1, getTotalY() + 1, getTotalX() + 17, getTotalY() + 17, 0xB0101010);
+            guiGraphics.fill(totalX + 1, totalY + 1, totalX + 17, totalY + 17, 0xB0101010);
         }
     }
 

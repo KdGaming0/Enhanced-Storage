@@ -25,6 +25,7 @@ public final class StorageCache {
     private static final StorageCache INSTANCE = new StorageCache();
     private final Map<StorageKey, CachedPage> pages = new ConcurrentHashMap<>();
     private final Set<StorageKey> knownPages = ConcurrentHashMap.newKeySet();
+    private final Object ioLock = new Object();
     private boolean dirty = false;
 
     private StorageCache() {
@@ -55,9 +56,26 @@ public final class StorageCache {
     }
 
     public void put(StorageKey key, List<ItemStack> items) {
+        boolean newlyKnown = knownPages.add(key);
+
+        // Called every tick while a storage screen is open — skip the copy and the dirty flag
+        // when nothing changed, so closing an unmodified page doesn't rewrite the cache file.
+        CachedPage existing = pages.get(key);
+        if (existing != null && stacksMatch(existing.items(), items)) {
+            if (newlyKnown) dirty = true;
+            return;
+        }
+
         pages.put(key, new CachedPage(List.copyOf(items), System.currentTimeMillis()));
-        knownPages.add(key);
         dirty = true;
+    }
+
+    private static boolean stacksMatch(List<ItemStack> a, List<ItemStack> b) {
+        if (a.size() != b.size()) return false;
+        for (int i = 0; i < a.size(); i++) {
+            if (!ItemStack.matches(a.get(i), b.get(i))) return false;
+        }
+        return true;
     }
 
     public Optional<CachedPage> get(StorageKey key) {
@@ -126,19 +144,24 @@ public final class StorageCache {
             root.put(key.id(), pageTag);
         });
 
-        try {
-            Path file = cacheFile();
-            Files.createDirectories(file.getParent());
+        Path file = cacheFile();
+        int pageCount = pages.size();
+        dirty = false;
+        net.minecraft.util.Util.ioPool().execute(() -> {
+            synchronized (ioLock) {
+                try {
+                    Files.createDirectories(file.getParent());
 
-            Path tmp = file.resolveSibling(file.getFileName() + ".tmp");
-            NbtIo.writeCompressed(root, tmp);
-            Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                    Path tmp = file.resolveSibling(file.getFileName() + ".tmp");
+                    NbtIo.writeCompressed(root, tmp);
+                    Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
 
-            dirty = false;
-            EnhancedStorage.LOGGER.debug("Saved storage cache ({} pages)", pages.size());
-        } catch (IOException e) {
-            EnhancedStorage.LOGGER.error("Failed to save storage cache", e);
-        }
+                    EnhancedStorage.LOGGER.debug("Saved storage cache ({} pages)", pageCount);
+                } catch (IOException e) {
+                    EnhancedStorage.LOGGER.error("Failed to save storage cache", e);
+                }
+            }
+        });
     }
 
     /**
