@@ -68,6 +68,15 @@ public class StorageOverlay extends AbstractScreen {
 
     @Override
     public boolean mouseClicked(@NonNull MouseButtonEvent event, boolean doubleClick) {
+        int[] thb = layout.getThemeButtonBounds();
+        if (thb != null && event.button() == 0
+                && event.x() >= thb[0] && event.x() < thb[0] + thb[2]
+                && event.y() >= thb[1] && event.y() < thb[1] + thb[3]) {
+            StorageOverlayLayout.cycleTheme();
+            this.rebuildWidgets();
+            return true;
+        }
+
         ScrollContainerWidget overview = layout.getPageOverview();
         if (overview != null && overview.mouseClicked(event, doubleClick)) {
             return true;

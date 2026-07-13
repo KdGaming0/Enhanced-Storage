@@ -5,10 +5,10 @@ import com.daqem.uilib.gui.component.EmptyComponent;
 import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.daqem.uilib.gui.component.text.TextComponent;
 import com.daqem.uilib.gui.component.text.TruncatedTextComponent;
-import com.daqem.uilib.gui.widget.ButtonWidget;
 import com.daqem.uilib.gui.widget.EditBoxWidget;
 import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
+import com.github.kdgaming0.enhancedstorage.gui.component.IconButtonComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.ItemButtonComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.PageCardComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.TooltipItemComponent;
@@ -42,7 +42,6 @@ public class StorageOverlayLayout {
     public static final int SLOTS_ACROSS = 9;
     public static final int SLOT_SIZE = 18;
     public static final int CARD_BORDER = 3;
-    public static final int CARD_SPACING = 3;
     public static final int INNER_PADDING = 6;
     public static final int SCROLLBAR_WIDTH = 6;
     public static final int SCROLLBAR_GAP = 4;
@@ -62,19 +61,23 @@ public class StorageOverlayLayout {
     private EditBoxWidget searchBox;
     private ItemButtonComponent toolkitButton;
     private int @Nullable [] toolkitButtonBounds;
+    private IconButtonComponent settingsButton;
+    private int @Nullable [] settingsButtonBounds;
+    private IconButtonComponent themeButton;
+    private int @Nullable [] themeButtonBounds;
 
     public static int computeColumns(int width) {
         int cardWidth = CARD_BORDER * 2 + SLOTS_ACROSS * SLOT_SIZE;
         int maxAvailableWidth = width - EnhancedStorageConfig.horizontalMargin
                 - INNER_PADDING * 2 - SCROLLBAR_WIDTH - SCROLLBAR_GAP;
-        return Math.clamp((maxAvailableWidth + CARD_SPACING) / (cardWidth + CARD_SPACING),
+        return Math.clamp((maxAvailableWidth + EnhancedStorageConfig.cardSpacing) / (cardWidth + EnhancedStorageConfig.cardSpacing),
                 1, EnhancedStorageConfig.maxPagePerRow);
     }
 
     public static int computeMainBackgroundWidth(int width) {
         int cardWidth = CARD_BORDER * 2 + SLOTS_ACROSS * SLOT_SIZE;
         int columns = computeColumns(width);
-        int rowContentWidth = columns * cardWidth + (columns - 1) * CARD_SPACING;
+        int rowContentWidth = columns * cardWidth + (columns - 1) * EnhancedStorageConfig.cardSpacing;
         return rowContentWidth + INNER_PADDING * 2 + SCROLLBAR_WIDTH + SCROLLBAR_GAP;
     }
 
@@ -212,6 +215,22 @@ public class StorageOverlayLayout {
         return toolkitButtonBounds;
     }
 
+    public IconButtonComponent getSettingsButton() {
+        return settingsButton;
+    }
+
+    public int @Nullable [] getSettingsButtonBounds() {
+        return settingsButtonBounds;
+    }
+
+    public IconButtonComponent getThemeButton() {
+        return themeButton;
+    }
+
+    public int @Nullable [] getThemeButtonBounds() {
+        return themeButtonBounds;
+    }
+
     public int getMainBackgroundX() {
         return mainBackgroundX;
     }
@@ -267,6 +286,10 @@ public class StorageOverlayLayout {
         this.pageCards.clear();
         this.toolkitButton = null;
         this.toolkitButtonBounds = null;
+        this.settingsButton = null;
+        this.settingsButtonBounds = null;
+        this.themeButton = null;
+        this.themeButtonBounds = null;
 
         int titleAreaHeight = font.lineHeight + 2;
 
@@ -300,7 +323,7 @@ public class StorageOverlayLayout {
         int cardWidth = CARD_BORDER * 2 + SLOTS_ACROSS * SLOT_SIZE;
 
         int columns = computeColumns(width);
-        int rowContentWidth = columns * cardWidth + (columns - 1) * CARD_SPACING;
+        int rowContentWidth = columns * cardWidth + (columns - 1) * EnhancedStorageConfig.cardSpacing;
 
         int mainBackgroundWidth = computeMainBackgroundWidth(width);
         int mainBackgroundHeight = computeMainBackgroundHeight(height);
@@ -315,7 +338,7 @@ public class StorageOverlayLayout {
         SpriteComponent mainBackground = new SpriteComponent(mainBackgroundX, mainBackgroundY, mainBackgroundWidth, mainBackgroundHeight, getMainBackgroundTexture());
         screen.addComponent(mainBackground);
 
-        ScrollContainerWidget pageOverview = new ScrollContainerWidget(mainBackgroundWidth - INNER_PADDING * 2, mainBackgroundHeight - INNER_PADDING * 2, 3) {
+        ScrollContainerWidget pageOverview = new ScrollContainerWidget(mainBackgroundWidth - INNER_PADDING * 2, mainBackgroundHeight - INNER_PADDING * 2, EnhancedStorageConfig.cardSpacing) {
             @Override
             public boolean isMouseOver(double x, double y) {
                 // Only claim the scrollbar in automatic (getChildAt) dispatch. Everything else falls through so container slot logic can run.
@@ -405,7 +428,7 @@ public class StorageOverlayLayout {
                         : cardHeightFor(key, titleAreaHeight);
 
                 PageCardComponent pageCard = new PageCardComponent(
-                        col * (cardWidth + CARD_SPACING), 0,
+                        col * (cardWidth + EnhancedStorageConfig.cardSpacing), 0,
                         cardWidth, cardHeight,
                         key, state,
                         items,
@@ -511,16 +534,49 @@ public class StorageOverlayLayout {
         screen.addWidget(searchBox);
         this.searchBox = searchBox;
 
-        if (EnhancedStorageConfig.showToolkitButtons && !riftContext) {
-            int size = 24;
-            int btnX = inventory.getTotalX() + inventoryWidth + 2;
-            int btnY = inventory.getTotalY() + 2;
+        // Buttons sit in a row to the right of the player inventory panel.
+        final int btnSize = 24;
+        final int btnGap = 2;
+        final int btnY = inventory.getTotalY() + 2;
+        int btnX = inventory.getTotalX() + inventoryWidth + 2;
 
-            ItemButtonComponent toolkit = new ItemButtonComponent(btnX, btnY, size, size, buildToolkitIcon());
+        if (EnhancedStorageConfig.showToolkitButton && !riftContext) {
+            ItemButtonComponent toolkit = new ItemButtonComponent(btnX, btnY, btnSize, btnSize, buildToolkitIcon());
             toolkit.updateParentPosition(0, 0, width, height);
             screen.addComponent(toolkit);
             this.toolkitButton = toolkit;
-            this.toolkitButtonBounds = new int[]{btnX, btnY, size, size};
+            this.toolkitButtonBounds = new int[]{btnX, btnY, btnSize, btnSize};
+            btnX += btnSize + btnGap;
+        }
+
+        if (EnhancedStorageConfig.showSettingsButton && !riftContext) {
+            int iconSize = 16;
+            IconButtonComponent settings = new IconButtonComponent(
+                    btnX, btnY, btnSize, btnSize,
+                    getSettingsIcon(), iconSize,
+                    List.of(Component.literal("Settings").withStyle(s -> s.withColor(0x55FF55).withItalic(false))));
+            settings.updateParentPosition(0, 0, width, height);
+            screen.addComponent(settings);
+            this.settingsButton = settings;
+            this.settingsButtonBounds = new int[]{btnX, btnY, btnSize, btnSize};
+            btnX += btnSize + btnGap;
+        }
+
+        if (EnhancedStorageConfig.showThemeButton && !riftContext) {
+            int iconSize = 16;
+            IconButtonComponent theme = new IconButtonComponent(
+                    btnX, btnY, btnSize, btnSize,
+                    getThemeIcon(), iconSize,
+                    List.of(
+                            Component.literal("Theme: " + themeDisplayName())
+                                    .withStyle(s -> s.withColor(0x55FF55).withItalic(false)),
+                            Component.literal("Click to cycle")
+                                    .withStyle(s -> s.withColor(0xFFAA00).withItalic(false))));
+            theme.updateParentPosition(0, 0, width, height);
+            screen.addComponent(theme);
+            this.themeButton = theme;
+            this.themeButtonBounds = new int[]{btnX, btnY, btnSize, btnSize};
+            btnX += btnSize + btnGap;
         }
     }
 
@@ -529,6 +585,35 @@ public class StorageOverlayLayout {
             return CARD_BORDER * 2 + titleAreaHeight + (liveRows - 1) * SLOT_SIZE;
         }
         return cardHeightFor(key, titleAreaHeight);
+    }
+
+    private static Identifier getSettingsIcon() {
+        return Identifier.fromNamespaceAndPath(MOD_ID, "icons/gear_icon");
+    }
+
+    private static Identifier getThemeIcon() {
+        return switch (EnhancedStorageConfig.backgroundType) {
+            case DARK -> Identifier.fromNamespaceAndPath(MOD_ID, "icons/icon_dark");
+            case LIGHT -> Identifier.fromNamespaceAndPath(MOD_ID, "icons/icon_light");
+            default -> Identifier.fromNamespaceAndPath(MOD_ID, "icons/icon_transparent");
+        };
+    }
+
+    private static String themeDisplayName() {
+        return switch (EnhancedStorageConfig.backgroundType) {
+            case DARK -> "Dark";
+            case LIGHT -> "Light";
+            default -> "Transparent";
+        };
+    }
+
+    public static void cycleTheme() {
+        EnhancedStorageConfig.backgroundType = switch (EnhancedStorageConfig.backgroundType) {
+            case TRANSPARENT -> EnhancedStorageConfig.BackgroundType.DARK;
+            case DARK -> EnhancedStorageConfig.BackgroundType.LIGHT;
+            case LIGHT -> EnhancedStorageConfig.BackgroundType.TRANSPARENT;
+        };
+        EnhancedStorageConfig.write(MOD_ID);
     }
 
     private static ItemStack buildToolkitIcon() {

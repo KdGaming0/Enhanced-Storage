@@ -5,6 +5,7 @@ import com.daqem.uilib.api.widget.IWidget;
 import com.daqem.uilib.gui.AbstractContainerScreen;
 import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.daqem.uilib.gui.widget.ScrollContainerWidget;
+import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
 import com.github.kdgaming0.enhancedstorage.compat.RRVCompat;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayLayout;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayState;
@@ -13,6 +14,7 @@ import com.github.kdgaming0.enhancedstorage.gui.component.EditDialogComponent;
 import com.github.kdgaming0.enhancedstorage.mixin.AbstractContainerScreenAccessor;
 import com.github.kdgaming0.enhancedstorage.storage.*;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
+import eu.midnightdust.lib.config.MidnightConfig;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -470,6 +472,11 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         Minecraft.getInstance().player.connection.sendCommand(command);
     }
 
+    private void onSettingsClicked() {
+        Minecraft mc = Minecraft.getInstance();
+        mc.setScreen(MidnightConfig.getScreen(this, EnhancedStorage.MOD_ID));
+    }
+
     private void runToolkitCommand(String command) {
         state.beginNavigation();
         assert Minecraft.getInstance().player != null;
@@ -634,6 +641,21 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         if (tb != null && (event.button() == 0 || event.button() == 1)
                 && inRect(event.x(), event.y(), tb[0], tb[1], tb[2], tb[3])) {
             runToolkitCommand(event.button() == 0 ? "farmingtoolkit" : "huntingtoolkit");
+            return true;
+        }
+
+        int[] sb = layout.getSettingsButtonBounds();
+        if (sb != null && event.button() == 0
+                && inRect(event.x(), event.y(), sb[0], sb[1], sb[2], sb[3])) {
+            onSettingsClicked();
+            return true;
+        }
+
+        int[] thb = layout.getThemeButtonBounds();
+        if (thb != null && event.button() == 0
+                && inRect(event.x(), event.y(), thb[0], thb[1], thb[2], thb[3])) {
+            StorageOverlayLayout.cycleTheme();
+            this.rebuildWidgets();
             return true;
         }
 

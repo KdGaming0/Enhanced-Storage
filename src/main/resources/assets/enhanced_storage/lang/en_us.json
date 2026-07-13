@@ -11,14 +11,23 @@
   "enhanced_storage.midnightconfig.showStorageOverviewCard": "Show Storage Overview Card",
   "enhanced_storage.midnightconfig.showStorageOverviewCard.tooltip": "Display the storage overview card beside the inventory. Hiding it re-centers the inventory.",
 
-  "enhanced_storage.midnightconfig.showToolkitButtons": "Show Toolkit Buttons",
-  "enhanced_storage.midnightconfig.showToolkitButtons.tooltip": "Show Hunting and Farming Toolkit buttons beside the inventory panel.",
+  "enhanced_storage.midnightconfig.showToolkitButton": "Show Toolkit Buttons",
+  "enhanced_storage.midnightconfig.showToolkitButton.tooltip": "Show Hunting and Farming Toolkit buttons beside the inventory panel.",
+
+  "enhanced_storage.midnightconfig.showSettingsButton": "Show Settings Button",
+  "enhanced_storage.midnightconfig.showSettingsButton.tooltip": "Show the Settings button beside the inventory panel. Click to open the Enhanced Storage config screen.",
+
+  "enhanced_storage.midnightconfig.showThemeButton": "Show Theme Button",
+  "enhanced_storage.midnightconfig.showThemeButton.tooltip": "Show the Theme button beside the inventory panel. Click to cycle the background style between transparent, dark, and light.",
 
   "enhanced_storage.midnightconfig.backgroundType": "Background Style",
   "enhanced_storage.midnightconfig.backgroundType.tooltip": "Visual style for the overlay background: light, dark, or transparent.",
 
   "enhanced_storage.midnightconfig.maxPagePerRow": "Pages Per Row",
   "enhanced_storage.midnightconfig.maxPagePerRow.tooltip": "Number of page columns shown in the scroll panel (1–5).",
+
+  "enhanced_storage.midnightconfig.cardSpacing": "Card Spacing",
+  "enhanced_storage.midnightconfig.cardSpacing.tooltip": "Gap (px) between each page card in the overlay.",
 
   "enhanced_storage.midnightconfig.horizontalMargin": "Horizontal Margin",
   "enhanced_storage.midnightconfig.horizontalMargin.tooltip": "Gap (px) on the left and right of the overlay.",

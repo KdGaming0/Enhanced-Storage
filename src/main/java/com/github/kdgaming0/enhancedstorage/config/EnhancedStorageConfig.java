@@ -15,13 +15,22 @@ public class EnhancedStorageConfig extends MidnightConfig {
     public static boolean showStorageOverviewCard = true;
 
     @Entry(category = CATEGORY_GENERAL)
-    public static boolean showToolkitButtons = true;
+    public static boolean showToolkitButton = true;
+
+    @Entry(category = CATEGORY_GENERAL)
+    public static boolean showSettingsButton = true;
+
+    @Entry(category = CATEGORY_GENERAL)
+    public static boolean showThemeButton = true;
 
     @Entry(category = CATEGORY_GENERAL)
     public static BackgroundType backgroundType = BackgroundType.TRANSPARENT;
 
     @Entry(category = CATEGORY_GENERAL, isSlider = true, min = 1, max = 5, precision = 1)
     public static int maxPagePerRow = 3;
+
+    @Entry(category = CATEGORY_GENERAL, isSlider = true, min = 0, max = 10, precision = 1)
+    public static int cardSpacing = 3;
 
     @Entry(category = CATEGORY_GENERAL, isSlider = true, min = 0, max = 50, precision = 1)
     public static int horizontalMargin = 15;
