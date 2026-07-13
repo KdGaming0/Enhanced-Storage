@@ -46,17 +46,6 @@ repositories {
     exclusiveContent {
         forRepository {
             maven {
-                url = uri("https://maven.azureaaron.net/releases")
-            }
-        }
-        filter {
-            includeGroup("net.azureaaron")
-        }
-    }
-
-    exclusiveContent {
-        forRepository {
-            maven {
                 name = "Cassian's Maven"
                 url = uri("https://maven.cassian.cc")
             }
@@ -69,12 +58,12 @@ repositories {
     exclusiveContent {
         forRepository {
             maven {
-                name = "shedaniel's Maven"
-                url = uri("https://maven.shedaniel.me")
+                name = "DAQEM Studios Maven"
+                url = uri("https://maven.daqem.com/releases")
             }
         }
         filter {
-            includeGroupAndSubgroups("me.shedaniel")
+            includeGroup("com.daqem.uilib")
         }
     }
 }
@@ -83,20 +72,17 @@ dependencies {
     minecraft("com.mojang:minecraft:${sc.current.version}")
     modImplementation("net.fabricmc:fabric-loader:${property("deps.fabric_loader")}")
     modImplementation("net.fabricmc.fabric-api:fabric-api:${property("deps.fabric_api")}")
+    modImplementation("com.daqem.uilib:uilib-fabric:${property("deps.uilib_version")}")
 
     modImplementation("maven.modrinth:midnightlib:${property("deps.midnightlib_version")}")
     include("maven.modrinth:midnightlib:${property("deps.midnightlib_version")}")
 
-    modImplementation("net.azureaaron:hm-api:${property("deps.hm_api_version")}")
-    include("net.azureaaron:hm-api:${property("deps.hm_api_version")}")
-
     implementation("org.msgpack:msgpack-core:0.9.12")
 
-    // Soft integration with Roughly Enough Items: compile-only so REI stays optional at runtime
-    modCompileOnly("me.shedaniel:RoughlyEnoughItems-api-fabric:26.1.819") {
-        isTransitive = false
-    }
-    compileOnly("me.shedaniel.cloth:basic-math:0.6.1")
+    // Skyblocker
+    modCompileOnly("maven.modrinth:y6DuFGwJ:n5H2yDJu")
+    // RRV
+    modCompileOnly("maven.modrinth:5VolwT6c:8Xwd53bY")
 
     modRuntimeOnly("me.djtheredstoner:DevAuth-fabric:1.2.2")
     modRuntimeOnly("maven.modrinth:modmenu:${property("deps.modmenu_version")}")
@@ -104,10 +90,7 @@ dependencies {
 
 loom {
     fabricModJsonPath = rootProject.file("src/main/resources/fabric.mod.json") // Useful for interface injection
-    accessWidenerPath = sc.process(
-        rootProject.file("src/main/resources/enhancedstorage.ct"),
-        "build/processed.ct"
-    )
+    accessWidenerPath = rootProject.file("src/main/resources/enhanced_storage.accesswidener")
 
     decompilerOptions.named("vineflower") {
         options.put("mark-corresponding-synthetics", "1") // Adds names to lambdas - useful for mixins
@@ -144,6 +127,7 @@ tasks {
             register("version", "mod.version")
             register("minecraft", "mod.mc_compat")
             register("loader_version", "deps.fabric_loader")
+            register("uilib", "deps.uilib_version")
         }
 
         filesMatching("fabric.mod.json") { expand(props) }
@@ -186,24 +170,23 @@ if (sc.current.version in compatibleVersions) {
                 accessToken.set(providers.environmentVariable("MODRINTH_TOKEN"))
                 minecraftVersions.addAll(compatibleVersions)
                 requires { slug = "P7dR8mSH" } // Fabric API
+                requires { slug = "AOEDs9Al" } // UI Lib
                 optional { slug = "mOgUt4GM" } // ModMenu
                 embeds   { slug = "codAaoxh" } // MidnightLib
             }
         }
 
-        /*
         val curseforgeId = providers.gradleProperty("publish.curseforge").orNull
         if (!curseforgeId.isNullOrEmpty()) {
             curseforge {
                 projectId.set(curseforgeId)
                 accessToken.set(providers.environmentVariable("CURSEFORGE_TOKEN"))
                 minecraftVersions.addAll(compatibleVersions)
-                client.set(true)
-                server.set(true)
-
-                requires("fabric-api")
+                requires { slug = "306612" } // Fabric API
+                //requires { slug = "" } // UI Lib
+                optional { slug = "308702" } // ModMenu
+                embeds   { slug = "488090" } // MidnightLib
             }
         }
-        */
     }
 }

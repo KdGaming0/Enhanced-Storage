@@ -41,11 +41,7 @@ replay_*.log
 
 # ai
 
-AGENTS.md
-CLAUDE.md
 .claude
 IMPLEMENTATION_LOG.md
 graphify-out
-.graphifyignore
-docs
 .venv-graphify

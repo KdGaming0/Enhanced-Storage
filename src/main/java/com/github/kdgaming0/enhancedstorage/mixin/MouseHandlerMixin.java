@@ -1,66 +1,71 @@
 package com.github.kdgaming0.enhancedstorage.mixin;
 
-import com.github.kdgaming0.enhancedstorage.feature.savecursorposition.CursorPositionManager;
-import com.github.kdgaming0.enhancedstorage.feature.savecursorposition.CursorPositionManager.CursorPosition;
-import com.mojang.blaze3d.platform.InputConstants;
+import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.mojang.blaze3d.platform.Window;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.MouseHandler;
-import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.util.Util;
+import org.lwjgl.glfw.GLFW;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/**
- * Preserves the cursor position across inventory screens (see {@link CursorPositionManager}).
- *
- * <p>The injection points target the third {@code Minecraft.getWindow()} call (ordinal 2) in each
- * method — i.e. immediately before {@code InputConstants.grabOrReleaseMouse} — where {@code xpos}
- * and {@code ypos} have both been assigned the screen centre. This mirrors SkyBlock-Enhancements'
- * {@code SaveCursorPositionMouseHandlerMixin}; the two coexist because the manager defers to
- * SkyBlock-Enhancements at runtime when that mod is handling cursor saving.
- */
 @Mixin(MouseHandler.class)
-public class MouseHandlerMixin {
+public abstract class MouseHandlerMixin {
 
     @Shadow
     private double xpos;
-
     @Shadow
     private double ypos;
+    @Shadow
+    private boolean mouseGrabbed;
+    @Shadow
+    @Final
+    private Minecraft minecraft;
 
-    /** Captures the cursor position before vanilla centres it in {@code grabMouse()}. */
+    @Unique
+    private double enhancedstorage$savedX;
+    @Unique
+    private double enhancedstorage$savedY;
+    @Unique
+    private long enhancedstorage$grabbedAt = Long.MIN_VALUE;
+
+    // Menu is closing: remember where the cursor was, and when.
     @Inject(method = "grabMouse", at = @At("HEAD"))
-    private void es$onGrabMouseHead(CallbackInfo ci) {
-        CursorPositionManager.saveCursorOriginal(this.xpos, this.ypos);
+    private void enhancedstorage$saveCursorPos(CallbackInfo ci) {
+        if (!EnhancedStorageConfig.saveCursorPosition) return;
+
+        if (this.minecraft.isWindowActive() && !this.mouseGrabbed) {
+            this.enhancedstorage$savedX = this.xpos;
+            this.enhancedstorage$savedY = this.ypos;
+            this.enhancedstorage$grabbedAt = Util.getMillis();
+        }
     }
 
-    /** Captures the screen centre after vanilla centres the cursor in {@code grabMouse()}. */
-    @Inject(method = "grabMouse", at = @At(value = "INVOKE",
-            target = "Lnet/minecraft/client/Minecraft;getWindow()Lcom/mojang/blaze3d/platform/Window;",
-            ordinal = 2))
-    private void es$onGrabMouseAfterCenter(CallbackInfo ci) {
-        CursorPositionManager.saveCursorMiddle(this.xpos, this.ypos);
-    }
-
-    /**
-     * Replaces the centre with the saved cursor position before {@code releaseMouse()} asks GLFW to
-     * move the cursor. Updating {@code xpos}/{@code ypos} keeps Minecraft's internal mouse state in
-     * sync so the first rendered frame shows the correct hover; calling {@code grabOrReleaseMouse}
-     * ourselves ensures the visible cursor lands on the restored position immediately.
-     */
-    @Inject(method = "releaseMouse", at = @At(value = "INVOKE",
-            target = "Lnet/minecraft/client/Minecraft;getWindow()Lcom/mojang/blaze3d/platform/Window;",
-            ordinal = 2))
-    private void es$onReleaseMouse(CallbackInfo ci) {
-        Minecraft mc = Minecraft.getInstance();
-        Screen newScreen = mc.screen;
-        CursorPosition position = CursorPositionManager.loadCursor(this.xpos, this.ypos, newScreen);
-        if (position != null) {
-            this.xpos = position.x();
-            this.ypos = position.y();
-            InputConstants.grabOrReleaseMouse(mc.getWindow(), InputConstants.CURSOR_NORMAL, position.x(), position.y());
+    // Menu is opening: restore the saved position if it's been < 0.5s (default value).
+    @WrapOperation(
+            method = "releaseMouse",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lcom/mojang/blaze3d/platform/InputConstants;grabOrReleaseMouse(Lcom/mojang/blaze3d/platform/Window;IDD)V"
+            )
+    )
+    private void enhancedstorage$restoreCursorPos(Window window, int cursorMode, double xpos, double ypos, Operation<Void> original) {
+        boolean recent = this.enhancedstorage$grabbedAt != Long.MIN_VALUE && Util.getMillis() - this.enhancedstorage$grabbedAt
+                <= (long) (EnhancedStorageConfig.saveCursorPositionWindow * 1000);
+        if (EnhancedStorageConfig.saveCursorPosition && recent) {
+            this.xpos = this.enhancedstorage$savedX;
+            this.ypos = this.enhancedstorage$savedY;
+            original.call(window, cursorMode, this.enhancedstorage$savedX, this.enhancedstorage$savedY);
+            GLFW.glfwSetCursorPos(window.handle(), this.enhancedstorage$savedX, this.enhancedstorage$savedY);
+        } else {
+            original.call(window, cursorMode, xpos, ypos);
         }
     }
 }

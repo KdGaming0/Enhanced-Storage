@@ -1,20 +1,16 @@
 package com.github.kdgaming0.enhancedstorage.mixin;
 
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-@Mixin(AbstractContainerScreen.class)
+@Mixin(net.minecraft.client.gui.screens.inventory.AbstractContainerScreen.class)
 public interface AbstractContainerScreenAccessor {
-    @Accessor("leftPos")
-    int es$getLeftPos();
-
-    @Accessor("topPos")
-    int es$getTopPos();
-
+    @Mutable
     @Accessor("imageWidth")
-    int es$getImageWidth();
+    void enhancedstorage$setImageWidth(int value);
 
+    @Mutable
     @Accessor("imageHeight")
-    int es$getImageHeight();
+    void enhancedstorage$setImageHeight(int value);
 }

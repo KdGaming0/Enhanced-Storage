@@ -12,24 +12,22 @@
     "sources": "https://github.com/kdgaming0/Enhanced-Storage"
   },
   "license": "GPL-3.0-only",
-  "icon": "assets/enhanced_storage/icon.png",
+  "icon": "assets/enhanced_storage/enhanced_storage_icon.png",
   "environment": "client",
   "entrypoints": {
     "client": [
       "com.github.kdgaming0.enhancedstorage.EnhancedStorage"
-    ],
-    "rei_client": [
-      "com.github.kdgaming0.enhancedstorage.integration.EnhancedStorageReiPlugin"
     ]
   },
   "mixins": [
     "enhancedstorage.mixins.json"
   ],
-  "accessWidener": "enhancedstorage.ct",
+  "accessWidener": "enhanced_storage.accesswidener",
   "depends": {
     "fabricloader": ">=${loader_version}",
     "minecraft": "${minecraft}",
     "fabric-api": "*",
-    "midnightlib": ">=1.9.3"
+    "midnightlib": ">=1.9.3",
+    "uilib": ">=${uilib}"
   }
 }

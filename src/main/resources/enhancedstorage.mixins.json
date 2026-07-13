@@ -4,17 +4,17 @@
   "compatibilityLevel": "JAVA_25",
   "plugin": "com.github.kdgaming0.enhancedstorage.mixin.EnhancedStorageMixinPlugin",
   "mixins": [
-    "AbstractContainerScreenAccessor",
-    "AbstractContainerScreenMixin",
-    "ClientPacketListenerMixin",
-    "ContainerBackgroundMixin",
-    "MouseHandlerMixin",
-    "ProfileIdResponseMixin",
-    "QuickNavButtonMixin",
-    "ScreenAccessor",
-    "SlotAccessor"
+    "compat.RRVItemViewOverlayMixin",
+    "compat.RRVOverlayManagerMixin",
+    "compat.RRVSearchBarMixin"
   ],
   "injectors": {
     "defaultRequire": 1
-  }
+  },
+  "client": [
+    "AbstractContainerScreenAccessor",
+    "ContainerScreenHighlightClipMixin",
+    "MinecraftMixin",
+    "MouseHandlerMixin"
+  ]
 }
