@@ -43,8 +43,8 @@ Open the config via **Mod Menu → Enhanced Storage → Config**. Enhanced Stora
 ## Installation
 
 1. Install Minecraft with **Fabric Loader** for 26.1+.
-2. Download the latest `.jar` from [Modrinth](https://modrinth.com/mod/enhanced-storage).
-3. Place **Fabric API** in your `mods` folder. MidnightLib are bundled inside the Enhanced Storage jar — no separate downloads needed.
+2. Download the latest `.jar` from [Modrinth](https://modrinth.com/project/ICyROmSc).
+3. Added **Fabric API** and **UI Lib** in to your `mods` folder together with the Enhanced Storage. MidnightLib are bundled inside the Enhanced Storage jar — no separate downloads needed.
 4. Launch the game. The overlay will activate automatically whenever you open a SkyBlock storage container.
 
 ## Support & Community
