@@ -182,10 +182,10 @@ if (sc.current.version in compatibleVersions) {
                 projectId.set(curseforgeId)
                 accessToken.set(providers.environmentVariable("CURSEFORGE_TOKEN"))
                 minecraftVersions.addAll(compatibleVersions)
-                requires { slug = "306612" } // Fabric API
+                requires { slug = "fabric-api" } // Fabric API
                 //requires { slug = "" } // UI Lib
-                optional { slug = "308702" } // ModMenu
-                embeds   { slug = "488090" } // MidnightLib
+                optional { slug = "modmenu" } // ModMenu
+                embeds   { slug = "midnightlib" } // MidnightLib
             }
         }
     }
