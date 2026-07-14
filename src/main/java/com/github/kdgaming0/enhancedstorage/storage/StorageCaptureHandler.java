@@ -1,5 +1,6 @@
 package com.github.kdgaming0.enhancedstorage.storage;
 
+import com.github.kdgaming0.enhancedstorage.compat.CatharsisCompat;
 import com.github.kdgaming0.enhancedstorage.screen.StorageContainerScreen;
 import com.github.kdgaming0.enhancedstorage.util.TextUtils;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
@@ -7,7 +8,10 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.*;
@@ -104,15 +108,33 @@ public final class StorageCaptureHandler {
         int containerSlots = menu.slots.size() - PLAYER_SLOT_COUNT;
         if (containerSlots <= 9) return;
 
+        boolean index = key.type() == StorageKey.Type.STORAGE_INDEX;
+
         List<ItemStack> items = new ArrayList<>(containerSlots);
         for (int i = 9; i < containerSlots; i++) {
             if (!shouldCaptureSlot(key, i)) continue;
 
-            ItemStack stack = menu.slots.get(i).getItem();
-            items.add(stack.copy());
+            Slot slot = menu.slots.get(i);
+            ItemStack stack = slot.getItem().copy();
+            if (index) bakeCatharsisModel(stack, slot.index);
+            items.add(stack);
         }
 
         StorageCache.getInstance().put(key, items);
+    }
+
+    /**
+     * The storage index icons carry no SkyBlock id, so a Catharsis pack can only texture them from
+     * the slot they sit in, which is gone by the time we draw the cached copy. Copy that model onto
+     * the stack while the index is open so the cached icon keeps its texture.
+     */
+    private static void bakeCatharsisModel(ItemStack stack, int slotIndex) {
+        if (stack.isEmpty() || !CatharsisCompat.isLoaded()) return;
+
+        Identifier model = CatharsisCompat.getSlotModel(slotIndex);
+        if (model != null) {
+            stack.set(DataComponents.ITEM_MODEL, model);
+        }
     }
 
     private static boolean shouldCaptureSlot(StorageKey key, int slotIndex) {

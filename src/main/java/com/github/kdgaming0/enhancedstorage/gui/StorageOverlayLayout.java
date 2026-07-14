@@ -16,6 +16,7 @@ import com.github.kdgaming0.enhancedstorage.gui.component.TooltipItemComponent;
 import com.github.kdgaming0.enhancedstorage.storage.StorageCache;
 import com.github.kdgaming0.enhancedstorage.storage.StorageKey;
 import com.github.kdgaming0.enhancedstorage.storage.StorageOrder;
+import com.github.kdgaming0.enhancedstorage.util.ItemModels;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.Font;
@@ -565,7 +566,7 @@ public class StorageOverlayLayout {
                             int y = (row < rowYs.length) ? rowYs[row] : rowYs[rowYs.length - 1] + (row - rowYs.length + 1) * SLOT_SIZE;
 
                             int x = startX + col * SLOT_SIZE;
-                            TooltipItemComponent item = new TooltipItemComponent(x + 1, y + 1, stack, true);
+                            TooltipItemComponent item = new TooltipItemComponent(x + 1, y + 1, ItemModels.withResolvableModel(stack), true);
                             item.setTooltipEnabled(EnhancedStorageConfig.showItemTooltipsOnCachedItems);
                             item.updateParentPosition(overviewPanel.getTotalX(), overviewPanel.getTotalY(), overviewPanel.getWidth(), overviewPanel.getHeight());
                             overviewPanel.addComponent(item);
