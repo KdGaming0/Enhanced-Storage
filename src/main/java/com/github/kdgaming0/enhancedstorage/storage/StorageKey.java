@@ -16,7 +16,7 @@ public record StorageKey(Type type, int page) {
     public static final Pattern RIFT_PATTERN = Pattern.compile("rift storage \\((\\d+)/(\\d+)\\)");
     public static final Comparator<StorageKey> DISPLAY_ORDER = Comparator.comparing(StorageKey::type).thenComparingInt(StorageKey::page);
     private static final Pattern ENDER_CHEST_PATTERN = Pattern.compile("ender chest \\((\\d+)/\\d+\\)");
-    private static final Pattern BACKPACK_PATTERN = Pattern.compile("backpack \\(slot #(\\d+)\\)");
+    private static final Pattern BACKPACK_PATTERN = Pattern.compile("backpack.*\\(slot #(\\d+)\\)");
     private static final Pattern ENDER_CHEST_ITEM_PATTERN = Pattern.compile("ender chest page (\\d+)");
     private static final Pattern BACKPACK_ITEM_PATTERN = Pattern.compile("backpack slot (\\d+)");
 
