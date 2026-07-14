@@ -21,15 +21,15 @@ Enhanced Storage replaces the vanilla chest GUI with a custom overlay that displ
 
 ## Smart Search
 
-Type in the search bar to filter items across **all pages simultaneously**. Whether you're hunting for a specific pet, armor piece, or crafting material, Enhanced Storage finds it in seconds without forcing you to check every chest individually.
+Type in the search bar to filter items across **all pages simultaneously**. Whether you're hunting for a specific pet, armor piece, or crafting material, Enhanced Storage finds it in seconds without forcing you to check every page individually.
 
 ## Custom Page Names & Order
 
-Open the edit dialog on any page card to give it a custom name and/or a custom sort position, so your most-used pages can be renamed to something memorable and pinned wherever you want them in the overview. Both are remembered per SkyBlock profile, so different profiles and accounts keep their own naming and ordering.
+Open the edit dialog (right click on the page card) on any page card to give it a custom name and/or a custom sort position, so your most-used pages can be renamed to something memorable and pinned wherever you want them in the overview. Both are remembered per SkyBlock profile, so different profiles keep their own naming and ordering.
 
 ## Quick-Access Buttons
 
-The overlay header includes one-click buttons for:
+The overlay includes one click buttons for:
 - **Settings** — jump straight into the mod's config without leaving the overlay.
 - **Theme** — cycle between Transparent, Dark, and Light backgrounds on the fly.
 - **Toolkit** — quickly open your Hunting or Farming Toolkit.
@@ -43,8 +43,8 @@ Open the config via **Mod Menu → Enhanced Storage → Config**. Enhanced Stora
 ## Installation
 
 1. Install Minecraft with **Fabric Loader** for 26.1+.
-2. Download the latest `.jar` from [Modrinth](https://modrinth.com/project/ICyROmSc).
-3. Added **Fabric API** and **UI Lib** in to your `mods` folder together with the Enhanced Storage. MidnightLib are bundled inside the Enhanced Storage jar — no separate downloads needed.
+2. Download the latest `.jar` from [Modrinth](https://modrinth.com/project/ICyROmSc/versions).
+3. Added the **Fabric API** and **UI Lib** mod in to your `mods` folder together with Enhanced Storage. MidnightLib are bundled inside the Enhanced Storage jar — no separate downloads needed.
 4. Launch the game. The overlay will activate automatically whenever you open a SkyBlock storage container.
 
 ## Support & Community
