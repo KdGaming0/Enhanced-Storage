@@ -90,16 +90,27 @@ public final class StorageCaptureHandler {
             String newProfileId = m.group(1);
             StorageProfile profile = StorageProfile.getInstance();
 
-            // Did the profile not change? Do nothing.
             if (profile.current().filter(newProfileId::equals).isPresent()) {
+                // If our optimistic guess (the profile id cached from the previous session) was right.
+                // Confirm it and flush the captures we held back while the profile was still unknown.
+                if (!profile.isConfirmed()) {
+                    profile.markConfirmed();
+                    StorageCache.getInstance().saveToDisk();
+                    StorageNames.getInstance().saveToDisk();
+                }
                 return;
             }
 
-            // Different profile, save the current one
-            StorageCache.getInstance().saveToDisk();
-            StorageNames.getInstance().saveToDisk();
+            // The profile actually changed. Flush the old profile's data to the OLD profile before we
+            // switch away, but only if it was confirmed - unconfirmed captures were a wrong guess, so
+            // we let them drop instead of stranding them.
+            if (profile.isConfirmed()) {
+                StorageCache.getInstance().saveToDisk();
+                StorageNames.getInstance().saveToDisk();
+            }
 
-            // Change to the new profile
+            // Change to the new profile (reloads its caches via the onChange listener).
+            profile.markConfirmed();
             profile.onProfileIdSeen(newProfileId);
         });
     }

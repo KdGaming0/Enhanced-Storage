@@ -118,6 +118,8 @@ public final class StorageCache {
      */
     public void saveToDisk() {
         if (!dirty) return;
+        // Don't write until the skyblock profile id has been captured
+        if (!StorageProfile.getInstance().isConfirmed()) return;
         Optional<RegistryOps<Tag>> opsOpt = registryOps();
         if (opsOpt.isEmpty()) return;
         RegistryOps<Tag> ops = opsOpt.get();

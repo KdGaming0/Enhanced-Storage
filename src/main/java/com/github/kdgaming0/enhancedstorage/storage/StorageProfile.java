@@ -20,6 +20,7 @@ public final class StorageProfile {
 
     private static final StorageProfile INSTANCE = new StorageProfile();
     private volatile String currentProfileId;   // null = unknown
+    private volatile boolean confirmed;         // used to check if the skyblock profile id has been captured yet, will be true once the profile id has been seen in chat this session
     private Runnable onChange;                  // set by the mod init
 
     private StorageProfile() {
@@ -63,9 +64,13 @@ public final class StorageProfile {
         return Optional.ofNullable(currentProfileId);
     }
 
-    /**
-     * Registers the callback fired whenever the active profile changes.
-     */
+    public boolean isConfirmed() {
+        return confirmed;
+    }
+    public void markConfirmed() {
+        this.confirmed = true;
+    }
+
     public void setOnChange(Runnable onChange) {
         this.onChange = onChange;
     }
@@ -81,6 +86,7 @@ public final class StorageProfile {
      */
     public void adoptLastKnownProfile() {
         this.currentProfileId = readPersistedProfile().orElse(null);
+        this.confirmed = false;
     }
 
     /**

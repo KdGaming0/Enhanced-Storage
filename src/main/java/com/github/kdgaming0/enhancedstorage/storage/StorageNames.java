@@ -111,6 +111,8 @@ public final class StorageNames {
      */
     public void saveToDisk() {
         if (!dirty) return;
+        // Don't write until the skyblock profile id has been captured
+        if (!StorageProfile.getInstance().isConfirmed()) return;
 
         CompoundTag root = new CompoundTag();
         names.forEach((key, name) -> root.putString(key.id(), name));
