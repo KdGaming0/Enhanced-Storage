@@ -272,7 +272,8 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
             int absX = originalX + (visible % 9) * 18;
             int absY = originalY + (visible / 9) * 18;
 
-            // Clip rect stays in SCREEN space — scissor is never translated.
+            // Clip rect stays in SCREEN space: isHovering compares it against absolute mouse coords, and scissor
+            // consumers subtract (leftPos, topPos) themselves because enableScissor transforms its rect by the current pose.
             int clipLeft = Math.max(absX, viewport.getX());
             int clipTop = Math.max(absY, viewport.getY());
             int clipRight = Math.min(absX + 16, viewport.getX() + viewport.getWidth());
@@ -285,7 +286,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
             slot.y = relY;
 
             // Key must match what getHighlightClip looks up: cordKey(slot.x, slot.y),
-            // which is now relative. The stored rect stays absolute (scissor is screen-space).
+            // which is now relative. The stored rect stays absolute (screen space).
             topSlotClipRects.put(cordKey(relX, relY), new int[]{clipLeft, clipTop, clipRight, clipBottom});
         }
     }

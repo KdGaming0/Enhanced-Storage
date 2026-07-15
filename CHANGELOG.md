@@ -1,3 +1,3 @@
-## Update 1.0.0-beta.2
+## Update 1.0.0-beta.3
 
-- Fixed skinned backpacks not opening in the storage overlay, but opening in the vanilla menu instead.
+- Fixed items in the currently open storage page not showing the hover highlight when you move the mouse over them.

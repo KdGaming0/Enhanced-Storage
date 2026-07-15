@@ -17,6 +17,12 @@ public abstract class ContainerScreenHighlightClipMixin {
     @Shadow
     protected Slot hoveredSlot;
 
+    @Shadow
+    protected int leftPos;
+
+    @Shadow
+    protected int topPos;
+
     @Inject(method = "extractSlotHighlightBack", at = @At("HEAD"))
     private void enhancedstorage$clipBackStart(GuiGraphicsExtractor graphics, CallbackInfo ci) {
         enhancedstorage$apply(graphics);
@@ -42,7 +48,7 @@ public abstract class ContainerScreenHighlightClipMixin {
         if (hoveredSlot == null || !(((Object) this) instanceof IHighlightClipProvider provider)) return;
         int[] clip = provider.enhancedstorage$getHighlightClip(hoveredSlot);
         if (clip != null) {
-            graphics.enableScissor(clip[0], clip[1], clip[2], clip[3]);
+            graphics.enableScissor(clip[0] - leftPos, clip[1] - topPos, clip[2] - leftPos, clip[3] - topPos);
         }
     }
 
