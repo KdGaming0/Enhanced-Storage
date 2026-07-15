@@ -119,6 +119,19 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         state.onStorageScreenOpened();
     }
 
+    /**
+     * uilib's {@link com.daqem.uilib.gui.AbstractContainerScreen#children()} returns an immutable
+     * {@code List.copyOf(...)}. REI's post-init handler calls {@code children().removeIf(...)} to strip the
+     * recipe-book widget, which throws {@link UnsupportedOperationException} on an immutable list and crashes
+     * the client. Returning a mutable copy lets external mutators (REI) operate on a throwaway list without
+     * affecting our real widget state. super.children() already allocates a fresh list each call, so wrapping
+     * it adds no meaningful overhead.
+     */
+    @Override
+    public @NotNull List<? extends GuiEventListener> children() {
+        return new ArrayList<>(super.children());
+    }
+
     @Override
     public void removed() {
         super.removed();
