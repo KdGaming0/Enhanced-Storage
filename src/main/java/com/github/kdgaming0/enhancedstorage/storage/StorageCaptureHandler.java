@@ -1,5 +1,6 @@
 package com.github.kdgaming0.enhancedstorage.storage;
 
+import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
 import com.github.kdgaming0.enhancedstorage.compat.CatharsisCompat;
 import com.github.kdgaming0.enhancedstorage.screen.StorageContainerScreen;
 import com.github.kdgaming0.enhancedstorage.util.TextUtils;
@@ -33,6 +34,18 @@ public final class StorageCaptureHandler {
 
     private static final Pattern PROFILE_ID_PATTERN = Pattern.compile("profile id:\\s*([0-9a-f-]{36})");
 
+    /**
+     * Hypixel streams the storage index icons in over several ticks; pruning
+     * against a half-filled menu deletes real pages. Only prune once the set
+     * of discovered pages has stopped changing for this many ticks.
+     */
+    private static final int INDEX_STABLE_TICKS = 10;
+
+    private static final class IndexPruneState {
+        Set<StorageKey> lastFound = Set.of();
+        int stableTicks;
+    }
+
     private StorageCaptureHandler() {
     }
 
@@ -48,11 +61,17 @@ public final class StorageCaptureHandler {
                 discoverRiftPages(containerScreen.getTitle());
             }
 
+            IndexPruneState pruneState =
+                    key.type() == StorageKey.Type.STORAGE_INDEX ? new IndexPruneState() : null;
+
             ScreenEvents.afterTick(screen).register(s -> {
+                // Until the server has sent the container contents the slots are all air, which is indistinguishable from a genuinely empty page.
+                if (!ContainerContentTracker.hasReceived(containerScreen.getMenu().containerId)) return;
+
                 capture(key, containerScreen.getMenu());
-                if (key.type() == StorageKey.Type.STORAGE_INDEX) {
+                if (pruneState != null) {
                     Set<StorageKey> before = Set.copyOf(StorageCache.getInstance().allKnown());
-                    captureIndex(containerScreen.getMenu());
+                    tickIndex(containerScreen.getMenu(), pruneState);
                     if (!before.equals(StorageCache.getInstance().allKnown())
                             && s instanceof StorageContainerScreen storageScreen) {
                         Minecraft.getInstance().schedule(storageScreen::refreshCards);
@@ -61,7 +80,9 @@ public final class StorageCaptureHandler {
             });
 
             ScreenEvents.remove(screen).register(s -> {
-                capture(key, containerScreen.getMenu());
+                if (ContainerContentTracker.hasReceived(containerScreen.getMenu().containerId)) {
+                    capture(key, containerScreen.getMenu());
+                }
                 StorageCache.getInstance().saveToDisk();
                 StorageNames.getInstance().saveToDisk();
             });
@@ -69,50 +90,66 @@ public final class StorageCaptureHandler {
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
                 client.execute(() -> {
+                    ContainerContentTracker.reset();
                     // Use last session's profile as the optimistic guess until we know for sure what skyblock profile just loaded in
                     StorageProfile.getInstance().adoptLastKnownProfile();
                     // When we then know the correct profile, we reload it if our guess is wrong
                     StorageCache.getInstance().reloadForCurrentProfile();
                     StorageNames.getInstance().reloadForCurrentProfile();
+                    StorageOrder.getInstance().reloadForCurrentProfile();
                 }));
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             StorageCache.getInstance().saveToDisk();
             StorageNames.getInstance().saveToDisk();
+            StorageOrder.getInstance().saveToDisk();
         });
 
         // Detect the real skyblock profile id from chat, which arrives a few seconds after JOIN.
         ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
-            if (overlay) return;
-            Matcher m = PROFILE_ID_PATTERN.matcher(TextUtils.stripText(message));
-            if (!m.find()) return;
+            if (!overlay) onGameMessage(message);
+        });
+        // Chat-filtering mods (e.g. SkyHanni's/Skyblocker's "hide profile id message") cancel the
+        // line before GAME fires, but we still need to see it to confirm the profile.
+        ClientReceiveMessageEvents.GAME_CANCELED.register((message, overlay) -> {
+            if (!overlay) onGameMessage(message);
+        });
+    }
 
-            String newProfileId = m.group(1);
-            StorageProfile profile = StorageProfile.getInstance();
+    private static void onGameMessage(net.minecraft.network.chat.Component message) {
+        Matcher m = PROFILE_ID_PATTERN.matcher(TextUtils.stripText(message));
+        if (!m.find()) return;
 
-            if (profile.current().filter(newProfileId::equals).isPresent()) {
-                // If our optimistic guess (the profile id cached from the previous session) was right.
-                // Confirm it and flush the captures we held back while the profile was still unknown.
-                if (!profile.isConfirmed()) {
-                    profile.markConfirmed();
-                    StorageCache.getInstance().saveToDisk();
-                    StorageNames.getInstance().saveToDisk();
-                }
-                return;
-            }
+        String newProfileId = m.group(1);
+        StorageProfile profile = StorageProfile.getInstance();
 
-            // The profile actually changed. Flush the old profile's data to the OLD profile before we
-            // switch away, but only if it was confirmed - unconfirmed captures were a wrong guess, so
-            // we let them drop instead of stranding them.
-            if (profile.isConfirmed()) {
+        if (profile.current().filter(newProfileId::equals).isPresent()) {
+            // If our optimistic guess (the profile id cached from the previous session) was right.
+            // Confirm it and flush the captures we held back while the profile was still unknown.
+            if (!profile.isConfirmed()) {
+                profile.markConfirmed();
+                EnhancedStorage.LOGGER.info("SkyBlock profile {} confirmed; flushing pending saves", newProfileId);
                 StorageCache.getInstance().saveToDisk();
                 StorageNames.getInstance().saveToDisk();
+                StorageOrder.getInstance().saveToDisk();
             }
+            return;
+        }
 
-            // Change to the new profile (reloads its caches via the onChange listener).
-            profile.markConfirmed();
-            profile.onProfileIdSeen(newProfileId);
-        });
+        // The profile actually changed. Flush the old profile's data to the OLD profile before we
+        // switch away, but only if it was confirmed - unconfirmed captures were a wrong guess, so
+        // we let them drop instead of stranding them.
+        if (profile.isConfirmed()) {
+            StorageCache.getInstance().saveToDisk();
+            StorageNames.getInstance().saveToDisk();
+            StorageOrder.getInstance().saveToDisk();
+        }
+
+        EnhancedStorage.LOGGER.info("SkyBlock profile changed to {}", newProfileId);
+
+        // Change to the new profile (reloads its caches via the onChange listener).
+        profile.markConfirmed();
+        profile.onProfileIdSeen(newProfileId);
     }
 
     private static void capture(StorageKey key, AbstractContainerMenu menu) {
@@ -154,17 +191,21 @@ public final class StorageCaptureHandler {
         return row == 1 || row == 3 || row == 4;
     }
 
-    private static void captureIndex(AbstractContainerMenu menu) {
-        int containerSlots = menu.slots.size() - PLAYER_SLOT_COUNT;
-        Set<StorageKey> found = new HashSet<>();
+    private static void tickIndex(AbstractContainerMenu menu, IndexPruneState state) {
+        Set<StorageKey> found = scanIndex(menu);
+        if (found.isEmpty()) return;
 
-        for (int i = 0; i < containerSlots; i++) {
-            ItemStack stack = menu.slots.get(i).getItem();
-            if (stack.isEmpty()) continue;
-            StorageKey.fromIndexItem(stack.getHoverName()).ifPresent(found::add);
+        StorageCache cache = StorageCache.getInstance();
+        cache.addKnown(found);
+
+        if (found.equals(state.lastFound)) {
+            state.stableTicks++;
+        } else {
+            state.lastFound = found;
+            state.stableTicks = 1;
         }
 
-        if (found.isEmpty()) return;
+        if (state.stableTicks != INDEX_STABLE_TICKS) return;
 
         Set<StorageKey> foundEnder = found.stream()
                 .filter(k -> k.type() == StorageKey.Type.ENDER_CHEST)
@@ -173,12 +214,23 @@ public final class StorageCaptureHandler {
                 .filter(k -> k.type() == StorageKey.Type.BACKPACK)
                 .collect(Collectors.toSet());
 
-        StorageCache cache = StorageCache.getInstance();
         cache.replaceKnown(StorageKey.Type.ENDER_CHEST, foundEnder);
         cache.replaceKnown(StorageKey.Type.BACKPACK, foundBackpack);
 
         cache.retainOnly(StorageKey.Type.ENDER_CHEST, foundEnder);
         cache.retainOnly(StorageKey.Type.BACKPACK, foundBackpack);
+    }
+
+    private static Set<StorageKey> scanIndex(AbstractContainerMenu menu) {
+        int containerSlots = menu.slots.size() - PLAYER_SLOT_COUNT;
+        Set<StorageKey> found = new HashSet<>();
+
+        for (int i = 0; i < containerSlots; i++) {
+            ItemStack stack = menu.slots.get(i).getItem();
+            if (stack.isEmpty()) continue;
+            StorageKey.fromIndexItem(stack.getHoverName()).ifPresent(found::add);
+        }
+        return found;
     }
 
     public static void discoverRiftPages(net.minecraft.network.chat.Component title) {

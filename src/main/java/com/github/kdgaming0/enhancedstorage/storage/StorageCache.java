@@ -86,16 +86,32 @@ public final class StorageCache {
         return Collections.unmodifiableMap(pages);
     }
 
+    public void addKnown(Set<StorageKey> keys) {
+        if (knownPages.addAll(keys)) {
+            dirty = true;
+        }
+    }
+
     public void replaceKnown(StorageKey.Type type, Set<StorageKey> keys) {
-        knownPages.removeIf(k -> k.type() == type);
-        knownPages.addAll(keys);
-        dirty = true;
+        boolean changed = knownPages.removeIf(k -> k.type() == type && !keys.contains(k));
+        changed |= knownPages.addAll(keys);
+        if (changed) {
+            dirty = true;
+        }
     }
 
     public void retainOnly(StorageKey.Type type, Set<StorageKey> keep) {
-        boolean removed = pages.keySet().removeIf(k -> k.type() == type && !keep.contains(k));
-        if (removed) {
+        List<String> removed = new ArrayList<>();
+        pages.keySet().removeIf(k -> {
+            if (k.type() == type && !keep.contains(k)) {
+                removed.add(k.id());
+                return true;
+            }
+            return false;
+        });
+        if (!removed.isEmpty()) {
             dirty = true;
+            EnhancedStorage.LOGGER.info("Storage index no longer lists {}; dropping cached contents", removed);
         }
     }
 
@@ -119,7 +135,10 @@ public final class StorageCache {
     public void saveToDisk() {
         if (!dirty) return;
         // Don't write until the skyblock profile id has been captured
-        if (!StorageProfile.getInstance().isConfirmed()) return;
+        if (!StorageProfile.getInstance().isConfirmed()) {
+            EnhancedStorage.LOGGER.debug("Holding back storage cache save; profile not confirmed yet");
+            return;
+        }
         Optional<RegistryOps<Tag>> opsOpt = registryOps();
         if (opsOpt.isEmpty()) return;
         RegistryOps<Tag> ops = opsOpt.get();

@@ -13,6 +13,7 @@
   },
   "client": [
     "AbstractContainerScreenAccessor",
+    "ClientPacketListenerMixin",
     "ContainerScreenHighlightClipMixin",
     "MinecraftMixin",
     "MouseHandlerMixin"

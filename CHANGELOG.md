@@ -1,5 +1,6 @@
-## Update 1.0.0-beta.3
+## Update 1.0.0-beta.4
 
-- Maybe fixed storage pages sometimes not saving when you opened and closed them right after joining, before your SkyBlock profile id had finished loading.
-- Fixed items in the currently open storage page not showing the hover highlight when you move the mouse over them.
-- Fixed a crash when opening the storage menu while Roughly Enough Items (REI) is installed and Hide Recipe Book is enabled.
+- Maybe fixed storage pages randomly resetting and needing to be clicked through again.
+- Fixed custom page positions resetting every time the game was restarted.
+- Fixed storage changes never being saved for players using a mod that hides the "Profile ID" chat message.
+- Fixed a page showing up as empty if it was opened and closed before its items had finished loading.

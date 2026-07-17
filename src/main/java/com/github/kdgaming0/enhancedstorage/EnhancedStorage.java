@@ -6,6 +6,7 @@ import com.github.kdgaming0.enhancedstorage.screen.StorageContainerScreen;
 import com.github.kdgaming0.enhancedstorage.storage.StorageCache;
 import com.github.kdgaming0.enhancedstorage.storage.StorageCaptureHandler;
 import com.github.kdgaming0.enhancedstorage.storage.StorageNames;
+import com.github.kdgaming0.enhancedstorage.storage.StorageOrder;
 import com.github.kdgaming0.enhancedstorage.storage.StorageProfile;
 import eu.midnightdust.lib.config.MidnightConfig;
 import net.fabricmc.api.ClientModInitializer;
@@ -27,6 +28,7 @@ public class EnhancedStorage implements ClientModInitializer {
         StorageProfile.getInstance().setOnChange(() -> {
             StorageCache.getInstance().reloadForCurrentProfile();
             StorageNames.getInstance().reloadForCurrentProfile();
+            StorageOrder.getInstance().reloadForCurrentProfile();
 
             // If a storage overlay is currently open, rebuild it against the new data.
             Minecraft mc = Minecraft.getInstance();

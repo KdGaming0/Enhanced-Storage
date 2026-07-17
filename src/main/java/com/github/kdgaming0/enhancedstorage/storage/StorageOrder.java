@@ -66,6 +66,11 @@ public final class StorageOrder {
 
     public void saveToDisk() {
         if (!dirty) return;
+        // Don't write until the skyblock profile id has been captured
+        if (!StorageProfile.getInstance().isConfirmed()) {
+            EnhancedStorage.LOGGER.debug("Holding back storage order save; profile not confirmed yet");
+            return;
+        }
         CompoundTag root = new CompoundTag();
         positions.forEach((key, pos) -> root.putInt(key.id(), pos));
         try {
@@ -75,6 +80,7 @@ public final class StorageOrder {
             NbtIo.writeCompressed(root, tmp);
             Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
             dirty = false;
+            EnhancedStorage.LOGGER.debug("Saved storage order ({} entries)", positions.size());
         } catch (IOException e) {
             EnhancedStorage.LOGGER.error("Failed to save storage order", e);
         }
@@ -96,6 +102,7 @@ public final class StorageOrder {
                     root.getInt(id).ifPresent(pos -> positions.put(key, pos)));
         }
         dirty = false;
+        EnhancedStorage.LOGGER.info("Loaded storage order: {} entries", positions.size());
     }
 
     public void reloadForCurrentProfile() {
