@@ -55,6 +55,14 @@ public final class StorageCache {
         return Optional.of(registries.createSerializationContext(NbtOps.INSTANCE));
     }
 
+    private static boolean stacksMatch(List<ItemStack> a, List<ItemStack> b) {
+        if (a.size() != b.size()) return false;
+        for (int i = 0; i < a.size(); i++) {
+            if (!ItemStack.matches(a.get(i), b.get(i))) return false;
+        }
+        return true;
+    }
+
     public void put(StorageKey key, List<ItemStack> items) {
         boolean newlyKnown = knownPages.add(key);
 
@@ -68,14 +76,6 @@ public final class StorageCache {
 
         pages.put(key, new CachedPage(List.copyOf(items), System.currentTimeMillis()));
         dirty = true;
-    }
-
-    private static boolean stacksMatch(List<ItemStack> a, List<ItemStack> b) {
-        if (a.size() != b.size()) return false;
-        for (int i = 0; i < a.size(); i++) {
-            if (!ItemStack.matches(a.get(i), b.get(i))) return false;
-        }
-        return true;
     }
 
     public Optional<CachedPage> get(StorageKey key) {

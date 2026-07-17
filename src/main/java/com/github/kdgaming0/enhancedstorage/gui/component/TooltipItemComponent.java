@@ -23,6 +23,24 @@ public class TooltipItemComponent extends ItemComponent {
         super(x, y, itemStack, decorated);
     }
 
+    // Vanilla's itemDecorations is wrapped by several mods that fire events per item per frame
+    // (SkyHanni, skyblock-api, ...), which dominates the overlay's render cost. Cached items only
+    // need the stack count and durability bar, so draw those directly.
+    private static void extractDecorationsFast(GuiGraphicsExtractor guiGraphics, ItemStack stack, int x, int y) {
+        if (stack.getCount() != 1) {
+            Font font = Minecraft.getInstance().font;
+            String count = String.valueOf(stack.getCount());
+            guiGraphics.text(font, count, x + 19 - 2 - font.width(count), y + 6 + 3, 0xFFFFFFFF, true);
+        }
+
+        if (stack.isBarVisible()) {
+            int barWidth = stack.getBarWidth();
+            int barColor = stack.getBarColor();
+            guiGraphics.fill(x + 2, y + 13, x + 15, y + 15, 0xFF000000);
+            guiGraphics.fill(x + 2, y + 13, x + 2 + barWidth, y + 14, 0xFF000000 | barColor);
+        }
+    }
+
     public boolean isTooltipEnabled() {
         return tooltipEnabled;
     }
@@ -51,24 +69,6 @@ public class TooltipItemComponent extends ItemComponent {
                     mouseX,
                     mouseY
             );
-        }
-    }
-
-    // Vanilla's itemDecorations is wrapped by several mods that fire events per item per frame
-    // (SkyHanni, skyblock-api, ...), which dominates the overlay's render cost. Cached items only
-    // need the stack count and durability bar, so draw those directly.
-    private static void extractDecorationsFast(GuiGraphicsExtractor guiGraphics, ItemStack stack, int x, int y) {
-        if (stack.getCount() != 1) {
-            Font font = Minecraft.getInstance().font;
-            String count = String.valueOf(stack.getCount());
-            guiGraphics.text(font, count, x + 19 - 2 - font.width(count), y + 6 + 3, 0xFFFFFFFF, true);
-        }
-
-        if (stack.isBarVisible()) {
-            int barWidth = stack.getBarWidth();
-            int barColor = stack.getBarColor();
-            guiGraphics.fill(x + 2, y + 13, x + 15, y + 15, 0xFF000000);
-            guiGraphics.fill(x + 2, y + 13, x + 2 + barWidth, y + 14, 0xFF000000 | barColor);
         }
     }
 

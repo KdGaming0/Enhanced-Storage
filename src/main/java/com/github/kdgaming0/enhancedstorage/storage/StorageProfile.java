@@ -67,6 +67,7 @@ public final class StorageProfile {
     public boolean isConfirmed() {
         return confirmed;
     }
+
     public void markConfirmed() {
         this.confirmed = true;
     }
@@ -104,12 +105,5 @@ public final class StorageProfile {
         if (onChange != null) {
             onChange.run();
         }
-    }
-
-    /**
-     * Called when the active profile actually changes.
-     */
-    public interface Listener {
-        void onProfileChanged(String newProfileId);
     }
 }

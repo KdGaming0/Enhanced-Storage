@@ -16,7 +16,6 @@ import com.github.kdgaming0.enhancedstorage.storage.*;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
 import eu.midnightdust.lib.config.MidnightConfig;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.util.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Renderable;
@@ -24,6 +23,7 @@ import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Util;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.Slot;
@@ -36,17 +36,15 @@ import java.util.*;
 
 public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> implements IHighlightClipProvider {
 
+    private static final long SEARCH_REBUILD_DELAY_MS = 150;
     private final StorageKey openKey;
     private final StorageOverlayState state = StorageOverlayState.session();
     private final StorageOverlayLayout layout = new StorageOverlayLayout();
-
     private final Map<Long, int[]> topSlotClipRects = new HashMap<>();
-
     private final boolean rrvLoaded = FabricLoader.getInstance().isModLoaded("rrv");
     private final Map<Integer, ItemStack> liveMatchStacks = new HashMap<>();
     private final Map<Integer, Boolean> liveMatchResults = new HashMap<>();
     private String liveMatchQuery = "";
-    private static final long SEARCH_REBUILD_DELAY_MS = 150;
     private long searchRebuildDueAt = -1;
     private boolean autoScrolledToOpenCard = false;
     private EditDialogComponent renameDialog;

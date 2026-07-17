@@ -8,6 +8,7 @@ import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.resources.Identifier;
@@ -41,16 +42,11 @@ public final class StorageCaptureHandler {
      */
     private static final int INDEX_STABLE_TICKS = 10;
 
-    private static final class IndexPruneState {
-        Set<StorageKey> lastFound = Set.of();
-        int stableTicks;
-    }
-
     private StorageCaptureHandler() {
     }
 
     public static void register() {
-        ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
+        ScreenEvents.AFTER_INIT.register((Minecraft client, Screen screen, int scaledWidth, int scaledHeight) -> {
             if (!(screen instanceof AbstractContainerScreen<?> containerScreen)) return;
 
             Optional<StorageKey> keyOpt = StorageKey.fromTitle(containerScreen.getTitle());
@@ -242,5 +238,10 @@ public final class StorageCaptureHandler {
             allRift.add(new StorageKey(StorageKey.Type.RIFT, p));
         }
         StorageCache.getInstance().replaceKnown(StorageKey.Type.RIFT, allRift);
+    }
+
+    private static final class IndexPruneState {
+        Set<StorageKey> lastFound = Set.of();
+        int stableTicks;
     }
 }
