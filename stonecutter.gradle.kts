@@ -11,11 +11,16 @@ stonecutter parameters {
     swaps["minecraft"] = "\"${node.metadata.version}\";"
     constants["release"] = property("mod.id") != "template"
     dependencies["fapi"] = node.project.property("deps.fabric_api") as String
+
+    replacements.string(eval(node.metadata.version, ">=26.2")) {
+        replace("mc.screen", "mc.gui.screen()")
+        replace("mc.setScreen(", "mc.gui.setScreen(")
+        replace("Minecraft.getInstance().screen", "Minecraft.getInstance().gui.screen()")
+        replace("Minecraft.getInstance().setScreen(", "Minecraft.getInstance().gui.setScreen(")
+    }
 }
 
-val releaseVersions = listOf(
-    "26.1"
-)
+val releaseVersions = listOf("26.1", "26.2")
 
 stonecutter tasks {
     order("publishMods")

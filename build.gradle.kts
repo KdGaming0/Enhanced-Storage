@@ -79,11 +79,10 @@ dependencies {
 
     implementation("org.msgpack:msgpack-core:0.9.12")
 
-    // Skyblocker
-    modCompileOnly("maven.modrinth:y6DuFGwJ:n5H2yDJu")
-    // RRV
-    modCompileOnly("maven.modrinth:5VolwT6c:8Xwd53bY")
+    modCompileOnly("maven.modrinth:skyblocker-liap:${property("deps.skyblocker_version")}")
+    modCompileOnly("maven.modrinth:rrv:${property("deps.rrv_version")}")
 
+    modRuntimeOnly("maven.modrinth:resourcepackcached:${property("deps.rpc_version")}")
     modRuntimeOnly("me.djtheredstoner:DevAuth-fabric:1.2.2")
     modRuntimeOnly("maven.modrinth:modmenu:${property("deps.modmenu_version")}")
 }
