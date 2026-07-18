@@ -6,7 +6,10 @@
   "mixins": [
     "compat.RRVItemViewOverlayMixin",
     "compat.RRVOverlayManagerMixin",
-    "compat.RRVSearchBarMixin"
+    "compat.RRVSearchBarMixin",
+    "compat.SkyHanniChestValueMixin",
+    "compat.SkyHanniInventoryUtilsMixin",
+    "compat.SkyHanniRenderDataMixin"
   ],
   "injectors": {
     "defaultRequire": 1

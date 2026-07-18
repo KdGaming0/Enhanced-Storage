@@ -24,6 +24,9 @@ public class EnhancedStorageMixinPlugin implements IMixinConfigPlugin {
         if (mixinClassName.contains(".compat.RRV")) {
             return FabricLoader.getInstance().isModLoaded("rrv");
         }
+        if (mixinClassName.contains(".compat.SkyHanni")) {
+            return FabricLoader.getInstance().isModLoaded("skyhanni");
+        }
         return true;
     }
 
