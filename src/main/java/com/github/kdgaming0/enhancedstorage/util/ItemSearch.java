@@ -1,10 +1,10 @@
 package com.github.kdgaming0.enhancedstorage.util;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Util;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.ItemLore;
 
 import java.util.Deque;
 import java.util.List;
@@ -57,8 +57,12 @@ public class ItemSearch {
     private static String searchText(ItemStack stack) {
         return SEARCH_TEXT_CACHE.computeIfAbsent(stack, s -> {
             StringBuilder text = new StringBuilder();
-            for (Component line : Screen.getTooltipFromItem(Minecraft.getInstance(), s)) {
-                text.append(TextUtils.stripText(line)).append('\n');
+            text.append(TextUtils.stripText(s.getHoverName())).append('\n');
+            ItemLore lore = s.get(DataComponents.LORE);
+            if (lore != null) {
+                for (Component line : lore.lines()) {
+                    text.append(TextUtils.stripText(line)).append('\n');
+                }
             }
             return text.toString();
         });
