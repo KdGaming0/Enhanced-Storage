@@ -34,8 +34,8 @@ tasks.register("publishToAllPlatforms") {
 
 gradle.projectsEvaluated {
     releaseVersions.zipWithNext().forEach { (prev, next) ->
-        project(":$next").tasks.named("publishMods") {
-            mustRunAfter(":$prev:publishMods")
+        project(":$next").tasks.matching { it.name == "publishMods" }.configureEach {
+            mustRunAfter(project(":$prev").tasks.matching { it.name == "publishMods" })
         }
     }
 }

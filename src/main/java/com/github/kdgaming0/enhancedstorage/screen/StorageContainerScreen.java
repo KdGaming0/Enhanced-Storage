@@ -46,6 +46,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     private final Map<Integer, Boolean> liveMatchResults = new HashMap<>();
     private String liveMatchQuery = "";
     private long searchRebuildDueAt = -1;
+    private Deque<ItemStack> searchWarmupQueue;
     private boolean autoScrolledToOpenCard = false;
     private EditDialogComponent renameDialog;
 
@@ -113,6 +114,13 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         this.topPos = boxTop;
 
         syncSlotPositions();
+
+        // Queue every cached stack for search-text warmup; init() also runs on every rebuildWidgets, so only build the queue once per screen.
+        if (searchWarmupQueue == null) {
+            searchWarmupQueue = new ArrayDeque<>();
+            StorageCache.getInstance().all().values()
+                    .forEach(page -> searchWarmupQueue.addAll(page.items()));
+        }
 
         state.onStorageScreenOpened();
     }
@@ -380,6 +388,9 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     @Override
     protected void containerTick() {
         super.containerTick();
+        if (searchWarmupQueue != null && !searchWarmupQueue.isEmpty()) {
+            ItemSearch.warmUp(searchWarmupQueue, 3);
+        }
         if (searchRebuildDueAt >= 0 && Util.getMillis() >= searchRebuildDueAt) {
             searchRebuildDueAt = -1;
             this.rebuildWidgets();

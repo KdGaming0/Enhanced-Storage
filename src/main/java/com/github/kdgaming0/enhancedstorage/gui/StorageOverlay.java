@@ -5,17 +5,22 @@ import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
 import com.github.kdgaming0.enhancedstorage.storage.StorageCache;
 import com.github.kdgaming0.enhancedstorage.storage.StorageKey;
+import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 import org.jspecify.annotations.NonNull;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Objects;
 
 public class StorageOverlay extends AbstractScreen {
 
     private final StorageOverlayState state = StorageOverlayState.session();
     private final StorageOverlayLayout layout = new StorageOverlayLayout();
+    private Deque<ItemStack> searchWarmupQueue;
 
     public StorageOverlay() {
         super(Component.literal("Storage Overlay"));
@@ -25,7 +30,23 @@ public class StorageOverlay extends AbstractScreen {
     protected void init() {
         layout.build(this, this.font, this.width, this.height,
                 state, null, 0, this::onPageCardClicked, this::onSearchChanged, this::runToolkitCommand);
+
+        // Queue every cached stack for search-text warmup; init() also runs on every rebuildWidgets, so only build the queue once per screen.
+        if (searchWarmupQueue == null) {
+            searchWarmupQueue = new ArrayDeque<>();
+            StorageCache.getInstance().all().values()
+                    .forEach(page -> searchWarmupQueue.addAll(page.items()));
+        }
+
         state.onStorageScreenOpened();
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        if (searchWarmupQueue != null && !searchWarmupQueue.isEmpty()) {
+            ItemSearch.warmUp(searchWarmupQueue, 3);
+        }
     }
 
     // Called by PageCardComponent when a card is clicked.

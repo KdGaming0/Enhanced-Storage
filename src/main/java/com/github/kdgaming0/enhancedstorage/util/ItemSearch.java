@@ -3,11 +3,17 @@ package com.github.kdgaming0.enhancedstorage.util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Util;
 import net.minecraft.world.item.ItemStack;
 
+import java.util.Deque;
 import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
 
 public class ItemSearch {
+
+    private static final Map<ItemStack, String> SEARCH_TEXT_CACHE = new WeakHashMap<>();
 
     private ItemSearch() {
     }
@@ -16,18 +22,45 @@ public class ItemSearch {
         if (query.isBlank()) return false;
         if (stack == null || stack.isEmpty()) return false;
 
-        String cleanQuery = TextUtils.stripString(query);
-
-        for (Component line : Screen.getTooltipFromItem(Minecraft.getInstance(), stack)) {
-            if (TextUtils.stripText(line).contains(cleanQuery)) {
-                return true;
-            }
-        }
-        return false;
+        return searchText(stack).contains(TextUtils.stripString(query));
     }
 
     public static boolean anyMatch(List<ItemStack> stacks, String query) {
         if (query.isBlank()) return false;
-        return stacks.stream().anyMatch(stack -> matches(stack, query));
+
+        String cleanQuery = TextUtils.stripString(query);
+        for (ItemStack stack : stacks) {
+            if (stack == null || stack.isEmpty()) continue;
+            if (searchText(stack).contains(cleanQuery)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Precomputes search text for pending stacks within roughly {@code timeBudgetMillis},
+     * so the first search execution doesn't have to generate every tooltip at once.
+     * Always processes a small minimum per call to guarantee the queue drains.
+     */
+    public static void warmUp(Deque<ItemStack> pending, long timeBudgetMillis) {
+        long start = Util.getMillis();
+        int processed = 0;
+        while (!pending.isEmpty()) {
+            ItemStack stack = pending.poll();
+            if (stack != null && !stack.isEmpty()) {
+                searchText(stack);
+            }
+            processed++;
+            if (processed >= 10 && Util.getMillis() - start >= timeBudgetMillis) break;
+        }
+    }
+
+    private static String searchText(ItemStack stack) {
+        return SEARCH_TEXT_CACHE.computeIfAbsent(stack, s -> {
+            StringBuilder text = new StringBuilder();
+            for (Component line : Screen.getTooltipFromItem(Minecraft.getInstance(), s)) {
+                text.append(TextUtils.stripText(line)).append('\n');
+            }
+            return text.toString();
+        });
     }
 }
