@@ -7,6 +7,7 @@ import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
 import com.github.kdgaming0.enhancedstorage.compat.RRVCompat;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayScale;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayLayout;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayState;
 import com.github.kdgaming0.enhancedstorage.gui.component.EditDialogComponent;
@@ -69,8 +70,21 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         return o.getClass().getName().startsWith("cc.cassian.rrv");
     }
 
+    /**
+     * Switches the window to the overlay's own GUI scale before anything lays out. {@code width} and
+     * {@code height} were assigned by our caller before the scale changed, so they have to be re-read.
+     * <p>
+     * Every rebuild funnels through here, so resizes, fullscreen toggles and live config edits need no
+     * code of their own — including window resizes, where vanilla resets the scale to the player's
+     * setting on the way in and {@link OverlayScale#sync} puts ours back.
+     */
     @Override
     protected void init() {
+        Minecraft minecraft = Minecraft.getInstance();
+        OverlayScale.sync(minecraft);
+        this.width = minecraft.getWindow().getGuiScaledWidth();
+        this.height = minecraft.getWindow().getGuiScaledHeight();
+
         super.init();
 
         if (openKey.type() == StorageKey.Type.RIFT) {
@@ -136,10 +150,16 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         return new ArrayList<>(super.children());
     }
 
+    /**
+     * {@code Minecraft.setScreen} calls this on the outgoing screen before initialising the incoming
+     * one, so putting the player's scale back here means whatever comes next — the config screen, the
+     * next storage page, the in-game HUD — lays out at the right size from its first frame.
+     */
     @Override
     public void removed() {
         super.removed();
         state.onStorageScreenClosed();
+        OverlayScale.restoreGameScale(Minecraft.getInstance());
     }
 
     @Override

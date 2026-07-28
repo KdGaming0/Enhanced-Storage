@@ -28,6 +28,9 @@
   "enhanced_storage.midnightconfig.backgroundType": "Background Style",
   "enhanced_storage.midnightconfig.backgroundType.tooltip": "Visual style for the overlay background: light, dark, or transparent.",
 
+  "enhanced_storage.midnightconfig.overlayGuiScale": "Overlay GUI Scale (0 = Same as Game)",
+  "enhanced_storage.midnightconfig.overlayGuiScale.tooltip": "Use a Custom GUI scale for the Storage Overlay, so you can fit more pages on screen without shrinking the rest of the game. Leave at 0 to just use your game's GUI Scale setting. A scale too large for your window is reduced to the biggest one that fits.",
+
   "enhanced_storage.midnightconfig.maxPagePerRow": "Pages Per Row",
   "enhanced_storage.midnightconfig.maxPagePerRow.tooltip": "Number of page columns shown in the scroll panel (1–5).",
 
