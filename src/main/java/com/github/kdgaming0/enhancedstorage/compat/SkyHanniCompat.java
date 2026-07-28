@@ -14,13 +14,13 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Runtime bridge for the SkyHanni compat mixins (mixin/compat/SkyHanni*Mixin).
- *
+ * <p>
  * SkyHanni gates its chest features (Chest Value etc.) on the open screen being
  * the vanilla ContainerScreen. StorageContainerScreen extends uilib's container
  * screen instead, so those checks fail even though the ChestMenu underneath is
  * untouched. The mixins OR our screen into those checks and hand SkyHanni the
  * real container slots.
- *
+ * <p>
  * Every entry point is wrapped so a SkyHanni-side change degrades to a single
  * logged warning instead of a crash.
  */
@@ -28,9 +28,12 @@ public final class SkyHanniCompat {
 
     private static final Set<String> reportedFailures = ConcurrentHashMap.newKeySet();
 
-    private SkyHanniCompat() {}
+    private SkyHanniCompat() {
+    }
 
-    /** true when the currently open screen is our storage screen. */
+    /**
+     * true when the currently open screen is our storage screen.
+     */
     public static boolean isStorageScreenOpen() {
         try {
             return Minecraft.getInstance().screen instanceof StorageContainerScreen;
@@ -66,7 +69,9 @@ public final class SkyHanniCompat {
         }
     }
 
-    /** Logs a hook failure once per session instead of spamming or crashing. */
+    /**
+     * Logs a hook failure once per session instead of spamming or crashing.
+     */
     public static void reportFailure(String hook, Throwable t) {
         if (reportedFailures.add(hook)) {
             EnhancedStorage.LOGGER.warn(

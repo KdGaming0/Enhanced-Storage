@@ -18,6 +18,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -35,6 +36,9 @@ public class PageCardComponent extends AbstractComponent {
     private final int titleLocalHeight;
 
     private final boolean cached;
+    private final boolean live;
+    private final List<ItemStack> items;
+    private final List<StorageSlotComponent> slots = new ArrayList<>();
 
     public PageCardComponent(int x, int y, int width, int height,
                              StorageKey key,
@@ -47,8 +51,8 @@ public class PageCardComponent extends AbstractComponent {
         super(x, y, width, height);
         this.key = key;
         this.cached = cached;
-
-        String searchQuery = (state == null) ? "" : state.getSearchQuery();
+        this.live = live;
+        this.items = items;
 
         if (live) {
             SpriteComponent background = new SpriteComponent(0, 0, width, height, getPageCardActiveTexture());
@@ -109,15 +113,11 @@ public class PageCardComponent extends AbstractComponent {
                             live ? null : getStorageSlotHighlightFrontTexture(),
                             stack);
                     if (live) slotComponent.setHoverEnabled(false);
-                    if (!live && !searchQuery.isBlank()) {
-                        slotComponent.setSearchState(
-                                ItemSearch.matches(stack, searchQuery)
-                                        ? StorageSlotComponent.SearchState.MATCH
-                                        : StorageSlotComponent.SearchState.NO_MATCH);
-                    }
+                    this.slots.add(slotComponent);
                     this.addComponent(slotComponent);
                 }
             }
+            applySearch(state == null ? "" : state.getSearchQuery());
         } else {
             Component label = Component.literal("Click To Open");
             int textX = (width - font.width(label)) / 2;
@@ -177,6 +177,29 @@ public class PageCardComponent extends AbstractComponent {
 
     public boolean isCached() {
         return cached;
+    }
+
+    public boolean isLive() {
+        return live;
+    }
+
+    // Apply the slot tint when searching
+    public void applySearch(String query) {
+        if (live || slots.isEmpty()) return;
+
+        if (query.isBlank()) {
+            for (StorageSlotComponent slot : slots) {
+                slot.setSearchState(StorageSlotComponent.SearchState.NONE);
+            }
+            return;
+        }
+
+        for (int i = 0; i < slots.size(); i++) {
+            ItemStack stack = (i < items.size()) ? items.get(i) : null;
+            slots.get(i).setSearchState(ItemSearch.matches(stack, query)
+                    ? StorageSlotComponent.SearchState.MATCH
+                    : StorageSlotComponent.SearchState.NO_MATCH);
+        }
     }
 
     public boolean isOverTitle(double screenX, double screenY) {

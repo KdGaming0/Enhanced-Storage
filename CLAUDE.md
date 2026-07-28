@@ -17,12 +17,8 @@ Rules:
 Enhanced Storage is a Fabric client mod for Hypixel SkyBlock (Minecraft) that replaces the vanilla chest GUI with a unified, searchable overlay showing all Ender Chest and Backpack pages at once.
 ## Build system
 
-This project uses **Stonecutter** (multi-Minecraft-version Gradle) on top of **Fabric Loom**. Source lives once under `src/`, and Stonecutter generates per-version project copies under `versions/<mc_version>/` at build/sync time — currently only `26.1` is active (see `stonecutter.gradle.kts` / `settings.gradle.kts`).
+Stonecutter (multi-Minecraft-version Gradle) generates per-version project copies, so tasks can be prefixed with a version — `./gradlew :26.1:runClient` launches a dev client for that version, against a `run/` directory shared across versions.
 
-Common commands (run from repo root):
-- `./gradlew build` — build the active version (what CI runs).
-- `./gradlew :26.1:build` — build a specific Stonecutter version explicitly.
-- `./gradlew :26.1:runClient` — launch a dev client for that version (shared `run/` directory across versions, configured in `build.gradle.kts`).
 - `./gradlew buildAndCollect` — build and copy the mod jar (+ sources jar) into `build/libs/<mod.version>/`.
 - `./gradlew chiseledSrc` / stonecutter migrate tasks — used only when adding/porting to a new Minecraft version; don't invoke unless asked.
 
@@ -34,20 +30,12 @@ Version/mod metadata (mod id, version, dependency versions per MC version) is ce
 
 Client-only Fabric mod, single entrypoint: `EnhancedStorage` (`ClientModInitializer`). On init it wires up MidnightLib config, registers a profile-change listener that reloads storage caches/names and rebuilds any open overlay, and registers the `StorageCaptureHandler`.
 
-The god nodes from the dependency graph mark the real center of gravity — start here when orienting:
-- `StorageKey` (`storage/StorageKey.java`) — identifies a single storage page (Ender Chest N, Backpack N, Rift N, or the index screen) by parsing vanilla screen titles / item names via regex. Nearly every other module keys off this record.
-- `StorageOverlayLayout` / `StorageOverlay` / `StorageOverlayState` (`gui/`) — build and render the actual overlay UI (page cards, slots, search) on top of the vanilla container screen.
-- `StorageContainerScreen` (`screen/`) — the screen-level integration point; bridges vanilla `AbstractContainerScreen` behavior with the overlay and exposes `rebuildForProfileChange()`.
-- `StorageCache`, `StorageProfile`, `StorageNames`, `StorageOrder` (`storage/`) — persistence: cached page contents, per-profile (per-account/per-world) storage, custom names/ordering. `StorageProfile.setOnChange` is the hook point for "player switched SkyBlock profile" — caches must be reloaded, not just re-read, on that event.
-- `StorageCaptureHandler` (`storage/`) — listens for vanilla container packets/screens to capture storage page contents into `StorageCache`.
-- `gui/component/` — reusable widgets (`PageCardComponent`, `EditDialogComponent`, `IconButtonComponent`, `StorageSlotComponent`, etc.) used by `StorageOverlayLayout`.
-- `compat/RRVCompat` + `mixin/compat/*` — optional integration with the RRV (RebornStorage) mod, conditionally applied.
+Use `graphify query` to orient in the module graph. Non-obvious contracts:
+- `StorageProfile.setOnChange` is the hook point for "player switched SkyBlock profile" — caches must be **reloaded**, not just re-read, on that event.
 
 ### Mixins
 
 Mixins live in `mixin/` and are declared in `src/main/resources/enhancedstorage.mixins.json`. `EnhancedStorageMixinPlugin` gates the `compat.RRV*` mixins behind `FabricLoader.isModLoaded("rrv")` — RRV/Skyblocker compat mixins must stay optional at the mixin-plugin level, not just at runtime, since those mods are compile-only deps (see `modCompileOnly` entries in `build.gradle.kts`).
-
-Non-compat mixins target core screen/input classes: `AbstractContainerScreenAccessor` (accessor), `ContainerScreenHighlightClipMixin` (implements `IHighlightClipProvider`), `MinecraftMixin`, `MouseHandlerMixin`.
 
 ### Config
 
@@ -62,52 +50,15 @@ Non-compat mixins target core screen/input classes: `AbstractContainerScreenAcce
 
 ## Workflow
 
-### 1. Investigate First
+Investigate → plan → get approval → implement. Follow the `work-on-problem` skill for those steps; the project-specific additions are below.
 
-Before writing any code, investigate the requested feature or reported issue.
+### Validate
 
-- If any requirement is unclear, **stop and ask for clarification** before proceeding. Do not make assumptions. It is better to clarify early than to implement the wrong solution.
-- Explain your findings briefly after the investigation.
-- If the investigation naturally splits into independent tasks (for example, tracing a rendering bug, auditing mixin order, and checking overlay lifecycle), suggest running parallel sub-agents, with one agent handling each independent task. Only suggest this when it provides a meaningful speed or quality improvement.
+Run `./gradlew build` before considering the work complete — it is the only correctness gate.
 
-### 2. Present a Plan
+Because this is a client mod for a live server, most behavior can only be verified in game. When manual in-game testing is required, clearly describe what should be tested, how to reproduce it, and the expected result — then wait for the user to report back before finalizing the task.
 
-After completing the investigation:
-
-- Present a short implementation plan or specification.
-- Explain how you intend to solve the problem.
-- Wait for explicit approval before writing any code.
-
-### 3. Implement
-
-Once approval has been given:
-
-- Implement the planned changes.
-- Keep the implementation focused on the approved scope.
-- Avoid unrelated refactoring unless it is required to complete the task safely.
-
-### 4. Validate
-
-Before considering the work complete:
-
-- Run all relevant tests.
-- Run:
-
-```bash
-./gradlew build
-```
-
-to ensure the project builds successfully and all automated checks pass.
-
-If manual in-game testing is required, clearly describe:
-
-- what should be tested
-- how to reproduce it
-- what the expected result is
-
-Wait for the user to complete manual testing and report back with the results before finalizing the task.
-
-### 5. Documentation
+### Documentation
 
 After all testing has passed:
 
@@ -127,12 +78,6 @@ to keep the project graph up to date.
 - If the work fixes a bug or introduces a user-visible feature, update `CHANGELOG.md` with a short, non-technical description suitable for end users. Avoid implementation details and internal terminology.
 
 ## General Principles
-
-- Investigate before implementing.
-- Ask for clarification instead of assuming.
-- Do not write code before approval.
-- Validate all changes before considering the task complete.
-- Keep documentation up to date with every completed change.
 
 ### Scope Control
 

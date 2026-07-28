@@ -18,6 +18,7 @@ import com.github.kdgaming0.enhancedstorage.storage.StorageKey;
 import com.github.kdgaming0.enhancedstorage.storage.StorageOrder;
 import com.github.kdgaming0.enhancedstorage.util.ItemModels;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
+import com.github.kdgaming0.enhancedstorage.util.TextUtils;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -50,9 +51,21 @@ public class StorageOverlayLayout {
     public static final int SCROLLBAR_GAP = 4;
     public static final int UNCACHED_CARD_HEIGHT = 50;
     private final List<PageCardComponent> pageCards = new ArrayList<>();
+    private final List<PageCardComponent> visibleCards = new ArrayList<>();
     private final List<StorageKey> defaultOrder = new ArrayList<>();
+    private final Map<StorageKey, Boolean> pageMatchCache = new HashMap<>();
+    private String pageMatchQuery = "";
     private int liveRowTop = -1;
     private int liveRowBottom = -1;
+    // Row-flow inputs captured by build() so applySearch() can re-pack rows without re-running build().
+    private Font font;
+    private int columns;
+    private int cardWidth;
+    private int rowContentWidth;
+    private int titleAreaHeight;
+    private boolean riftContext;
+    private int pageOverviewParentX;
+    private int pageOverviewParentY;
     private int mainBackgroundX;
     private int mainBackgroundY;
     private int mainBackgroundWidth;
@@ -295,7 +308,7 @@ public class StorageOverlayLayout {
     }
 
     public List<PageCardComponent> getPageCards() {
-        return pageCards;
+        return visibleCards;
     }
 
     public SpriteComponent getInventoryPanel() {
@@ -327,6 +340,9 @@ public class StorageOverlayLayout {
         this.liveRowTop = -1;
         this.liveRowBottom = -1;
         this.pageCards.clear();
+        this.visibleCards.clear();
+        this.pageMatchCache.clear();
+        this.pageMatchQuery = "";
         this.toolkitButton = null;
         this.toolkitButtonBounds = null;
         this.settingsButton = null;
@@ -336,7 +352,11 @@ public class StorageOverlayLayout {
 
         int titleAreaHeight = font.lineHeight + 2;
 
+        this.font = font;
+        this.titleAreaHeight = titleAreaHeight;
+
         boolean riftContext = liveKey != null && liveKey.type() == StorageKey.Type.RIFT;
+        this.riftContext = riftContext;
 
         List<StorageKey> pageKeys = Stream.concat(
                         Stream.ofNullable(liveKey),
@@ -354,19 +374,15 @@ public class StorageOverlayLayout {
         pageKeys = applyCustomOrder(pageKeys);
 
         String query = state.getSearchQuery();
-        if (!query.isBlank()) {
-            pageKeys = pageKeys.stream()
-                    .filter(key -> key.equals(liveKey)
-                            || StorageCache.getInstance().get(key)
-                            .map(page -> ItemSearch.anyMatch(page.items(), query))
-                            .orElse(false))
-                    .toList();
-        }
 
         int cardWidth = CARD_BORDER * 2 + SLOTS_ACROSS * SLOT_SIZE;
 
         int columns = computeColumns(width);
         int rowContentWidth = columns * cardWidth + (columns - 1) * EnhancedStorageConfig.cardSpacing;
+
+        this.cardWidth = cardWidth;
+        this.columns = columns;
+        this.rowContentWidth = rowContentWidth;
 
         int mainBackgroundWidth = computeMainBackgroundWidth(width);
         int mainBackgroundHeight = computeMainBackgroundHeight(height);
@@ -440,80 +456,40 @@ public class StorageOverlayLayout {
             }
         };
 
-        if (pageKeys.isEmpty()) {
-            Component message = query.isBlank()
-                    ? Component.literal(riftContext
-                                        ? "No rift storage cached yet. Open a Rift Storage page first."
-                                        : "No storage pages cached yet. Open an Ender Chest or Backpack first.")
-                    : Component.literal("No storage pages contain \"" + query + "\".");
+        // Build every card once, for the unfiltered page list. Search then decides which of these instances get added into rows (see reflowRows).
+        for (StorageKey key : pageKeys) {
+            boolean isLive = key.equals(liveKey);
 
-            int rowHeight = titleAreaHeight + 8;
-            int textWidth = Math.min(font.width(message), rowContentWidth);
-            int textX = (rowContentWidth - textWidth) / 2;
-            int textY = (rowHeight - font.lineHeight) / 2 + 20;
+            boolean cached = StorageCache.getInstance().get(key).isPresent();
+            List<ItemStack> items = isLive
+                    ? List.of()
+                    : StorageCache.getInstance().get(key)
+                      .map(StorageCache.CachedPage::items).orElse(List.of());
 
-            TruncatedTextComponent emptyText = new TruncatedTextComponent(
-                    textX, textY, rowContentWidth - textX, message, getTitleTextColor());
-            emptyText.setDrawShadow(shouldDrawTitleShadow());
+            int cardHeight = isLive
+                    ? CARD_BORDER * 2 + titleAreaHeight + (liveRows - 1) * SLOT_SIZE
+                    : cardHeightFor(key, titleAreaHeight);
 
-            EmptyComponent emptyRow = new EmptyComponent(0, 0, rowContentWidth, rowHeight);
-            emptyRow.addComponent(emptyText);
-            pageOverview.addComponent(emptyRow);
+            PageCardComponent pageCard = new PageCardComponent(
+                    0, 0,
+                    cardWidth, cardHeight,
+                    key, state,
+                    items,
+                    isLive || cached,
+                    isLive,
+                    CARD_BORDER, titleAreaHeight, SLOTS_ACROSS, SLOT_SIZE,
+                    onCardClick
+            );
+            if (isLive) this.openCard = pageCard;
+            this.pageCards.add(pageCard);
         }
 
-        int contentY = 0;
-        for (int i = 0; i < pageKeys.size(); i += columns) {
-            List<StorageKey> rowKeys = pageKeys.subList(i, Math.min(i + columns, pageKeys.size()));
-
-            // Row height = tallest card in this row
-            int rowHeight = rowKeys.stream()
-                    .mapToInt(key -> cardHeightForRow(key, liveKey, liveRows, titleAreaHeight))
-                    .max()
-                    .orElse(UNCACHED_CARD_HEIGHT);
-
-            // Checks if the current row being build has the live storage page, if so get it's Y position in the scroll component
-            if (liveKey != null && rowKeys.contains(liveKey)) {
-                liveRowTop = contentY;
-                liveRowBottom = contentY + rowHeight;
-            }
-
-            EmptyComponent row = new EmptyComponent(0, 0, rowContentWidth, rowHeight);
-            for (int col = 0; col < rowKeys.size(); col++) {
-                StorageKey key = rowKeys.get(col);
-
-                boolean isLive = key.equals(liveKey);
-
-                boolean cached = StorageCache.getInstance().get(key).isPresent();
-                List<ItemStack> items = isLive
-                        ? List.of()
-                        : StorageCache.getInstance().get(key)
-                          .map(StorageCache.CachedPage::items).orElse(List.of());
-
-                int cardHeight = isLive
-                        ? CARD_BORDER * 2 + titleAreaHeight + (liveRows - 1) * SLOT_SIZE
-                        : cardHeightFor(key, titleAreaHeight);
-
-                PageCardComponent pageCard = new PageCardComponent(
-                        col * (cardWidth + EnhancedStorageConfig.cardSpacing), 0,
-                        cardWidth, cardHeight,
-                        key, state,
-                        items,
-                        isLive || cached,
-                        isLive,
-                        CARD_BORDER, titleAreaHeight, SLOTS_ACROSS, SLOT_SIZE,
-                        onCardClick
-                );
-                if (isLive) this.openCard = pageCard;
-                this.pageCards.add(pageCard);
-                row.addComponent(pageCard);
-            }
-            pageOverview.addComponent(row);
-            contentY += rowHeight + pageOverview.getContentSpacing();
-        }
-
-        pageOverview.uilib$updateParentPosition(mainBackground.getTotalX() + INNER_PADDING, mainBackground.getTotalY() + INNER_PADDING);
+        this.pageOverviewParentX = mainBackground.getTotalX() + INNER_PADDING;
+        this.pageOverviewParentY = mainBackground.getTotalY() + INNER_PADDING;
         mainBackground.addWidget(pageOverview);
         this.pageOverview = pageOverview;
+
+        reflowRows(query);
         pageOverview.setScrollAmount(state.getScrollAmount());
 
         int mainBackgroundCenterX = mainBackgroundX + mainBackgroundWidth / 2;
@@ -589,16 +565,18 @@ public class StorageOverlayLayout {
             overview.addComponent(storageOverviewTitle);
         }
 
-        EditBoxWidget searchBox = new EditBoxWidget(font, 70, 1, 100, 12, Component.literal("Search"));
-        searchBox.setValue(state.getSearchQuery());
-        searchBox.setResponder(text -> {
-            if (text.equals(state.getSearchQuery())) return;
-            state.setSearchQuery(text);
-            onSearchChanged.run();
-        });
-        searchBox.uilib$updateParentPosition(inventory.getTotalX(), inventory.getTotalY());
-        screen.addWidget(searchBox);
-        this.searchBox = searchBox;
+        if (this.searchBox == null) {
+            EditBoxWidget searchBox = new EditBoxWidget(font, 70, 1, 100, 12, Component.literal("Search"));
+            searchBox.setValue(state.getSearchQuery());
+            searchBox.setResponder(text -> {
+                if (text.equals(state.getSearchQuery())) return;
+                state.setSearchQuery(text);
+                onSearchChanged.run();
+            });
+            this.searchBox = searchBox;
+        }
+        this.searchBox.uilib$updateParentPosition(inventory.getTotalX(), inventory.getTotalY());
+        screen.addWidget(this.searchBox);
 
         // Buttons sit in a row to the right of the player inventory panel.
         final int btnSize = 24;
@@ -646,11 +624,106 @@ public class StorageOverlayLayout {
         }
     }
 
-    private int cardHeightForRow(StorageKey key, @Nullable StorageKey liveKey, int liveRows, int titleAreaHeight) {
-        if (key.equals(liveKey)) {
-            return CARD_BORDER * 2 + titleAreaHeight + (liveRows - 1) * SLOT_SIZE;
+    public void applySearch(String query) {
+        if (pageOverview == null) return;
+
+        reflowRows(query);
+        // Hiding cards shrinks the content, so an old scroll offset can now point past the end.
+        pageOverview.setScrollAmount(pageOverview.scrollAmount());
+    }
+
+    /**
+     * Packs the cards matching {@code query} into rows of {@link #columns}, replacing whatever the
+     * scroll container held before. Card instances are reused; only the lightweight row wrappers
+     * are allocated.
+     */
+    private void reflowRows(String query) {
+        List<PageCardComponent> visible = visibleCards;
+        visible.clear();
+        for (PageCardComponent card : pageCards) {
+            if (query.isBlank() || card.isLive() || pageMatches(card.getKey(), query)) {
+                card.applySearch(query);
+                visible.add(card);
+            }
         }
-        return cardHeightFor(key, titleAreaHeight);
+
+        pageOverview.clearComponents();
+        liveRowTop = -1;
+        liveRowBottom = -1;
+
+        if (visible.isEmpty()) {
+            pageOverview.addComponent(buildEmptyRow(query));
+        }
+
+        int contentY = 0;
+        for (int i = 0; i < visible.size(); i += columns) {
+            List<PageCardComponent> rowCards = visible.subList(i, Math.min(i + columns, visible.size()));
+
+            // Row height = tallest card in this row
+            int rowHeight = rowCards.stream()
+                    .mapToInt(PageCardComponent::getHeight)
+                    .max()
+                    .orElse(UNCACHED_CARD_HEIGHT);
+
+            EmptyComponent row = new EmptyComponent(0, 0, rowContentWidth, rowHeight);
+            for (int col = 0; col < rowCards.size(); col++) {
+                PageCardComponent card = rowCards.get(col);
+                card.setX(col * (cardWidth + EnhancedStorageConfig.cardSpacing));
+
+                // Checks if the current row being build has the live storage page, if so get it's Y position in the scroll component
+                if (card.isLive()) {
+                    liveRowTop = contentY;
+                    liveRowBottom = contentY + rowHeight;
+                }
+                row.addComponent(card);
+            }
+            pageOverview.addComponent(row);
+            contentY += rowHeight + pageOverview.getContentSpacing();
+        }
+
+        // Rows were just re-parented, so push the container's position back down the tree.
+        pageOverview.uilib$updateParentPosition(pageOverviewParentX, pageOverviewParentY);
+    }
+
+    private EmptyComponent buildEmptyRow(String query) {
+        Component message = query.isBlank()
+                ? Component.literal(riftContext
+                                    ? "No rift storage cached yet. Open a Rift Storage page first."
+                                    : "No storage pages cached yet. Open an Ender Chest or Backpack first.")
+                : Component.literal("No storage pages contain \"" + query + "\".");
+
+        int rowHeight = titleAreaHeight + 8;
+        int textWidth = Math.min(font.width(message), rowContentWidth);
+        int textX = (rowContentWidth - textWidth) / 2;
+        int textY = (rowHeight - font.lineHeight) / 2 + 20;
+
+        TruncatedTextComponent emptyText = new TruncatedTextComponent(
+                textX, textY, rowContentWidth - textX, message, getTitleTextColor());
+        emptyText.setDrawShadow(shouldDrawTitleShadow());
+
+        EmptyComponent emptyRow = new EmptyComponent(0, 0, rowContentWidth, rowHeight);
+        emptyRow.addComponent(emptyText);
+        return emptyRow;
+    }
+
+    private boolean pageMatches(StorageKey key, String query) {
+        if (!query.equals(pageMatchQuery)) {
+            if (TextUtils.stripString(query).startsWith(TextUtils.stripString(pageMatchQuery))) {
+                pageMatchCache.entrySet().removeIf(Map.Entry::getValue);
+            } else {
+                pageMatchCache.clear();
+            }
+            pageMatchQuery = query;
+        }
+
+        Boolean known = pageMatchCache.get(key);
+        if (known != null) return known;
+
+        boolean result = StorageCache.getInstance().get(key)
+                .map(page -> ItemSearch.anyMatch(page.items(), query))
+                .orElse(false);
+        pageMatchCache.put(key, result);
+        return result;
     }
 
     // Scroll the live page into view if is not already in view

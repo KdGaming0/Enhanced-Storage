@@ -23,7 +23,6 @@ import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Util;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.Slot;
@@ -36,7 +35,6 @@ import java.util.*;
 
 public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> implements IHighlightClipProvider {
 
-    private static final long SEARCH_REBUILD_DELAY_MS = 150;
     private final StorageKey openKey;
     private final StorageOverlayState state = StorageOverlayState.session();
     private final StorageOverlayLayout layout = new StorageOverlayLayout();
@@ -45,7 +43,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     private final Map<Integer, ItemStack> liveMatchStacks = new HashMap<>();
     private final Map<Integer, Boolean> liveMatchResults = new HashMap<>();
     private String liveMatchQuery = "";
-    private long searchRebuildDueAt = -1;
+    private boolean searchDirty = false;
     private Deque<ItemStack> searchWarmupQueue;
     private boolean autoScrolledToOpenCard = false;
     private EditDialogComponent renameDialog;
@@ -381,8 +379,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     }
 
     private void onSearchChanged() {
-        // Debounce: a full rebuild per keystroke is expensive, so wait for a short pause in typing.
-        searchRebuildDueAt = Util.getMillis() + SEARCH_REBUILD_DELAY_MS;
+        searchDirty = true;
     }
 
     @Override
@@ -391,15 +388,28 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         if (searchWarmupQueue != null && !searchWarmupQueue.isEmpty()) {
             ItemSearch.warmUp(searchWarmupQueue, 3);
         }
-        if (searchRebuildDueAt >= 0 && Util.getMillis() >= searchRebuildDueAt) {
-            searchRebuildDueAt = -1;
-            this.rebuildWidgets();
+        if (searchDirty) {
+            searchDirty = false;
+            layout.applySearch(state.getSearchQuery());
+        }
+    }
 
-            var box = layout.getSearchBox();
-            if (box != null) {
-                this.setFocused(box);
-                box.setFocused(true);
-            }
+    /**
+     * A rebuild throws away every widget and clears focus. The search box instance itself survives
+     * (the layout reuses it), so put focus back on it afterwards — otherwise a rebuild triggered
+     * while the user is typing swallows the keystrokes that follow it.
+     */
+    @Override
+    protected void rebuildWidgets() {
+        var previous = layout.getSearchBox();
+        boolean refocus = previous != null && (previous.isFocused() || this.getFocused() == previous);
+
+        super.rebuildWidgets();
+
+        var box = layout.getSearchBox();
+        if (refocus && box != null) {
+            this.setFocused(box);
+            box.setFocused(true);
         }
     }
 
