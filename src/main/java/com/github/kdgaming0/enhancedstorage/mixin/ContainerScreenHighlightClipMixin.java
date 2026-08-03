@@ -1,6 +1,8 @@
 package com.github.kdgaming0.enhancedstorage.mixin;
 
 import com.github.kdgaming0.enhancedstorage.screen.IHighlightClipProvider;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.world.inventory.Slot;
@@ -8,8 +10,6 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(AbstractContainerScreen.class)
 public abstract class ContainerScreenHighlightClipMixin {
@@ -23,40 +23,49 @@ public abstract class ContainerScreenHighlightClipMixin {
     @Shadow
     protected int topPos;
 
-    @Inject(method = "extractSlotHighlightBack", at = @At("HEAD"))
-    private void enhancedstorage$clipBackStart(GuiGraphicsExtractor graphics, CallbackInfo ci) {
-        enhancedstorage$apply(graphics);
+    @WrapOperation(
+            method = "extractContents",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/client/gui/screens/inventory/AbstractContainerScreen;extractSlotHighlightBack(Lnet/minecraft/client/gui/GuiGraphicsExtractor;)V"
+            )
+    )
+    private void enhancedstorage$clipHighlightBack(AbstractContainerScreen<?> screen, GuiGraphicsExtractor graphics,
+                                                   Operation<Void> original) {
+        enhancedstorage$clipped(graphics, () -> original.call(screen, graphics));
     }
 
-    @Inject(method = "extractSlotHighlightBack", at = @At("TAIL"))
-    private void enhancedstorage$clipBackEnd(GuiGraphicsExtractor graphics, CallbackInfo ci) {
-        enhancedstorage$remove(graphics);
-    }
-
-    @Inject(method = "extractSlotHighlightFront", at = @At("HEAD"))
-    private void enhancedstorage$clipFrontStart(GuiGraphicsExtractor graphics, CallbackInfo ci) {
-        enhancedstorage$apply(graphics);
-    }
-
-    @Inject(method = "extractSlotHighlightFront", at = @At("TAIL"))
-    private void enhancedstorage$clipFrontEnd(GuiGraphicsExtractor graphics, CallbackInfo ci) {
-        enhancedstorage$remove(graphics);
+    @WrapOperation(
+            method = "extractContents",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/client/gui/screens/inventory/AbstractContainerScreen;extractSlotHighlightFront(Lnet/minecraft/client/gui/GuiGraphicsExtractor;)V"
+            )
+    )
+    private void enhancedstorage$clipHighlightFront(AbstractContainerScreen<?> screen, GuiGraphicsExtractor graphics,
+                                                    Operation<Void> original) {
+        enhancedstorage$clipped(graphics, () -> original.call(screen, graphics));
     }
 
     @Unique
-    private void enhancedstorage$apply(GuiGraphicsExtractor graphics) {
-        if (hoveredSlot == null || !(((Object) this) instanceof IHighlightClipProvider provider)) return;
-        int[] clip = provider.enhancedstorage$getHighlightClip(hoveredSlot);
-        if (clip != null) {
-            graphics.enableScissor(clip[0] - leftPos, clip[1] - topPos, clip[2] - leftPos, clip[3] - topPos);
+    private void enhancedstorage$clipped(GuiGraphicsExtractor graphics, Runnable draw) {
+        int[] clip = enhancedstorage$highlightClip();
+        if (clip == null) {
+            draw.run();
+            return;
         }
-    }
 
-    @Unique
-    private void enhancedstorage$remove(GuiGraphicsExtractor graphics) {
-        if (hoveredSlot == null || !(((Object) this) instanceof IHighlightClipProvider provider)) return;
-        if (provider.enhancedstorage$getHighlightClip(hoveredSlot) != null) {
+        graphics.enableScissor(clip[0] - leftPos, clip[1] - topPos, clip[2] - leftPos, clip[3] - topPos);
+        try {
+            draw.run();
+        } finally {
             graphics.disableScissor();
         }
+    }
+
+    @Unique
+    private int[] enhancedstorage$highlightClip() {
+        if (hoveredSlot == null || !(((Object) this) instanceof IHighlightClipProvider provider)) return null;
+        return provider.enhancedstorage$getHighlightClip(hoveredSlot);
     }
 }

@@ -1,6 +1,7 @@
 ## Update 1.1.1
 
 - Fixed the game crashing on startup when RRV 8.7.0 or newer was installed alongside Enhanced Storage.
+- Fixed all items and the tooltip turning invisible when hovering a slot in the storage overlay with Smooth Hover installed.
 
 ## Update 1.1.0
 
