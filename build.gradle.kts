@@ -148,7 +148,7 @@ tasks {
 
 if (sc.current.version in compatibleVersions) {
     val changelogFile = rootProject.file("CHANGELOG.md")
-    val releaseSectionRegex = Regex("""(?ms)^#\s+\d[^\n]*.*?(?=^#\s+\d|\z)""")
+    val releaseSectionRegex = Regex("""(?ms)^##\s+Update\s+\d+\.\d+\.\d+.*?(?=^##\s+|\z)""")
 
     val publishChangelog = changelogFile.takeIf(File::exists)
         ?.readText()
