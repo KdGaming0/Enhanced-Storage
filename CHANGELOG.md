@@ -1,3 +1,10 @@
+## Update 1.2.0
+
+- Added client commands for opening SkyBlock Storage with a search query already filled in.
+  - `/ecs <query>` or `/enhancedstorage ecs <query>` opens the storage overlay with the search bar filled with `<query>`.
+- Added commands to open the config menu.
+  - `/es config` or `/enhancedstorage config`.
+
 ## Update 1.1.1
 
 - Fixed the game crashing on startup when RRV 8.7.0 or newer was installed alongside Enhanced Storage.
