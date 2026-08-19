@@ -1,3 +1,7 @@
+## Update 1.2.1
+
+- Made `/ecs` work without a query, and now opens the storage as normal.
+
 ## Update 1.2.0
 
 - Added client commands for opening SkyBlock Storage with a search query already filled in.

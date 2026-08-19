@@ -28,6 +28,7 @@ public class EnhancedStorageCommand {
     private static LiteralArgumentBuilder<FabricClientCommandSource> commandRoot(String name) {
         return literal(name)
                 .then(literal("ecs")
+                        .executes(EnhancedStorageCommand::executeStorageOpen)
                         .then(argument("search_query", StringArgumentType.greedyString())
                                 .executes(EnhancedStorageCommand::executeStorageSearch)))
                 .then(literal("config")
@@ -38,6 +39,7 @@ public class EnhancedStorageCommand {
 
     private static LiteralArgumentBuilder<FabricClientCommandSource> searchCommand() {
         return literal("ecs")
+                .executes(EnhancedStorageCommand::executeStorageOpen)
                 .then(argument("search_query", StringArgumentType.greedyString())
                         .executes(EnhancedStorageCommand::executeStorageSearch));
     }
@@ -49,6 +51,21 @@ public class EnhancedStorageCommand {
         client.schedule(() -> {
             try {
                 StorageOverlayState.session().setSearchQuery(searchQuery);
+                assert client.player != null;
+                client.player.connection.sendCommand("storage");
+            } catch (Exception e) {
+                EnhancedStorage.LOGGER.error("Failed to open storage overlay", e);
+            }
+        });
+
+        return 1;
+    }
+
+    private static int executeStorageOpen(CommandContext<FabricClientCommandSource> ctx) {
+        Minecraft client = Minecraft.getInstance();
+
+        client.schedule(() -> {
+            try {
                 assert client.player != null;
                 client.player.connection.sendCommand("storage");
             } catch (Exception e) {
