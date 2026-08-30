@@ -1,3 +1,9 @@
+## Update 1.2.2
+
+- Reduced unnecessary work while the storage overlay is open by refreshing cached page contents only after actual container updates.
+- Improved overlay performance when viewing and scrolling through many cached storage pages.
+- Made storage cache saves more reliable, especially when several pages are updated in quick succession.
+
 ## Update 1.2.1
 
 - Made `/ecs` work without a query, and now opens the storage as normal.

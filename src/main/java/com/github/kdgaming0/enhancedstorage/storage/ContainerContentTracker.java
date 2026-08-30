@@ -13,16 +13,28 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class ContainerContentTracker {
 
     private static final Set<Integer> received = ConcurrentHashMap.newKeySet();
+    private static final Set<Integer> changed = ConcurrentHashMap.newKeySet();
 
     private ContainerContentTracker() {
     }
 
     public static void markReceived(int containerId) {
         received.add(containerId);
+        changed.add(containerId);
     }
 
     public static boolean hasReceived(int containerId) {
         return received.contains(containerId);
+    }
+
+    public static void markChanged(int containerId) {
+        if (received.contains(containerId)) {
+            changed.add(containerId);
+        }
+    }
+
+    public static boolean consumeChanged(int containerId) {
+        return changed.remove(containerId);
     }
 
     /**
@@ -31,5 +43,6 @@ public final class ContainerContentTracker {
      */
     public static void reset() {
         received.clear();
+        changed.clear();
     }
 }

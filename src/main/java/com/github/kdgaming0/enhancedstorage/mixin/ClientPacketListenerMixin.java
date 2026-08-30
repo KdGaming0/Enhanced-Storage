@@ -3,6 +3,7 @@ package com.github.kdgaming0.enhancedstorage.mixin;
 import com.github.kdgaming0.enhancedstorage.storage.ContainerContentTracker;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
+import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
 import net.minecraft.network.protocol.game.ClientboundOpenScreenPacket;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -22,5 +23,10 @@ public abstract class ClientPacketListenerMixin {
     @Inject(method = "handleContainerContent", at = @At("TAIL"))
     private void enhancedstorage$onContainerContent(ClientboundContainerSetContentPacket packet, CallbackInfo ci) {
         ContainerContentTracker.markReceived(packet.containerId());
+    }
+
+    @Inject(method = "handleContainerSetSlot", at = @At("TAIL"))
+    private void enhancedstorage$onContainerSlotChanged(ClientboundContainerSetSlotPacket packet, CallbackInfo ci) {
+        ContainerContentTracker.markChanged(packet.getContainerId());
     }
 }

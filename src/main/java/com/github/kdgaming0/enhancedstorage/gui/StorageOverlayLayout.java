@@ -441,7 +441,11 @@ public class StorageOverlayLayout {
                 int currentY = -(int) this.scrollAmount();
                 for (int i = 0; i < rows.size(); i++) {
                     IComponent row = rows.get(i);
-                    row.setY(currentY);
+                    // UI Lib propagates setY through the row's entire component tree. Avoid doing
+                    // that work every frame when the scroll position has not changed.
+                    if (row.getY() != currentY) {
+                        row.setY(currentY);
+                    }
                     if (currentY + row.getHeight() > 0 && currentY < this.getHeight()) {
                         row.extractRenderStateBase(guiGraphics, mouseX, mouseY, partialTick, this.getWidth(), this.getHeight());
                     }

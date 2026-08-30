@@ -6,13 +6,16 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.*;
 import net.minecraft.resources.RegistryOps;
+import net.minecraft.util.Util;
 import net.minecraft.world.item.ItemStack;
 
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -26,7 +29,8 @@ public final class StorageCache {
     private final Map<StorageKey, CachedPage> pages = new ConcurrentHashMap<>();
     private final Set<StorageKey> knownPages = ConcurrentHashMap.newKeySet();
     private final Object ioLock = new Object();
-    private boolean dirty = false;
+    private CompletableFuture<Void> pendingWrite = CompletableFuture.completedFuture(null);
+    private volatile boolean dirty = false;
 
     private StorageCache() {
     }
@@ -66,8 +70,7 @@ public final class StorageCache {
     public void put(StorageKey key, List<ItemStack> items) {
         boolean newlyKnown = knownPages.add(key);
 
-        // Called every tick while a storage screen is open — skip the copy and the dirty flag
-        // when nothing changed, so closing an unmodified page doesn't rewrite the cache file.
+        // Keep the existing snapshot and dirty state when the contents did not actually change.
         CachedPage existing = pages.get(key);
         if (existing != null && stacksMatch(existing.items(), items)) {
             if (newlyKnown) dirty = true;
@@ -168,21 +171,30 @@ public final class StorageCache {
         Path file = cacheFile();
         int pageCount = pages.size();
         dirty = false;
-        net.minecraft.util.Util.ioPool().execute(() -> {
-            synchronized (ioLock) {
-                try {
-                    Files.createDirectories(file.getParent());
+        synchronized (ioLock) {
+            pendingWrite = pendingWrite.handle((ignored, failure) -> null)
+                    .thenRunAsync(() -> writeSnapshot(file, root, pageCount), Util.ioPool());
+        }
+    }
 
-                    Path tmp = file.resolveSibling(file.getFileName() + ".tmp");
-                    NbtIo.writeCompressed(root, tmp);
-                    Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+    private void writeSnapshot(Path file, CompoundTag root, int pageCount) {
+        try {
+            Files.createDirectories(file.getParent());
 
-                    EnhancedStorage.LOGGER.debug("Saved storage cache ({} pages)", pageCount);
-                } catch (IOException e) {
-                    EnhancedStorage.LOGGER.error("Failed to save storage cache", e);
-                }
+            Path tmp = file.resolveSibling(file.getFileName() + ".tmp");
+            NbtIo.writeCompressed(root, tmp);
+            try {
+                Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException ignored) {
+                Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
             }
-        });
+
+            EnhancedStorage.LOGGER.debug("Saved storage cache ({} pages)", pageCount);
+        } catch (IOException e) {
+            // Keep the cache eligible for a later lifecycle save instead of silently losing it.
+            dirty = true;
+            EnhancedStorage.LOGGER.error("Failed to save storage cache", e);
+        }
     }
 
     /**

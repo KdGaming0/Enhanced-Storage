@@ -23,8 +23,8 @@ import java.util.stream.Collectors;
 
 /**
  * Watches container screens; when a screen belonging to a storage page is
- * open, it snapshots the container's contents every tick and writes the
- * final state into {@link StorageCache}.
+ * open, it snapshots the container after content updates and writes the final
+ * state into {@link StorageCache}.
  */
 public final class StorageCaptureHandler {
 
@@ -62,9 +62,12 @@ public final class StorageCaptureHandler {
 
             ScreenEvents.afterTick(screen).register(s -> {
                 // Until the server has sent the container contents the slots are all air, which is indistinguishable from a genuinely empty page.
-                if (!ContainerContentTracker.hasReceived(containerScreen.getMenu().containerId)) return;
+                int containerId = containerScreen.getMenu().containerId;
+                if (!ContainerContentTracker.hasReceived(containerId)) return;
 
-                capture(key, containerScreen.getMenu());
+                if (ContainerContentTracker.consumeChanged(containerId)) {
+                    capture(key, containerScreen.getMenu());
+                }
                 if (pruneState != null) {
                     Set<StorageKey> before = Set.copyOf(StorageCache.getInstance().allKnown());
                     tickIndex(containerScreen.getMenu(), pruneState);
