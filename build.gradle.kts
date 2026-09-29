@@ -66,6 +66,17 @@ repositories {
             includeGroup("com.daqem.uilib")
         }
     }
+
+    exclusiveContent {
+        forRepository {
+            maven {
+                url = uri("https://maven.azureaaron.net/releases")
+            }
+        }
+        filter {
+            includeGroup("net.azureaaron")
+        }
+    }
 }
 
 dependencies {
@@ -76,6 +87,9 @@ dependencies {
 
     modImplementation("maven.modrinth:midnightlib:${property("deps.midnightlib_version")}")
     include("maven.modrinth:midnightlib:${property("deps.midnightlib_version")}")
+
+    implementation("net.azureaaron:hm-api:${property("deps.hm_api_version")}")
+    include("net.azureaaron:hm-api:${property("deps.hm_api_version")}")
 
     implementation("org.msgpack:msgpack-core:0.9.12")
 

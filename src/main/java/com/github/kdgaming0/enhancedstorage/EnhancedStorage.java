@@ -4,6 +4,7 @@ import com.github.kdgaming0.enhancedstorage.command.EnhancedStorageCommand;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.screen.StorageContainerScreen;
 import com.github.kdgaming0.enhancedstorage.storage.*;
+import com.github.kdgaming0.enhancedstorage.util.SkyblockState;
 import eu.midnightdust.lib.config.MidnightConfig;
 import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.client.Minecraft;
@@ -35,6 +36,8 @@ public class EnhancedStorage implements ClientModInitializer {
             LOGGER.info("Storage profile changed; caches reloaded.");
         });
 
+        SkyblockState.register();
+        ProfileIdRequester.register();
         StorageCaptureHandler.register();
         EnhancedStorageCommand.register();
 

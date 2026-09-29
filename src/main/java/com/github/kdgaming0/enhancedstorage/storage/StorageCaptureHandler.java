@@ -1,10 +1,8 @@
 package com.github.kdgaming0.enhancedstorage.storage;
 
-import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
 import com.github.kdgaming0.enhancedstorage.compat.CatharsisCompat;
 import com.github.kdgaming0.enhancedstorage.screen.StorageContainerScreen;
 import com.github.kdgaming0.enhancedstorage.util.TextUtils;
-import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.minecraft.client.Minecraft;
@@ -18,7 +16,6 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.*;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -33,7 +30,6 @@ public final class StorageCaptureHandler {
      */
     private static final int PLAYER_SLOT_COUNT = 36;
 
-    private static final Pattern PROFILE_ID_PATTERN = Pattern.compile("profile id:\\s*([0-9a-f-]{36})");
 
     /**
      * Hypixel streams the storage index icons in over several ticks; pruning
@@ -90,6 +86,7 @@ public final class StorageCaptureHandler {
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
                 client.execute(() -> {
                     ContainerContentTracker.reset();
+                    ProfileIdRequester.reset();
                     // Use last session's profile as the optimistic guess until we know for sure what skyblock profile just loaded in
                     StorageProfile.getInstance().adoptLastKnownProfile();
                     // When we then know the correct profile, we reload it if our guess is wrong
@@ -99,56 +96,9 @@ public final class StorageCaptureHandler {
                 }));
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
-            StorageCache.getInstance().saveToDisk();
-            StorageNames.getInstance().saveToDisk();
-            StorageOrder.getInstance().saveToDisk();
+            ProfileIdRequester.reset();
+            StorageProfile.saveCurrentProfileData();
         });
-
-        // Detect the real skyblock profile id from chat, which arrives a few seconds after JOIN.
-        ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
-            if (!overlay) onGameMessage(message);
-        });
-        // Chat-filtering mods (e.g. SkyHanni's/Skyblocker's "hide profile id message") cancel the
-        // line before GAME fires, but we still need to see it to confirm the profile.
-        ClientReceiveMessageEvents.GAME_CANCELED.register((message, overlay) -> {
-            if (!overlay) onGameMessage(message);
-        });
-    }
-
-    private static void onGameMessage(net.minecraft.network.chat.Component message) {
-        Matcher m = PROFILE_ID_PATTERN.matcher(TextUtils.stripText(message));
-        if (!m.find()) return;
-
-        String newProfileId = m.group(1);
-        StorageProfile profile = StorageProfile.getInstance();
-
-        if (profile.current().filter(newProfileId::equals).isPresent()) {
-            // If our optimistic guess (the profile id cached from the previous session) was right.
-            // Confirm it and flush the captures we held back while the profile was still unknown.
-            if (!profile.isConfirmed()) {
-                profile.markConfirmed();
-                EnhancedStorage.LOGGER.info("SkyBlock profile {} confirmed; flushing pending saves", newProfileId);
-                StorageCache.getInstance().saveToDisk();
-                StorageNames.getInstance().saveToDisk();
-                StorageOrder.getInstance().saveToDisk();
-            }
-            return;
-        }
-
-        // The profile actually changed. Flush the old profile's data to the OLD profile before we
-        // switch away, but only if it was confirmed - unconfirmed captures were a wrong guess, so
-        // we let them drop instead of stranding them.
-        if (profile.isConfirmed()) {
-            StorageCache.getInstance().saveToDisk();
-            StorageNames.getInstance().saveToDisk();
-            StorageOrder.getInstance().saveToDisk();
-        }
-
-        EnhancedStorage.LOGGER.info("SkyBlock profile changed to {}", newProfileId);
-
-        // Change to the new profile (reloads its caches via the onChange listener).
-        profile.markConfirmed();
-        profile.onProfileIdSeen(newProfileId);
     }
 
     private static void capture(StorageKey key, AbstractContainerMenu menu) {

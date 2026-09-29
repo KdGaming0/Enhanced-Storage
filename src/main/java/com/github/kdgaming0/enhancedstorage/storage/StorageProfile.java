@@ -76,6 +76,15 @@ public final class StorageProfile {
         this.onChange = onChange;
     }
 
+    /**
+     * Persists every piece of storage data associated with the current profile.
+     */
+    public static void saveCurrentProfileData() {
+        StorageCache.getInstance().saveToDisk();
+        StorageNames.getInstance().saveToDisk();
+        StorageOrder.getInstance().saveToDisk();
+    }
+
     // ------------------------------------------------------------------
     // Persistence of the "last profile" pointer (a tiny text file)
     // ------------------------------------------------------------------
