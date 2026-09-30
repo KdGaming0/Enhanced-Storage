@@ -29,8 +29,10 @@ import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Util;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
@@ -53,6 +55,8 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     private Deque<ItemStack> searchWarmupQueue;
     private boolean autoScrolledToOpenCard = false;
     private EditDialogComponent renameDialog;
+    private static final long DEFERRED_CLOSE_MS = 2000;
+    private long deferredCloseAt = 0;
 
     public StorageContainerScreen(ChestMenu menu, Inventory inventory, Component title, StorageKey openKey) {
         super(menu, inventory, title);
@@ -407,9 +411,37 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         searchDirty = true;
     }
 
+    /**
+     * Called when the server closes this menu. During a page switch the next page's open packet is
+     * normally right behind, so hold the overlay up instead of dropping to no screen for a frame.
+     * If the next page hasn't opened within {@link #DEFERRED_CLOSE_MS}, containerTick closes it.
+     *
+     * @return true if the close was deferred and vanilla's handling should be skipped
+     */
+    public boolean deferCloseForNavigation(int containerId) {
+        if (containerId != this.menu.containerId || !state.isNavigating()) return false;
+        if (deferredCloseAt == 0) {
+            EnhancedStorage.LOGGER.debug("Deferring container close during page switch");
+            deferredCloseAt = Util.getMillis() + DEFERRED_CLOSE_MS;
+        }
+        return true;
+    }
+
+    // The server already closed this menu while a deferred close is pending, so clicks would target a dead container.
+    @Override
+    protected void slotClicked(@Nullable Slot slot, int slotId, int buttonNum, @NonNull ContainerInput containerInput) {
+        if (deferredCloseAt != 0) return;
+        super.slotClicked(slot, slotId, buttonNum, containerInput);
+    }
+
     @Override
     protected void containerTick() {
         super.containerTick();
+        if (deferredCloseAt != 0 && Util.getMillis() >= deferredCloseAt) {
+            deferredCloseAt = 0;
+            this.minecraft.player.clientSideCloseContainer();
+            return;
+        }
         if (searchWarmupQueue != null && !searchWarmupQueue.isEmpty()) {
             ItemSearch.warmUp(searchWarmupQueue, 3);
         }
