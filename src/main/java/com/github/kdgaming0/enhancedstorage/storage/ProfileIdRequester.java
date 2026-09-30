@@ -1,6 +1,7 @@
 package com.github.kdgaming0.enhancedstorage.storage;
 
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
+import com.github.kdgaming0.enhancedstorage.storage.profile.ProfileSession;
 import com.github.kdgaming0.enhancedstorage.util.SkyblockState;
 import com.github.kdgaming0.enhancedstorage.util.TextUtils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -8,26 +9,33 @@ import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 
-import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Makes sure the SkyBlock profile id reaches the {@link ProfileSession}.
+ * Normally the id shows up in chat by itself; if it doesn't (single-profile
+ * accounts), we send /profileid once and hide its output.
+ */
 public final class ProfileIdRequester {
+
+    private enum Phase {
+        WAITING_IN_SKYBLOCK,
+        AWAITING_REPLY,
+        DONE
+    }
 
     private static final Pattern PROFILE_ID_PATTERN = Pattern.compile("profile id:\\s*([0-9a-f-]{36})");
     private static final String SUGGEST_LINE = "click this to suggest it in chat";
 
-    // Wait time before requesting the profile ID after entering SkyBlock.
-    private static final int WAIT_TICKS = 200; // 10 seconds
-    private static final int REQUEST_TIMEOUT_TICKS = 100; // 5 seconds
-    private static final int SUPPRESS_TICKS_AFTER_SEND = 60; // 3 seconds
-    private static final int SUPPRESS_TICKS_AFTER_REPLY = 20; // 1 second
+    private static final int WAIT_TICKS = 200;
+    private static final int REQUEST_TIMEOUT_TICKS = 100;
+    private static final int SUPPRESS_TICKS_AFTER_SEND = 60;
+    private static final int SUPPRESS_TICKS_AFTER_REPLY = 20;
 
-    private static int ticksInSkyblock;
-    private static int ticksWaitingForReply;
+    private static Phase phase = Phase.WAITING_IN_SKYBLOCK;
+    private static int phaseTicks;
     private static int suppressProfileIdOutputTicks;
-    private static boolean waitingForProfileId;
-    private static boolean requestSent;
 
     private ProfileIdRequester() {
     }
@@ -40,75 +48,36 @@ public final class ProfileIdRequester {
     }
 
     public static void reset() {
-        ticksInSkyblock = 0;
-        ticksWaitingForReply = 0;
-        waitingForProfileId = false;
-        requestSent = false;
+        phase = Phase.WAITING_IN_SKYBLOCK;
+        phaseTicks = 0;
         suppressProfileIdOutputTicks = 0;
+    }
+
+    public static String debugPhase() {
+        return phase.name();
     }
 
     private static boolean onGameMessage(Component message) {
         String text = TextUtils.stripText(message);
 
-        // Hide the optional suggestion line produced by our /profileid request.
-        if (suppressProfileIdOutputTicks > 0
-                && text.toLowerCase(Locale.ROOT).contains(SUGGEST_LINE)) {
+        // Hide the optional "click this to suggest it in chat" line produced by our request.
+        if (suppressProfileIdOutputTicks > 0 && text.contains(SUGGEST_LINE)) {
             return false;
         }
 
         Matcher matcher = PROFILE_ID_PATTERN.matcher(text);
-        if (!matcher.find()) {
-            return true;
-        }
+        if (!matcher.find()) return true;
 
-        boolean wasOurRequest = waitingForProfileId;
-        waitingForProfileId = false;
-
-        // Keep filtering the optional /profileid lines briefly.
+        boolean wasOurRequest = phase == Phase.AWAITING_REPLY;
         if (wasOurRequest) {
+            phase = Phase.DONE;
             suppressProfileIdOutputTicks = SUPPRESS_TICKS_AFTER_REPLY;
         }
 
-        handleProfileId(matcher.group(1));
+        ProfileSession.getInstance().onProfileSeen(matcher.group(1));
 
         // Hides the profile ID if it was produced by our /profileid command.
         return !wasOurRequest;
-    }
-
-    private static void handleProfileId(String newProfileId) {
-        StorageProfile profile = StorageProfile.getInstance();
-
-        if (profile.current().filter(newProfileId::equals).isPresent()) {
-            // If our optimistic guess (the profile id cached from the previous session) was right.
-            // Confirm it and flush the captures we held back while the profile was still unknown.
-            if (!profile.isConfirmed()) {
-                profile.markConfirmed();
-
-                EnhancedStorage.LOGGER.info(
-                        "SkyBlock profile {} confirmed; flushing pending saves",
-                        newProfileId
-                );
-
-                StorageProfile.saveCurrentProfileData();
-            }
-            return;
-        }
-
-        // If the cached profile is correct, save any new data captured this session before the confirmation.
-        if (profile.isConfirmed()) {
-            StorageProfile.saveCurrentProfileData();
-        }
-
-        EnhancedStorage.LOGGER.info(
-                "SkyBlock profile changed from {} to {}",
-                profile.current().orElse("unknown"),
-                newProfileId
-        );
-
-        // Confirm the profile detected this session and switch to it. The change
-        // listener loads its item cache, names, and ordering, then updates the overlay.
-        profile.markConfirmed();
-        profile.onProfileIdSeen(newProfileId);
     }
 
     private static void tick(Minecraft client) {
@@ -116,30 +85,38 @@ public final class ProfileIdRequester {
             suppressProfileIdOutputTicks--;
         }
 
-        // Stop treating profile ID messages as ours if Hypixel never replied.
-        if (waitingForProfileId) {
-            if (++ticksWaitingForReply >= REQUEST_TIMEOUT_TICKS) {
-                EnhancedStorage.LOGGER.warn(
-                        "No reply to /profileid after {}s; giving up until the next reset",
-                        REQUEST_TIMEOUT_TICKS / 20);
-                waitingForProfileId = false;
-            }
+        switch (phase) {
+            case WAITING_IN_SKYBLOCK -> tickWaiting(client);
+            case AWAITING_REPLY -> tickAwaitingReply();
+            case DONE -> { }
+        }
+    }
+
+    private static void tickWaiting(Minecraft client) {
+        if (ProfileSession.getInstance().isConfirmed()) {
+            phase = Phase.DONE;   // the id arrived by itself, no request needed
             return;
         }
-
-        // Once confirmed or requested, wait for the next connection reset.
-        if (requestSent || StorageProfile.getInstance().isConfirmed()) return;
 
         if (client.player == null
                 || client.getConnection() == null
                 || !SkyblockState.isInSkyblock()) {
-            ticksInSkyblock = 0;
+            phaseTicks = 0;
             return;
         }
 
-        if (++ticksInSkyblock < WAIT_TICKS) return;
+        if (++phaseTicks >= WAIT_TICKS) {
+            send(client);
+        }
+    }
 
-        send(client);
+    private static void tickAwaitingReply() {
+        if (++phaseTicks >= REQUEST_TIMEOUT_TICKS) {
+            EnhancedStorage.LOGGER.warn(
+                    "No reply to /profileid after {}s; giving up until the next reset",
+                    REQUEST_TIMEOUT_TICKS / 20);
+            phase = Phase.DONE;
+        }
     }
 
     private static void send(Minecraft client) {
@@ -147,9 +124,8 @@ public final class ProfileIdRequester {
                 "No SkyBlock profile id seen {}s after entering SkyBlock (single-profile account?); sending /profileid once",
                 WAIT_TICKS / 20);
 
-        waitingForProfileId = true;
-        requestSent = true;
-        ticksWaitingForReply = 0;
+        phase = Phase.AWAITING_REPLY;
+        phaseTicks = 0;
         suppressProfileIdOutputTicks = SUPPRESS_TICKS_AFTER_SEND;
         //noinspection DataFlowIssue
         client.getConnection().sendCommand("profileid");

@@ -1,123 +1,92 @@
 package com.github.kdgaming0.enhancedstorage.storage;
 
 import com.github.kdgaming0.enhancedstorage.compat.CatharsisCompat;
-import com.github.kdgaming0.enhancedstorage.screen.StorageContainerScreen;
-import com.github.kdgaming0.enhancedstorage.util.TextUtils;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
+import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
+import com.github.kdgaming0.enhancedstorage.storage.profile.ProfileSession;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 /**
- * Watches container screens; when a screen belonging to a storage page is
- * open, it snapshots the container after content updates and writes the final
- * state into {@link StorageCache}.
+ * Watches container screens. When a screen belongs to a storage page, it snapshots
+ * the menu after the server sends or changes its contents and hands the result to
+ * the {@link ProfileSession}.
  */
 public final class StorageCaptureHandler {
-
-    /**
-     * Player inventory (27) + hotbar (9) slots appended at the end of every chest menu.
-     */
-    private static final int PLAYER_SLOT_COUNT = 36;
-
-
-    /**
-     * Hypixel streams the storage index icons in over several ticks; pruning
-     * against a half-filled menu deletes real pages. Only prune once the set
-     * of discovered pages has stopped changing for this many ticks.
-     */
-    private static final int INDEX_STABLE_TICKS = 10;
 
     private StorageCaptureHandler() {
     }
 
+    @SuppressWarnings("unused")
     public static void register() {
-        ScreenEvents.AFTER_INIT.register((Minecraft client, Screen screen, int scaledWidth, int scaledHeight) -> {
+        ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
             if (!(screen instanceof AbstractContainerScreen<?> containerScreen)) return;
 
             Optional<StorageKey> keyOpt = StorageKey.fromTitle(containerScreen.getTitle());
             if (keyOpt.isEmpty()) return;
+
             StorageKey key = keyOpt.get();
+            AbstractContainerMenu menu = containerScreen.getMenu();
 
             if (key.type() == StorageKey.Type.RIFT) {
                 discoverRiftPages(containerScreen.getTitle());
             }
 
-            IndexPruneState pruneState =
-                    key.type() == StorageKey.Type.STORAGE_INDEX ? new IndexPruneState() : null;
+            IndexScanner scanner = key.type() == StorageKey.Type.STORAGE_INDEX ? new IndexScanner() : null;
 
-            ScreenEvents.afterTick(screen).register(s -> {
-                // Until the server has sent the container contents the slots are all air, which is indistinguishable from a genuinely empty page.
-                int containerId = containerScreen.getMenu().containerId;
-                if (!ContainerContentTracker.hasReceived(containerId)) return;
-
-                if (ContainerContentTracker.consumeChanged(containerId)) {
-                    capture(key, containerScreen.getMenu());
-                }
-                if (pruneState != null) {
-                    Set<StorageKey> before = Set.copyOf(StorageCache.getInstance().allKnown());
-                    tickIndex(containerScreen.getMenu(), pruneState);
-                    if (!before.equals(StorageCache.getInstance().allKnown())
-                            && s instanceof StorageContainerScreen storageScreen) {
-                        Minecraft.getInstance().schedule(storageScreen::refreshCards);
-                    }
-                }
-            });
-
-            ScreenEvents.remove(screen).register(s -> {
-                if (ContainerContentTracker.hasReceived(containerScreen.getMenu().containerId)) {
-                    capture(key, containerScreen.getMenu());
-                }
-                StorageCache.getInstance().saveToDisk();
-                StorageNames.getInstance().saveToDisk();
-            });
-        });
-
-        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
-                client.execute(() -> {
-                    ContainerContentTracker.reset();
-                    ProfileIdRequester.reset();
-                    // Use last session's profile as the optimistic guess until we know for sure what skyblock profile just loaded in
-                    StorageProfile.getInstance().adoptLastKnownProfile();
-                    // When we then know the correct profile, we reload it if our guess is wrong
-                    StorageCache.getInstance().reloadForCurrentProfile();
-                    StorageNames.getInstance().reloadForCurrentProfile();
-                    StorageOrder.getInstance().reloadForCurrentProfile();
-                }));
-
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
-            ProfileIdRequester.reset();
-            StorageProfile.saveCurrentProfileData();
+            ScreenEvents.afterTick(screen).register(s -> onTick(key, menu, scanner));
+            ScreenEvents.remove(screen).register(s -> onClose(key, menu));
         });
     }
 
+    private static void onTick(StorageKey key, AbstractContainerMenu menu, IndexScanner scanner) {
+        // Until the server has sent the contents the slots are all air, which looks like an empty page.
+        if (!ContainerContentTracker.hasReceived(menu)) return;
+
+        boolean changed = ContainerContentTracker.consumeChanged(menu);
+        if (changed) {
+            capture(key, menu);
+        }
+
+        if (scanner != null && scanner.tick(menu, changed)) {
+            StorageEvents.INDEX_CHANGED.fire();
+        }
+    }
+
+    private static void onClose(StorageKey key, AbstractContainerMenu menu) {
+        if (ContainerContentTracker.hasReceived(menu)) {
+            capture(key, menu);
+        }
+        ProfileSession.getInstance().requestSave();
+    }
+
     private static void capture(StorageKey key, AbstractContainerMenu menu) {
-        int containerSlots = menu.slots.size() - PLAYER_SLOT_COUNT;
-        if (containerSlots <= 9) return;
+        int containerSlots = MenuLayout.containerSlots(menu);
+        if (containerSlots <= MenuLayout.HEADER_SLOTS) return;
 
-        boolean index = key.type() == StorageKey.Type.STORAGE_INDEX;
-
+        boolean isIndex = key.type() == StorageKey.Type.STORAGE_INDEX;
         List<ItemStack> items = new ArrayList<>(containerSlots);
-        for (int i = 9; i < containerSlots; i++) {
-            if (!shouldCaptureSlot(key, i)) continue;
 
-            Slot slot = menu.slots.get(i);
-            ItemStack stack = slot.getItem().copy();
-            if (index) bakeCatharsisModel(stack, slot.index);
+        for (int i = MenuLayout.HEADER_SLOTS; i < containerSlots; i++) {
+            if (isIndex && !MenuLayout.isIndexIconSlot(i)) continue;
+
+            ItemStack stack = menu.slots.get(i).getItem().copy();
+            if (isIndex) bakeCatharsisModel(stack, i);
             items.add(stack);
         }
 
-        StorageCache.getInstance().put(key, items);
+        ProfileSession.getInstance().capture(key, items);
     }
 
     /**
@@ -134,67 +103,14 @@ public final class StorageCaptureHandler {
         }
     }
 
-    private static boolean shouldCaptureSlot(StorageKey key, int slotIndex) {
-        if (key.type() != StorageKey.Type.STORAGE_INDEX) return true;
-        int row = slotIndex / 9;
-        return row == 1 || row == 3 || row == 4;
-    }
-
-    private static void tickIndex(AbstractContainerMenu menu, IndexPruneState state) {
-        Set<StorageKey> found = scanIndex(menu);
-        if (found.isEmpty()) return;
-
-        StorageCache cache = StorageCache.getInstance();
-        cache.addKnown(found);
-
-        if (found.equals(state.lastFound)) {
-            state.stableTicks++;
-        } else {
-            state.lastFound = found;
-            state.stableTicks = 1;
-        }
-
-        if (state.stableTicks != INDEX_STABLE_TICKS) return;
-
-        Set<StorageKey> foundEnder = found.stream()
-                .filter(k -> k.type() == StorageKey.Type.ENDER_CHEST)
-                .collect(Collectors.toSet());
-        Set<StorageKey> foundBackpack = found.stream()
-                .filter(k -> k.type() == StorageKey.Type.BACKPACK)
-                .collect(Collectors.toSet());
-
-        cache.replaceKnown(StorageKey.Type.ENDER_CHEST, foundEnder);
-        cache.replaceKnown(StorageKey.Type.BACKPACK, foundBackpack);
-
-        cache.retainOnly(StorageKey.Type.ENDER_CHEST, foundEnder);
-        cache.retainOnly(StorageKey.Type.BACKPACK, foundBackpack);
-    }
-
-    private static Set<StorageKey> scanIndex(AbstractContainerMenu menu) {
-        int containerSlots = menu.slots.size() - PLAYER_SLOT_COUNT;
-        Set<StorageKey> found = new HashSet<>();
-
-        for (int i = 0; i < containerSlots; i++) {
-            ItemStack stack = menu.slots.get(i).getItem();
-            if (stack.isEmpty()) continue;
-            StorageKey.fromIndexItem(stack.getHoverName()).ifPresent(found::add);
-        }
-        return found;
-    }
-
-    public static void discoverRiftPages(net.minecraft.network.chat.Component title) {
-        Matcher m = TextUtils.matcher(title, StorageKey.RIFT_PATTERN);
-        if (!m.matches()) return;
-
-        Set<StorageKey> allRift = new HashSet<>();
-        for (int p = 1; p <= Integer.parseInt(m.group(2)); p++) {
-            allRift.add(new StorageKey(StorageKey.Type.RIFT, p));
-        }
-        StorageCache.getInstance().replaceKnown(StorageKey.Type.RIFT, allRift);
-    }
-
-    private static final class IndexPruneState {
-        Set<StorageKey> lastFound = Set.of();
-        int stableTicks;
+    /** Called by the screen too: a Rift title tells us how many Rift pages exist. */
+    public static void discoverRiftPages(Component title) {
+        StorageKey.riftTotalPages(title).ifPresent(total -> {
+            Set<StorageKey> allRift = new HashSet<>();
+            for (int p = 1; p <= total; p++) {
+                allRift.add(new StorageKey(StorageKey.Type.RIFT, p));
+            }
+            PageCache.getInstance().updateIndex(StorageKey.Type.RIFT, allRift);
+        });
     }
 }

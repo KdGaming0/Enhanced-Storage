@@ -4,6 +4,11 @@ import com.github.kdgaming0.enhancedstorage.command.EnhancedStorageCommand;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.screen.StorageContainerScreen;
 import com.github.kdgaming0.enhancedstorage.storage.*;
+import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
+import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
+import com.github.kdgaming0.enhancedstorage.storage.data.PageOrder;
+import com.github.kdgaming0.enhancedstorage.storage.profile.ProfileSession;
+import com.github.kdgaming0.enhancedstorage.storage.profile.StorageLifecycle;
 import com.github.kdgaming0.enhancedstorage.util.SkyblockState;
 import eu.midnightdust.lib.config.MidnightConfig;
 import net.fabricmc.api.ClientModInitializer;
@@ -20,24 +25,30 @@ public class EnhancedStorage implements ClientModInitializer {
 
         MidnightConfig.init(MOD_ID, EnhancedStorageConfig.class);
 
-        StorageProfile.getInstance().setOnChange(() -> {
-            StorageCache.getInstance().reloadForCurrentProfile();
-            StorageNames.getInstance().reloadForCurrentProfile();
-            StorageOrder.getInstance().reloadForCurrentProfile();
+        ProfileSession session = ProfileSession.getInstance();
+        session.register(PageCache.getInstance(), PageNames.getInstance(), PageOrder.getInstance());
 
-            // If a storage overlay is currently open, rebuild it against the new data.
+        StorageEvents.PROFILE_CHANGED.subscribe(() -> {
             Minecraft mc = Minecraft.getInstance();
             mc.execute(() -> {
-                if (mc.screen instanceof StorageContainerScreen storageScreen) {
-                    storageScreen.rebuildForProfileChange();
+                if (mc.screen instanceof StorageContainerScreen screen) {
+                    screen.rebuildForProfileChange();
                 }
             });
+        });
 
-            LOGGER.info("Storage profile changed; caches reloaded.");
+        StorageEvents.INDEX_CHANGED.subscribe(() -> {
+            Minecraft mc = Minecraft.getInstance();
+            mc.execute(() -> {
+                if (mc.screen instanceof StorageContainerScreen screen) {
+                    screen.refreshCards();
+                }
+            });
         });
 
         SkyblockState.register();
         ProfileIdRequester.register();
+        StorageLifecycle.register();
         StorageCaptureHandler.register();
         EnhancedStorageCommand.register();
 

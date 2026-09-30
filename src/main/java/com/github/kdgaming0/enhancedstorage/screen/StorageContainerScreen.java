@@ -13,7 +13,12 @@ import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayState;
 import com.github.kdgaming0.enhancedstorage.gui.component.EditDialogComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.PageCardComponent;
 import com.github.kdgaming0.enhancedstorage.mixin.AbstractContainerScreenAccessor;
-import com.github.kdgaming0.enhancedstorage.storage.*;
+import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
+import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
+import com.github.kdgaming0.enhancedstorage.storage.data.PageOrder;
+import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
+import com.github.kdgaming0.enhancedstorage.storage.profile.ProfileSession;
+import com.github.kdgaming0.enhancedstorage.storage.StorageCaptureHandler;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
 import eu.midnightdust.lib.config.MidnightConfig;
 import net.fabricmc.loader.api.FabricLoader;
@@ -130,7 +135,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         // Queue every cached stack for search-text warmup; init() also runs on every rebuildWidgets, so only build the queue once per screen.
         if (searchWarmupQueue == null) {
             searchWarmupQueue = new ArrayDeque<>();
-            StorageCache.getInstance().all().values()
+            PageCache.getInstance().all().values()
                     .forEach(page -> searchWarmupQueue.addAll(page.items()));
         }
 
@@ -471,11 +476,11 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     }
 
     private @Nullable String nameOfCardAtPosition(StorageKey editingKey, int position) {
-        return StorageOrder.getInstance().all().entrySet().stream()
+        return PageOrder.getInstance().all().entrySet().stream()
                 .filter(entry -> !entry.getKey().equals(editingKey) && entry.getValue() == position)
                 .map(entry -> {
                     StorageKey otherKey = entry.getKey();
-                    return StorageNames.getInstance().get(otherKey).orElse(otherKey.displayName());
+                    return PageNames.getInstance().get(otherKey).orElse(otherKey.displayName());
                 })
                 .findFirst()
                 .orElse(null);
@@ -484,8 +489,8 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     private void onRenameSave(String name, String position) {
         StorageKey key = (renameDialog != null) ? renameDialog.getKey() : null;
         if (key != null) {
-            StorageNames.getInstance().set(key, name);
-            StorageNames.getInstance().saveToDisk();
+            PageNames.getInstance().set(key, name);
+            ProfileSession.getInstance().saveAll();
 
             Integer pos = null;
             String trimmed = position == null ? "" : position.trim();
@@ -496,18 +501,17 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
                     // validation should prevent this
                 }
             }
-            StorageOrder.getInstance().set(key, pos);
-            StorageOrder.getInstance().saveToDisk();
+            PageOrder.getInstance().set(key, pos);
+            ProfileSession.getInstance().saveAll();
         }
         closeRenameDialog();
         refreshAfterRename();
     }
 
     private void onRenameReset(StorageKey key) {
-        StorageNames.getInstance().clear(key);
-        StorageNames.getInstance().saveToDisk();
-        StorageOrder.getInstance().clear(key);
-        StorageOrder.getInstance().saveToDisk();
+        PageNames.getInstance().clear(key);
+        PageOrder.getInstance().clear(key);
+        ProfileSession.getInstance().saveAll();
         closeRenameDialog();
         refreshAfterRename();
     }
@@ -572,8 +576,8 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
         int idx = row * 9 + col;
 
-        return StorageCache.getInstance().get(new StorageKey(StorageKey.Type.STORAGE_INDEX, 0))
-                .map(StorageCache.CachedPage::items)
+        return PageCache.getInstance().get(new StorageKey(StorageKey.Type.STORAGE_INDEX, 0))
+                .map(PageCache.CachedPage::items)
                 .filter(items -> idx < items.size())
                 .map(items -> items.get(idx))
                 .filter(stack -> !stack.isEmpty())

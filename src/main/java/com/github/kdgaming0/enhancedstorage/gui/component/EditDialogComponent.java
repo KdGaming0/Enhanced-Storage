@@ -7,9 +7,9 @@ import com.daqem.uilib.gui.component.text.TextComponent;
 import com.daqem.uilib.gui.widget.ButtonWidget;
 import com.daqem.uilib.gui.widget.EditBoxWidget;
 import com.daqem.uilib.util.ValidationErrors;
-import com.github.kdgaming0.enhancedstorage.storage.StorageKey;
-import com.github.kdgaming0.enhancedstorage.storage.StorageNames;
-import com.github.kdgaming0.enhancedstorage.storage.StorageOrder;
+import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
+import com.github.kdgaming0.enhancedstorage.storage.data.PageOrder;
+import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
@@ -70,7 +70,7 @@ public class EditDialogComponent extends AbstractComponent {
         this.panelX = (screenWidth - PANEL_WIDTH) / 2;
         this.panelY = (screenHeight - PANEL_HEIGHT) / 2;
 
-        boolean hasCustom = StorageNames.getInstance().has(key) || StorageOrder.getInstance().has(key);
+        boolean hasCustom = PageNames.getInstance().has(key) || PageOrder.getInstance().has(key);
 
         // Title
         String defaultName = key.displayName();
@@ -91,7 +91,7 @@ public class EditDialogComponent extends AbstractComponent {
         int boxWidth = PANEL_WIDTH - 16;
         this.nameBox = new EditBoxWidget(font, boxX, panelY + 32, boxWidth, 16,
                 Component.literal("Page name"));
-        this.nameBox.setValue(StorageNames.getInstance().get(key).orElse(""));
+        this.nameBox.setValue(PageNames.getInstance().get(key).orElse(""));
         this.addWidget(this.nameBox);
 
         // Position row
@@ -118,7 +118,7 @@ public class EditDialogComponent extends AbstractComponent {
                 return errors;
             }
         };
-        this.positionBox.setValue(StorageOrder.getInstance().get(key)
+        this.positionBox.setValue(PageOrder.getInstance().get(key)
                 .map(String::valueOf).orElse(""));
         this.addWidget(this.positionBox);
 

@@ -3,8 +3,8 @@ package com.github.kdgaming0.enhancedstorage.gui;
 import com.daqem.uilib.gui.AbstractScreen;
 import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
-import com.github.kdgaming0.enhancedstorage.storage.StorageCache;
-import com.github.kdgaming0.enhancedstorage.storage.StorageKey;
+import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
+import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -34,7 +34,7 @@ public class StorageOverlay extends AbstractScreen {
         // Queue every cached stack for search-text warmup; init() also runs on every rebuildWidgets, so only build the queue once per screen.
         if (searchWarmupQueue == null) {
             searchWarmupQueue = new ArrayDeque<>();
-            StorageCache.getInstance().all().values()
+            PageCache.getInstance().all().values()
                     .forEach(page -> searchWarmupQueue.addAll(page.items()));
         }
 
@@ -58,7 +58,7 @@ public class StorageOverlay extends AbstractScreen {
 
         EnhancedStorage.LOGGER.info("Storage page card clicked: {} (type={}, cached={})",
                 key.displayName(), key.type(),
-                StorageCache.getInstance().get(key).isPresent());
+                PageCache.getInstance().get(key).isPresent());
 
         state.setOpenKey(key);
     }

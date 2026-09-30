@@ -13,9 +13,9 @@ import com.github.kdgaming0.enhancedstorage.gui.component.IconButtonComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.ItemButtonComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.PageCardComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.TooltipItemComponent;
-import com.github.kdgaming0.enhancedstorage.storage.StorageCache;
-import com.github.kdgaming0.enhancedstorage.storage.StorageKey;
-import com.github.kdgaming0.enhancedstorage.storage.StorageOrder;
+import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
+import com.github.kdgaming0.enhancedstorage.storage.data.PageOrder;
+import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
 import com.github.kdgaming0.enhancedstorage.util.ItemModels;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
 import com.github.kdgaming0.enhancedstorage.util.TextUtils;
@@ -131,7 +131,7 @@ public class StorageOverlayLayout {
     }
 
     private static int cardHeightFor(StorageKey key, int titleAreaHeight) {
-        return StorageCache.getInstance().get(key)
+        return PageCache.getInstance().get(key)
                 .map(page -> {
                     int rows = Math.max(1, Math.ceilDiv(page.items().size(), StorageOverlayLayout.SLOTS_ACROSS));
                     return StorageOverlayLayout.CARD_BORDER * 2 + titleAreaHeight + rows * StorageOverlayLayout.SLOT_SIZE;
@@ -159,7 +159,7 @@ public class StorageOverlayLayout {
     }
 
     private static List<StorageKey> applyCustomOrder(List<StorageKey> defaultOrder) {
-        StorageOrder order = StorageOrder.getInstance();
+        PageOrder order = PageOrder.getInstance();
 
         // Split into customs (with a requested position) and the rest (default flow).
         record Custom(StorageKey key, int pos, int defaultIndex) {
@@ -361,8 +361,8 @@ public class StorageOverlayLayout {
         List<StorageKey> pageKeys = Stream.concat(
                         Stream.ofNullable(liveKey),
                         Stream.concat(
-                                StorageCache.getInstance().all().keySet().stream(),
-                                StorageCache.getInstance().allKnown().stream())).filter(Objects::nonNull)
+                                PageCache.getInstance().all().keySet().stream(),
+                                PageCache.getInstance().allKnown().stream())).filter(Objects::nonNull)
                 .filter(k -> k.type() != StorageKey.Type.STORAGE_INDEX)
                 .filter(k -> riftContext == (k.type() == StorageKey.Type.RIFT))
                 .distinct()
@@ -464,11 +464,11 @@ public class StorageOverlayLayout {
         for (StorageKey key : pageKeys) {
             boolean isLive = key.equals(liveKey);
 
-            boolean cached = StorageCache.getInstance().get(key).isPresent();
+            boolean cached = PageCache.getInstance().get(key).isPresent();
             List<ItemStack> items = isLive
                     ? List.of()
-                    : StorageCache.getInstance().get(key)
-                      .map(StorageCache.CachedPage::items).orElse(List.of());
+                    : PageCache.getInstance().get(key)
+                      .map(PageCache.CachedPage::items).orElse(List.of());
 
             int cardHeight = isLive
                     ? CARD_BORDER * 2 + titleAreaHeight + (liveRows - 1) * SLOT_SIZE
@@ -532,8 +532,8 @@ public class StorageOverlayLayout {
 
         if (overview != null && (liveKey == null || liveKey.type() != StorageKey.Type.STORAGE_INDEX)) {
             SpriteComponent overviewPanel = overview;
-            StorageCache.getInstance().get(new StorageKey(StorageKey.Type.STORAGE_INDEX, 0))
-                    .map(StorageCache.CachedPage::items)
+            PageCache.getInstance().get(new StorageKey(StorageKey.Type.STORAGE_INDEX, 0))
+                    .map(PageCache.CachedPage::items)
                     .ifPresent(items -> {
                         int startX = 7;
                         int[] rowYs = {14, 42};
@@ -723,7 +723,7 @@ public class StorageOverlayLayout {
         Boolean known = pageMatchCache.get(key);
         if (known != null) return known;
 
-        boolean result = StorageCache.getInstance().get(key)
+        boolean result = PageCache.getInstance().get(key)
                 .map(page -> ItemSearch.anyMatch(page.items(), query))
                 .orElse(false);
         pageMatchCache.put(key, result);

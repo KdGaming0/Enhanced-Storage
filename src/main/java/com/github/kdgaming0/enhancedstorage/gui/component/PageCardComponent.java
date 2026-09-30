@@ -7,8 +7,8 @@ import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.daqem.uilib.gui.component.text.TextComponent;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayState;
-import com.github.kdgaming0.enhancedstorage.storage.StorageKey;
-import com.github.kdgaming0.enhancedstorage.storage.StorageNames;
+import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
+import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -73,7 +73,7 @@ public class PageCardComponent extends AbstractComponent {
         }
 
         // Show the custom name if the user set one, otherwise the default.
-        String displayName = StorageNames.getInstance().get(key).orElse(key.displayName());
+        String displayName = PageNames.getInstance().get(key).orElse(key.displayName());
 
         int titleX = 3;
         int titleY = 3;

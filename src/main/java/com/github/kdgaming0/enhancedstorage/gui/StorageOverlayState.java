@@ -1,7 +1,7 @@
 package com.github.kdgaming0.enhancedstorage.gui;
 
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
-import com.github.kdgaming0.enhancedstorage.storage.StorageKey;
+import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
 import org.jspecify.annotations.Nullable;
 
 public class StorageOverlayState {

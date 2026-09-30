@@ -3,10 +3,14 @@ package com.github.kdgaming0.enhancedstorage.util;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class TextUtils {
+@SuppressWarnings("unused")
+public final class TextUtils {
+
+    private static final Pattern WHITESPACE = Pattern.compile("\\s+");
 
     private TextUtils() {
     }
@@ -20,12 +24,12 @@ public class TextUtils {
     }
 
     /**
-     * Strips formatting codes from a raw string and trims stray whitespace.
+     * Strips formatting codes, lowercases, and collapses whitespace.
      */
     public static String stripString(String raw) {
         if (raw == null) return "";
         String stripped = ChatFormatting.stripFormatting(raw);
-        return normalizeWhitespace(stripped.toLowerCase());
+        return normalizeWhitespace(stripped.toLowerCase(Locale.ROOT));
     }
 
     /**
@@ -33,7 +37,7 @@ public class TextUtils {
      */
     public static String normalizeWhitespace(String input) {
         if (input == null) return "";
-        return input.replaceAll("\\s+", " ").trim();
+        return WHITESPACE.matcher(input).replaceAll(" ").trim();
     }
 
     /**
@@ -47,21 +51,21 @@ public class TextUtils {
      * Checks if a Text's stripped content matches exactly.
      */
     public static boolean matches(Component component, String expected) {
-        return stripText(component).equals(expected.toLowerCase());
+        return stripText(component).equals(expected.toLowerCase(Locale.ROOT));
     }
 
     /**
      * Checks if a Text's stripped content starts with a prefix.
      */
     public static boolean startsWith(Component component, String prefix) {
-        return stripText(component).startsWith(prefix.toLowerCase());
+        return stripText(component).startsWith(prefix.toLowerCase(Locale.ROOT));
     }
 
     /**
      * Checks if a Text's stripped content contains a substring.
      */
     public static boolean contains(Component component, String substring) {
-        return stripText(component).contains(substring.toLowerCase());
+        return stripText(component).contains(substring.toLowerCase(Locale.ROOT));
     }
 
     /**
