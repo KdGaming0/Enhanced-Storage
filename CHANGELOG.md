@@ -2,6 +2,7 @@
 
 - Fixed Storage Overlay cache not saving for some players between game restarts.
   - When a player has only one SkyBlock profile, Hypixel does not automatically send the Profile ID chat message. The mod now requests it with `/profileid` after entering SkyBlock, so it can save the cache correctly.
+- Fixed items in an opened storage page briefly appearing in the top row of the overlay before moving to the correct page.
 
 ## Update 1.2.2
 

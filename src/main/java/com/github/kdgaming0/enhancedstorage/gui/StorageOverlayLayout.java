@@ -425,6 +425,7 @@ public class StorageOverlayLayout {
             public void setScrollAmount(double amount) {
                 super.setScrollAmount(amount);
                 state.setScrollAmount(scrollAmount());
+                positionRows(this);
             }
 
             @Override
@@ -437,21 +438,11 @@ public class StorageOverlayLayout {
                 guiGraphics.enableScissor(this.getX(), this.getY(),
                         this.getX() + this.getWidth(), this.getY() + this.getHeight());
 
-                List<IComponent> rows = getComponents();
-                int currentY = -(int) this.scrollAmount();
-                for (int i = 0; i < rows.size(); i++) {
-                    IComponent row = rows.get(i);
-                    // UI Lib propagates setY through the row's entire component tree. Avoid doing
-                    // that work every frame when the scroll position has not changed.
-                    if (row.getY() != currentY) {
-                        row.setY(currentY);
-                    }
-                    if (currentY + row.getHeight() > 0 && currentY < this.getHeight()) {
+                positionRows(this);
+                for (IComponent row : getComponents()) {
+                    int rowY = row.getY();
+                    if (rowY + row.getHeight() > 0 && rowY < this.getHeight()) {
                         row.extractRenderStateBase(guiGraphics, mouseX, mouseY, partialTick, this.getWidth(), this.getHeight());
-                    }
-                    currentY += row.getHeight();
-                    if (i < rows.size() - 1) {
-                        currentY += getContentSpacing();
                     }
                 }
 
@@ -687,6 +678,29 @@ public class StorageOverlayLayout {
 
         // Rows were just re-parented, so push the container's position back down the tree.
         pageOverview.uilib$updateParentPosition(pageOverviewParentX, pageOverviewParentY);
+        positionRows(pageOverview);
+    }
+
+    /**
+     * Stacks the rows vertically at the current scroll offset. Runs eagerly (on reflow and scroll), not
+     * only while rendering, because the live page's container slots are placed from the open card's
+     * position before the first frame is drawn — rows left at y=0 until then flash its items in row one.
+     */
+    private static void positionRows(ScrollContainerWidget overview) {
+        List<IComponent> rows = overview.getComponents();
+        int currentY = -(int) overview.scrollAmount();
+        for (int i = 0; i < rows.size(); i++) {
+            IComponent row = rows.get(i);
+            // UI Lib propagates setY through the row's entire component tree. Avoid doing
+            // that work every frame when the scroll position has not changed.
+            if (row.getY() != currentY) {
+                row.setY(currentY);
+            }
+            currentY += row.getHeight();
+            if (i < rows.size() - 1) {
+                currentY += overview.getContentSpacing();
+            }
+        }
     }
 
     private EmptyComponent buildEmptyRow(String query) {
