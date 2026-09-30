@@ -46,6 +46,9 @@ public class PageCardComponent extends AbstractComponent {
     private final List<ItemStack> items;
     private final List<StorageSlotComponent> slots = new ArrayList<>();
 
+    Identifier idle = OverlayTheme.sprite(OverlayTheme.PAGE_CARD_IDLE);
+    Identifier active = OverlayTheme.sprite(OverlayTheme.PAGE_CARD_ACTIVE);
+
     public PageCardComponent(int x, int y, int width, int height,
                              StorageKey key,
                              StorageOverlayState state,
@@ -66,10 +69,8 @@ public class PageCardComponent extends AbstractComponent {
             SpriteComponent background = new SpriteComponent(0, 0, width, height, OverlayTheme.sprite(OverlayTheme.PAGE_CARD_ACTIVE));
             this.addComponent(background);
         } else {
-            WidgetSprites idleSprites = new WidgetSprites(
-                    OverlayTheme.sprite(OverlayTheme.PAGE_CARD_IDLE), OverlayTheme.sprite(OverlayTheme.PAGE_CARD_IDLE), OverlayTheme.sprite(OverlayTheme.PAGE_CARD_IDLE));
-            WidgetSprites activeSprites = new WidgetSprites(
-                    OverlayTheme.sprite(OverlayTheme.PAGE_CARD_ACTIVE), OverlayTheme.sprite(OverlayTheme.PAGE_CARD_ACTIVE), OverlayTheme.sprite(OverlayTheme.PAGE_CARD_ACTIVE));
+            WidgetSprites idleSprites = new WidgetSprites(idle, idle, idle);
+            WidgetSprites activeSprites = new WidgetSprites(active, active, active);
 
             PageCardButtonWidget background = new PageCardButtonWidget(
                     0, 0, width, height,
@@ -117,8 +118,8 @@ public class PageCardComponent extends AbstractComponent {
                             slotGridX + slotCol * slotSize,
                             slotGridY + slotRow * slotSize,
                             slotSize, slotSize,
-                            live ? null : getStorageSlotHighlightBackTexture(),
-                            live ? null : getStorageSlotHighlightFrontTexture(),
+                            live ? null : SLOT_HIGHLIGHT_BACK,
+                            live ? null : SLOT_HIGHLIGHT_FRONT,
                             stack);
                     if (live) slotComponent.setHoverEnabled(false);
                     this.slots.add(slotComponent);
@@ -136,13 +137,10 @@ public class PageCardComponent extends AbstractComponent {
         }
     }
 
-    private static Identifier getStorageSlotHighlightFrontTexture() {
-        return Identifier.fromNamespaceAndPath(MOD_ID, "light/storage_slot_highlight_front");
-    }
-
-    private static Identifier getStorageSlotHighlightBackTexture() {
-        return Identifier.fromNamespaceAndPath(MOD_ID, "light/storage_slot_highlight_back");
-    }
+    private static final Identifier SLOT_HIGHLIGHT_BACK =
+            Identifier.fromNamespaceAndPath(MOD_ID, "light/storage_slot_highlight_back");
+    private static final Identifier SLOT_HIGHLIGHT_FRONT =
+            Identifier.fromNamespaceAndPath(MOD_ID, "light/storage_slot_highlight_front");
 
     public Rect bounds() {
         return new Rect(getTotalX(), getTotalY(), getWidth(), getHeight());
@@ -192,14 +190,6 @@ public class PageCardComponent extends AbstractComponent {
         int absY = getTotalY() + titleLocalY;
         return screenX >= absX && screenX < absX + titleLocalWidth
                 && screenY >= absY && screenY < absY + titleLocalHeight;
-    }
-
-    public int getTitleScreenX() {
-        return getTotalX() + titleLocalX;
-    }
-
-    public int getTitleScreenY() {
-        return getTotalY() + titleLocalY;
     }
 
     // Controls the rendering order

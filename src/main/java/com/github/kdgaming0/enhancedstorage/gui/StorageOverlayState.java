@@ -8,7 +8,6 @@ public class StorageOverlayState {
 
     private static final StorageOverlayState SESSION = new StorageOverlayState();
     private @Nullable StorageKey openKey;
-    private @Nullable StorageKey renamingKey;
     private String searchQuery = "";
     private double scrollAmount = 0;
     // Used to tell page switch from closing the menu and reopening it
@@ -39,7 +38,6 @@ public class StorageOverlayState {
     }
 
     public void onStorageScreenClosed() {
-        renamingKey = null;
         if (isNavigating()) {
             return;
         }
@@ -74,17 +72,5 @@ public class StorageOverlayState {
 
     public boolean isSearching() {
         return searchQuery != null && !searchQuery.isBlank();
-    }
-
-    public @Nullable StorageKey getRenamingKey() {
-        return renamingKey;
-    }
-
-    public void setRenamingKey(@Nullable StorageKey key) {
-        this.renamingKey = key;
-    }
-
-    public boolean isRenaming() {
-        return renamingKey != null;
     }
 }

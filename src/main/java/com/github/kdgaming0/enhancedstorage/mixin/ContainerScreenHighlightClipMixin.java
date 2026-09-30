@@ -1,11 +1,13 @@
 package com.github.kdgaming0.enhancedstorage.mixin;
 
+import com.github.kdgaming0.enhancedstorage.gui.Rect;
 import com.github.kdgaming0.enhancedstorage.screen.IHighlightClipProvider;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.world.inventory.Slot;
+import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -49,13 +51,13 @@ public abstract class ContainerScreenHighlightClipMixin {
 
     @Unique
     private void enhancedstorage$clipped(GuiGraphicsExtractor graphics, Runnable draw) {
-        int[] clip = enhancedstorage$highlightClip();
+        Rect clip = enhancedstorage$highlightClip();
         if (clip == null) {
             draw.run();
             return;
         }
 
-        graphics.enableScissor(clip[0] - leftPos, clip[1] - topPos, clip[2] - leftPos, clip[3] - topPos);
+        graphics.enableScissor(clip.x() - leftPos, clip.y() - topPos, clip.right() - leftPos, clip.bottom() - topPos);
         try {
             draw.run();
         } finally {
@@ -64,7 +66,7 @@ public abstract class ContainerScreenHighlightClipMixin {
     }
 
     @Unique
-    private int[] enhancedstorage$highlightClip() {
+    private @Nullable Rect enhancedstorage$highlightClip() {
         if (hoveredSlot == null || !(((Object) this) instanceof IHighlightClipProvider provider)) return null;
         return provider.enhancedstorage$getHighlightClip(hoveredSlot);
     }

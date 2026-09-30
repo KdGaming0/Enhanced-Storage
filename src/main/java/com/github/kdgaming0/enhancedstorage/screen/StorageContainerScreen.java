@@ -10,7 +10,6 @@ import com.github.kdgaming0.enhancedstorage.compat.RRVCompat;
 import com.github.kdgaming0.enhancedstorage.gui.*;
 import com.github.kdgaming0.enhancedstorage.gui.component.EditDialogComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.PageCardComponent;
-import com.github.kdgaming0.enhancedstorage.gui.component.StorageSlotComponent;
 import com.github.kdgaming0.enhancedstorage.mixin.AbstractContainerScreenAccessor;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
@@ -45,27 +44,21 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     private final StorageKey openKey;
     private final StorageOverlayState state = StorageOverlayState.session();
     private final StorageOverlayLayout layout = new StorageOverlayLayout();
-    private final Map<Long, int[]> topSlotClipRects = new HashMap<>();
+    private final LiveSlotPlacer slotPlacer;
+    private final LiveSlotSearch liveSearch = new LiveSlotSearch();
     private final boolean rrvLoaded = FabricLoader.getInstance().isModLoaded("rrv");
-    private final Map<Integer, ItemStack> liveMatchStacks = new HashMap<>();
-    private final Map<Integer, Boolean> liveMatchResults = new HashMap<>();
-    private String liveMatchQuery = "";
     private boolean searchDirty = false;
     private Deque<ItemStack> searchWarmupQueue;
     private boolean autoScrolledToOpenCard = false;
     private EditDialogComponent renameDialog;
     private static final long DEFERRED_CLOSE_MS = 2000;
     private long deferredCloseAt = 0;
-    private static final int PARKED = -9999;
 
     public StorageContainerScreen(ChestMenu menu, Inventory inventory, Component title, StorageKey openKey) {
         super(menu, inventory, title);
         this.openKey = openKey;
         this.state.setOpenKey(openKey);
-    }
-
-    private static long cordKey(int x, int y) {
-        return ((long) x << 32) | (y & 0xFFFFFFFFL);
+        this.slotPlacer = new LiveSlotPlacer(menu, layout, openKey);
     }
 
     private static boolean isRrvWidget(Object o) {
@@ -73,15 +66,6 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
             return true; // treat wrappers as RRV widgets so we can re-process them
         }
         return o.getClass().getName().startsWith("cc.cassian.rrv");
-    }
-
-    private static void park(Slot slot) {
-        slot.x = PARKED;
-        slot.y = PARKED;
-    }
-
-    private static boolean isParked(Slot slot) {
-        return slot.y == PARKED;
     }
 
     /**
@@ -139,7 +123,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         this.leftPos = boxLeft;
         this.topPos = boxTop;
 
-        syncSlotPositions();
+        slotPlacer.sync(this.leftPos, this.topPos);
 
         // Queue every cached stack for search-text warmup; init() also runs on every rebuildWidgets, so only build the queue once per screen.
         if (searchWarmupQueue == null) {
@@ -191,7 +175,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
     @Override
     public void extractContents(@NonNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float a) {
-        syncSlotPositions();
+        slotPlacer.sync(this.leftPos, this.topPos);
         super.extractContents(guiGraphics, mouseX, mouseY, a);
         if (rrvLoaded) {
             RRVCompat.renderHighlightAbove(this, guiGraphics, mouseX, mouseY, a);
@@ -218,19 +202,17 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         if (!(this instanceof IScreenAccessor accessor)) return;
 
         List<Renderable> renderables = accessor.uilib$getRenderables();
+        List<GuiEventListener> children = accessor.uilib$getChildren();
         List<Renderable> rrvWidgets = new ArrayList<>();
 
         renderables.removeIf(r -> {
-            if (isRrvWidget(r)) {
-                Renderable original = (r instanceof HoverMaskedRenderable m) ? m.delegate() : r;
-                // RRV removed it from children => it's stale, let it die
-                if (original instanceof GuiEventListener l && !this.children().contains(l)) {
-                    return true; // remove and don't re-add
-                }
+            if (!isRrvWidget(r)) return false;
+
+            Renderable original = (r instanceof HoverMaskedRenderable m) ? m.delegate() : r;
+            if (!(original instanceof GuiEventListener l) || children.contains(l)) {
                 rrvWidgets.add(original);
-                return true;
             }
-            return false;
+            return true;
         });
 
         if (rrvWidgets.isEmpty()) return;
@@ -247,140 +229,6 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         return Rect.contains(layout.getPageOverviewBounds(), mx, my)
                 || Rect.contains(layout.getInventoryBounds(), mx, my)
                 || Rect.contains(layout.getOverviewBounds(), mx, my);
-    }
-
-    private void syncSlotPositions() {
-        topSlotClipRects.clear();
-
-        if (openKey.type() == StorageKey.Type.STORAGE_INDEX) {
-            syncIndexSlotPositions();
-        } else {
-            syncPageSlotPositions();
-        }
-
-        syncPlayerSlotPositions();
-    }
-
-    private void syncPageSlotPositions() {
-        PageCardComponent openCard = layout.getOpenCard();
-        if (openCard == null) return;
-
-        ScrollContainerWidget viewport = layout.getPageOverview();
-        if (viewport == null) return;
-
-        // Offset values so slots render correctly. Vanilla AbstractContainerScreen translates the render matrix by
-        // (leftPos, topPos) before drawing slots, so slot.x/slot.y must be stored RELATIVE to that offset.
-        // We set leftPos/topPos to getMainBackgroundX/Y (instead of 0,0) so other mods — e.g. ones adding buttons
-        // around the inventory — can read the standard contract to know this menu's bounds.
-        final int offX = this.leftPos;
-        final int offY = this.topPos;
-
-        int rows = this.menu.getRowCount();
-        int containerSlots = rows * 9;
-
-        int originalX = openCard.slotGridScreenX() + StorageSlotComponent.ITEM_INSET;
-        int originalY = openCard.slotGridScreenY() + StorageSlotComponent.ITEM_INSET;
-
-        for (int i = 0; i < containerSlots; i++) {
-            Slot slot = this.menu.slots.get(i);
-
-            // Place the first 9 slots (top row) offscreen so the navigation buttons are not visible in the page when you view it
-            if (i < 9) {
-                park(slot);
-                continue;
-            }
-
-            // Re-index so the first visible slot (i=9) lands at grid position 0.
-            int visible = i - 9;
-
-            // Absolute (screen-space) position where this slot should visually land.
-            int absX = originalX + (visible % 9) * 18;
-            int absY = originalY + (visible / 9) * 18;
-
-            // Clip rect stays in SCREEN space: isHovering compares it against absolute mouse coords, and scissor
-            // consumers subtract (leftPos, topPos) themselves because enableScissor transforms its rect by the current pose.
-            int clipLeft = Math.max(absX, viewport.getX());
-            int clipTop = Math.max(absY, viewport.getY());
-            int clipRight = Math.min(absX + 16, viewport.getX() + viewport.getWidth());
-            int clipBottom = Math.min(absY + 16, viewport.getY() + viewport.getHeight());
-
-            // Slot fields are RELATIVE to (leftPos, topPos) now.
-            int relX = absX - offX;
-            int relY = absY - offY;
-            slot.x = relX;
-            slot.y = relY;
-
-            // Key must match what getHighlightClip looks up: cordKey(slot.x, slot.y),
-            // which is now relative. The stored rect stays absolute (screen space).
-            topSlotClipRects.put(cordKey(relX, relY), new int[]{clipLeft, clipTop, clipRight, clipBottom});
-        }
-    }
-
-    private void syncPlayerSlotPositions() {
-        SpriteComponent inventory = layout.getInventoryPanel();
-        if (inventory == null) return;
-
-        final int offX = this.leftPos;
-        final int offY = this.topPos;
-
-        int invX = inventory.getTotalX() + 8;
-        int invMainY = inventory.getTotalY() + 14 + 1;
-        int hotbarY = invMainY + 3 * 18 + 4;
-
-        int base = this.menu.slots.size() - 36;
-        for (int i = 0; i < 27; i++) {
-            Slot slot = this.menu.slots.get(base + i);
-            slot.x = (invX + (i % 9) * 18) - offX;
-            slot.y = (invMainY + (i / 9) * 18) - offY;
-        }
-        for (int i = 0; i < 9; i++) {
-            Slot s = this.menu.slots.get(base + 27 + i);
-            s.x = (invX + i * 18) - offX;
-            s.y = hotbarY - offY;
-        }
-    }
-
-    private void syncIndexSlotPositions() {
-        SpriteComponent overview = layout.getOverviewPanel();
-        if (overview == null) {
-            // With the Storage Overview card disabled there is nowhere to show the index slots.
-            int slots = this.menu.getRowCount() * 9;
-            for (int i = 0; i < slots; i++) {
-                park(this.menu.slots.get(i));
-            }
-            return;
-        }
-
-        final int offX = this.leftPos;
-        final int offY = this.topPos;
-
-        // Match the cached-item layout in StorageOverlayLayout:
-        // startX = 7, rowYs = {14, 42, 60}, item drawn at (+1, +1)
-        int startX = overview.getTotalX() + 7 + 1;
-        int baseY = overview.getTotalY();
-        final int[] rowYs = {14, 42, 60};
-
-        int containerSlots = this.menu.getRowCount() * 9;
-        for (int i = 0; i < containerSlots; i++) {
-            Slot slot = this.menu.slots.get(i);
-
-            int menuRow = i / 9;
-            int visRow = switch (menuRow) {
-                case 1 -> 0;
-                case 3 -> 1;
-                case 4 -> 2;
-                default -> -1;
-            };
-
-            if (visRow < 0) {
-                // Nav/filler rows: placed offscreen
-                park(slot);
-                continue;
-            }
-
-            slot.x = (startX + (i % 9) * 18) - offX;
-            slot.y = (baseY + rowYs[visRow] + 1) - offY;
-        }
     }
 
     private void onSearchChanged() {
@@ -444,21 +292,6 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
             this.setFocused(box);
             box.setFocused(true);
         }
-    }
-
-    private boolean liveSlotMatches(Slot slot) {
-        String query = state.getSearchQuery();
-        if (!query.equals(liveMatchQuery)) {
-            liveMatchStacks.clear();
-            liveMatchResults.clear();
-            liveMatchQuery = query;
-        }
-        ItemStack prev = liveMatchStacks.get(slot.index);
-        if (prev == null || !ItemStack.matches(prev, slot.getItem())) {
-            liveMatchStacks.put(slot.index, slot.getItem().copy());
-            liveMatchResults.put(slot.index, ItemSearch.matches(slot.getItem(), query));
-        }
-        return liveMatchResults.get(slot.index);
     }
 
     private PageCardComponent cardTitleAt(double mx, double my) {
@@ -633,48 +466,44 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     protected void extractSlot(@NonNull GuiGraphicsExtractor graphics, Slot slot, int mouseX, int mouseY) {
         // Slots parked offscreen (nav row, hidden index rows) still cost full item extraction
         // plus every other mod's slot hooks — skip them entirely.
-        if (isParked(slot)) return;
+        if (LiveSlotPlacer.isParked(slot)) return;
 
-        int containerSlots = this.menu.getRowCount() * 9;
-
-        if (slot.index < containerSlots && openKey.type() != StorageKey.Type.STORAGE_INDEX) {
-            ScrollContainerWidget viewport = layout.getPageOverview();
-            graphics.enableScissor(
-                    viewport.getX() - this.leftPos, viewport.getY() - this.topPos,
-                    viewport.getX() + viewport.getWidth() - this.leftPos,
-                    viewport.getY() + viewport.getHeight() - this.topPos);
-            boolean searching = state.isSearching();
-            boolean match = searching && liveSlotMatches(slot);
-
-            if (searching && match) {
-                SearchHighlight.drawMatch(graphics, slot.x, slot.y);
-            }
-
+        Rect viewport = slotPlacer.viewport();
+        if (viewport == null || slot.index >= this.menu.getRowCount() * 9) {
             super.extractSlot(graphics, slot, mouseX, mouseY);
-
-            if (searching && !match) {
-                SearchHighlight.drawNoMatch(graphics, slot.x, slot.y);
-            }
-
-            graphics.disableScissor();
-        } else {
-            super.extractSlot(graphics, slot, mouseX, mouseY);
+            return;
         }
+
+        graphics.enableScissor(
+                viewport.x() - this.leftPos, viewport.y() - this.topPos,
+                viewport.right() - this.leftPos, viewport.bottom() - this.topPos);
+
+        boolean searching = state.isSearching();
+        boolean match = searching && liveSearch.matches(slot, state.getSearchQuery());
+
+        if (searching && match) {
+            SearchHighlight.drawMatch(graphics, slot.x, slot.y);
+        }
+
+        super.extractSlot(graphics, slot, mouseX, mouseY);
+
+        if (searching && !match) {
+            SearchHighlight.drawNoMatch(graphics, slot.x, slot.y);
+        }
+
+        graphics.disableScissor();
     }
 
     @Override
     protected boolean isHovering(int left, int top, int w, int h, double xm, double ym) {
-        int[] clip = topSlotClipRects.get(cordKey(left, top));
-        if (clip != null) {
-            if (clip[2] <= clip[0] || clip[3] <= clip[1]) return false;
-            return xm >= clip[0] && xm < clip[2] && ym >= clip[1] && ym < clip[3];
-        }
+        Rect clip = slotPlacer.clipAt(left, top);
+        if (clip != null) return clip.contains(xm, ym);
         return super.isHovering(left, top, w, h, xm, ym);
     }
 
     @Override
-    public int[] enhancedstorage$getHighlightClip(Slot slot) {
-        return topSlotClipRects.get(cordKey(slot.x, slot.y));
+    public @Nullable Rect enhancedstorage$getHighlightClip(Slot slot) {
+        return slotPlacer.clipAt(slot.x, slot.y);
     }
 
     @Override

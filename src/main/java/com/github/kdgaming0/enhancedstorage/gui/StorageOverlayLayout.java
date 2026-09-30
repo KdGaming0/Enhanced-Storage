@@ -70,15 +70,11 @@ public class StorageOverlayLayout {
     private int mainBackgroundX;
     private int mainBackgroundY;
     private int mainBackgroundWidth;
-    private int mainBackgroundHeight;
     private PageCardComponent openCard;
     private SpriteComponent inventoryPanel;
     private SpriteComponent overviewPanel;
     private ScrollContainerWidget pageOverview;
     private EditBoxWidget searchBox;
-    private ItemButtonComponent toolkitButton;
-    private IconButtonComponent settingsButton;
-    private IconButtonComponent themeButton;
     private @Nullable Rect toolkitButtonBounds;
     private @Nullable Rect settingsButtonBounds;
     private @Nullable Rect themeButtonBounds;
@@ -197,15 +193,6 @@ public class StorageOverlayLayout {
         return Identifier.fromNamespaceAndPath(MOD_ID, "icons/gear_icon");
     }
 
-    public static void cycleTheme() {
-        EnhancedStorageConfig.backgroundType = switch (EnhancedStorageConfig.backgroundType) {
-            case TRANSPARENT -> EnhancedStorageConfig.BackgroundType.DARK;
-            case DARK -> EnhancedStorageConfig.BackgroundType.LIGHT;
-            case LIGHT -> EnhancedStorageConfig.BackgroundType.TRANSPARENT;
-        };
-        EnhancedStorageConfig.write(MOD_ID);
-    }
-
     private static ItemStack buildToolkitIcon() {
         ItemStack stack = new ItemStack(Items.PAPER);
         stack.set(DataComponents.ITEM_MODEL,
@@ -216,17 +203,6 @@ public class StorageOverlayLayout {
         return stack;
     }
 
-    public ItemButtonComponent getToolkitButton() {
-        return toolkitButton;
-    }
-
-    public IconButtonComponent getSettingsButton() {
-        return settingsButton;
-    }
-
-    public IconButtonComponent getThemeButton() {
-        return themeButton;
-    }
 
     public int getMainBackgroundX() {
         return mainBackgroundX;
@@ -238,10 +214,6 @@ public class StorageOverlayLayout {
 
     public int getMainBackgroundWidth() {
         return mainBackgroundWidth;
-    }
-
-    public int getMainBackgroundHeight() {
-        return mainBackgroundHeight;
     }
 
     public PageCardComponent getOpenCard() {
@@ -311,11 +283,8 @@ public class StorageOverlayLayout {
         this.visibleCards.clear();
         this.pageMatchCache.clear();
         this.pageMatchQuery = "";
-        this.toolkitButton = null;
         this.toolkitButtonBounds = null;
-        this.settingsButton = null;
         this.settingsButtonBounds = null;
-        this.themeButton = null;
         this.themeButtonBounds = null;
 
         int titleAreaHeight = font.lineHeight + 2;
@@ -360,7 +329,6 @@ public class StorageOverlayLayout {
         this.mainBackgroundX = mainBackgroundX;
         this.mainBackgroundY = mainBackgroundY;
         this.mainBackgroundWidth = mainBackgroundWidth;
-        this.mainBackgroundHeight = mainBackgroundHeight;
 
         SpriteComponent mainBackground = new SpriteComponent(mainBackgroundX, mainBackgroundY, mainBackgroundWidth, mainBackgroundHeight, OverlayTheme.sprite(OverlayTheme.MAIN_PANEL));
         screen.addComponent(mainBackground);
@@ -549,7 +517,6 @@ public class StorageOverlayLayout {
             ItemButtonComponent toolkit = new ItemButtonComponent(btnX, btnY, btnSize, btnSize, buildToolkitIcon());
             toolkit.updateParentPosition(0, 0, width, height);
             screen.addComponent(toolkit);
-            this.toolkitButton = toolkit;
             this.toolkitButtonBounds = new Rect(btnX, btnY, btnSize, btnSize);
             btnX += btnSize + btnGap;
         }
@@ -562,7 +529,6 @@ public class StorageOverlayLayout {
                     List.of(Component.literal("Settings").withStyle(s -> s.withColor(0x55FF55).withItalic(false))));
             settings.updateParentPosition(0, 0, width, height);
             screen.addComponent(settings);
-            this.settingsButton = settings;
             this.settingsButtonBounds = new Rect(btnX, btnY, btnSize, btnSize);
             btnX += btnSize + btnGap;
         }
@@ -579,7 +545,6 @@ public class StorageOverlayLayout {
                                     .withStyle(s -> s.withColor(0xFFAA00).withItalic(false))));
             theme.updateParentPosition(0, 0, width, height);
             screen.addComponent(theme);
-            this.themeButton = theme;
             this.themeButtonBounds = new Rect(btnX, btnY, btnSize, btnSize);
             btnX += btnSize + btnGap;
         }
