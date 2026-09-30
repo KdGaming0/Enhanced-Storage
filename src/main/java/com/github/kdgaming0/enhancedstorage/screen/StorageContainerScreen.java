@@ -10,6 +10,7 @@ import com.github.kdgaming0.enhancedstorage.compat.RRVCompat;
 import com.github.kdgaming0.enhancedstorage.gui.*;
 import com.github.kdgaming0.enhancedstorage.gui.component.EditDialogComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.PageCardComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.StorageSlotComponent;
 import com.github.kdgaming0.enhancedstorage.mixin.AbstractContainerScreenAccessor;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
@@ -267,10 +268,8 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         int rows = this.menu.getRowCount();
         int containerSlots = rows * 9;
 
-        int cardX = openCard.getTotalX();
-        int cardY = openCard.getTotalY();
-        int originalX = cardX + StorageOverlayLayout.CARD_BORDER + 1;
-        int originalY = cardY + font.lineHeight + 5;
+        int originalX = openCard.slotGridScreenX() + StorageSlotComponent.ITEM_INSET;
+        int originalY = openCard.slotGridScreenY() + StorageSlotComponent.ITEM_INSET;
 
         for (int i = 0; i < containerSlots; i++) {
             Slot slot = this.menu.slots.get(i);
@@ -336,13 +335,25 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         SpriteComponent overview = layout.getOverviewPanel();
         if (overview == null) {
             // When the Storage Overview card is disabled, we push every container slot offscreen so it doesn't render.
-            int slots = this.menu.getRowCount() * 9;
-            for (int i = 0; i < slots; i++) {
+            final int offX = this.leftPos;
+            final int offY = this.topPos;
+            final int panelX = overview.getTotalX();
+            final int panelY = overview.getTotalY();
+
+            int containerSlots = this.menu.getRowCount() * 9;
+            for (int i = 0; i < containerSlots; i++) {
                 Slot slot = this.menu.slots.get(i);
-                slot.x = -9999;
-                slot.y = -9999;
+
+                int visRow = IndexGrid.visibleRowOfMenuRow(i / 9);
+                if (visRow < 0) {
+                    slot.x = -9999;
+                    slot.y = -9999;
+                    continue;
+                }
+
+                slot.x = panelX + IndexGrid.cellX(i % 9) + StorageSlotComponent.ITEM_INSET - offX;
+                slot.y = panelY + IndexGrid.rowY(visRow) + StorageSlotComponent.ITEM_INSET - offY;
             }
-            return;
         }
 
         final int offX = this.leftPos;
@@ -559,22 +570,11 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     }
 
     private Optional<StorageKey> indexItemAt(double mx, double my) {
-        SpriteComponent overview = layout.getOverviewPanel();
-        if (overview == null) return Optional.empty();
+        Rect bounds = layout.getOverviewBounds();
+        if (bounds == null) return Optional.empty();
 
-        // Same grid the layout draws cached index items on: startX=7, rowYs={14,42,60}, 18px cells
-        int localX = (int) (mx - overview.getTotalX()) - 7;
-        int localY = (int) (my - overview.getTotalY());
-        if (localX < 0 || localX >= 9 * 18) return Optional.empty();
-
-        int col = localX / 18;
-        int row;
-        if (localY >= 14 && localY < 32) row = 0; // ender chest pages
-        else if (localY >= 42 && localY < 60) row = 1; // backpacks 1-9
-        else if (localY >= 60 && localY < 78) row = 2; // backpacks 10-18
-        else return Optional.empty();
-
-        int idx = row * 9 + col;
+        int idx = IndexGrid.cellAt((int) (mx - bounds.x()), (int) (my - bounds.y()));
+        if (idx < 0) return Optional.empty();
 
         return PageCache.getInstance().get(new StorageKey(StorageKey.Type.STORAGE_INDEX, 0))
                 .map(PageCache.CachedPage::items)
@@ -653,13 +653,13 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
             boolean match = searching && liveSlotMatches(slot);
 
             if (searching && match) {
-                graphics.fill(slot.x, slot.y, slot.x + 16, slot.y + 16, 0x8033CC33);
+                SearchHighlight.drawMatch(graphics, slot.x, slot.y);
             }
 
             super.extractSlot(graphics, slot, mouseX, mouseY);
 
             if (searching && !match) {
-                graphics.fill(slot.x, slot.y, slot.x + 16, slot.y + 16, 0xB0101010);
+                SearchHighlight.drawNoMatch(graphics, slot.x, slot.y);
             }
 
             graphics.disableScissor();

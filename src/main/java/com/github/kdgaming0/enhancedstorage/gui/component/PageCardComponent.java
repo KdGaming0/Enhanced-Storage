@@ -36,6 +36,11 @@ public class PageCardComponent extends AbstractComponent {
     private final int titleLocalWidth;
     private final int titleLocalHeight;
 
+    private static final int TITLE_GAP = 2;
+
+    private final int slotGridX;
+    private final int slotGridY;
+
     private final boolean cached;
     private final boolean live;
     private final List<ItemStack> items;
@@ -50,6 +55,8 @@ public class PageCardComponent extends AbstractComponent {
                              int slotsAcross, int slotSize,
                              Consumer<StorageKey> onClick) {
         super(x, y, width, height);
+        this.slotGridX = cardBorder;
+        this.slotGridY = titleAreaHeight + TITLE_GAP;
         this.key = key;
         this.cached = cached;
         this.live = live;
@@ -96,7 +103,7 @@ public class PageCardComponent extends AbstractComponent {
             // The whole slot grid is one tiled sprite (18x18 tile mcmeta) — one draw call
             // instead of one per slot.
             SpriteComponent slotGrid = new SpriteComponent(
-                    cardBorder, titleAreaHeight + 2,
+                    slotGridX, slotGridY,
                     slotsAcross * slotSize, pageRows * slotSize,
                     OverlayTheme.sprite(OverlayTheme.STORAGE_SLOT));
             this.addComponent(slotGrid);
@@ -107,8 +114,8 @@ public class PageCardComponent extends AbstractComponent {
                     ItemStack stack = (!live && slotIndex < items.size()) ? items.get(slotIndex) : null;
 
                     StorageSlotComponent slotComponent = new StorageSlotComponent(
-                            cardBorder + slotCol * slotSize,
-                            (titleAreaHeight + 2) + slotRow * slotSize,
+                            slotGridX + slotCol * slotSize,
+                            slotGridY + slotRow * slotSize,
                             slotSize, slotSize,
                             live ? null : getStorageSlotHighlightBackTexture(),
                             live ? null : getStorageSlotHighlightFrontTexture(),
@@ -139,6 +146,14 @@ public class PageCardComponent extends AbstractComponent {
 
     public Rect bounds() {
         return new Rect(getTotalX(), getTotalY(), getWidth(), getHeight());
+    }
+
+    public int slotGridScreenX() {
+        return getTotalX() + slotGridX;
+    }
+
+    public int slotGridScreenY() {
+        return getTotalY() + slotGridY;
     }
 
     public StorageKey getKey() {

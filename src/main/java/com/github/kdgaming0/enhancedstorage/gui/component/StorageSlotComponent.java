@@ -3,6 +3,7 @@ package com.github.kdgaming0.enhancedstorage.gui.component;
 import com.daqem.uilib.gui.component.AbstractComponent;
 import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
+import com.github.kdgaming0.enhancedstorage.gui.SearchHighlight;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
@@ -16,6 +17,8 @@ public class StorageSlotComponent extends AbstractComponent {
 
     private boolean hoverEnabled = true;
     private SearchState searchState = SearchState.NONE;
+
+    public static final int ITEM_INSET = 1;
 
     public StorageSlotComponent(int x, int y, int width, int height,
                                 @Nullable Identifier highlightBackTexture,
@@ -32,7 +35,7 @@ public class StorageSlotComponent extends AbstractComponent {
         if (this.highlightFront != null) this.addComponent(this.highlightFront);
 
         if (stack != null && !stack.isEmpty()) {
-            this.item = new TooltipItemComponent(1, 1, stack, true);
+            this.item = new TooltipItemComponent(ITEM_INSET, ITEM_INSET, stack, true);
             this.item.setTooltipEnabled(EnhancedStorageConfig.showItemTooltipsOnCachedItems);
             this.addComponent(this.item);
         } else {
@@ -77,10 +80,12 @@ public class StorageSlotComponent extends AbstractComponent {
 
         boolean hovered = isHovered(guiGraphics, mouseX, mouseY);
 
-        if (searchState == SearchState.MATCH) {
-            guiGraphics.fill(totalX + 1, totalY + 1, totalX + 17, totalY + 17, 0x8033CC33);
-        }
+        int itemX = totalX + ITEM_INSET;
+        int itemY = totalY + ITEM_INSET;
 
+        if (searchState == SearchState.MATCH) {
+            SearchHighlight.drawMatch(guiGraphics, itemX, itemY);
+        }
         // Children are leaves — extract them directly instead of via extractRenderStateBase,
         // which allocates two filtered stream lists per component per frame.
         if (hovered && highlightBack != null) {
@@ -96,7 +101,7 @@ public class StorageSlotComponent extends AbstractComponent {
         }
 
         if (searchState == SearchState.NO_MATCH) {
-            guiGraphics.fill(totalX + 1, totalY + 1, totalX + 17, totalY + 17, 0xB0101010);
+            SearchHighlight.drawNoMatch(guiGraphics, itemX, itemY);
         }
     }
 

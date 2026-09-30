@@ -9,10 +9,7 @@ import com.daqem.uilib.gui.component.text.TruncatedTextComponent;
 import com.daqem.uilib.gui.widget.EditBoxWidget;
 import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
-import com.github.kdgaming0.enhancedstorage.gui.component.IconButtonComponent;
-import com.github.kdgaming0.enhancedstorage.gui.component.ItemButtonComponent;
-import com.github.kdgaming0.enhancedstorage.gui.component.PageCardComponent;
-import com.github.kdgaming0.enhancedstorage.gui.component.TooltipItemComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.*;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageOrder;
 import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
@@ -498,20 +495,16 @@ public class StorageOverlayLayout {
             PageCache.getInstance().get(new StorageKey(StorageKey.Type.STORAGE_INDEX, 0))
                     .map(PageCache.CachedPage::items)
                     .ifPresent(items -> {
-                        int startX = 7;
-                        int[] rowYs = {14, 42};
                         for (int idx = 0; idx < items.size(); idx++) {
                             ItemStack stack = items.get(idx);
                             if (stack == null || stack.isEmpty()) continue;
-                            int row = idx / 9;
-                            int col = idx % 9;
 
-                            int y = (row < rowYs.length) ? rowYs[row] : rowYs[rowYs.length - 1] + (row - rowYs.length + 1) * SLOT_SIZE;
-
-                            int x = startX + col * SLOT_SIZE;
-                            TooltipItemComponent item = new TooltipItemComponent(x + 1, y + 1, ItemModels.withResolvableModel(stack), true);
+                            int x = IndexGrid.cellX(idx % IndexGrid.COLUMNS) + StorageSlotComponent.ITEM_INSET;
+                            int y = IndexGrid.rowY(idx / IndexGrid.COLUMNS) + StorageSlotComponent.ITEM_INSET;
+                            TooltipItemComponent item = new TooltipItemComponent(x, y, ItemModels.withResolvableModel(stack), true);
                             item.setTooltipEnabled(EnhancedStorageConfig.showItemTooltipsOnCachedItems);
-                            item.updateParentPosition(overviewPanel.getTotalX(), overviewPanel.getTotalY(), overviewPanel.getWidth(), overviewPanel.getHeight());
+                            item.updateParentPosition(overviewPanel.getTotalX(), overviewPanel.getTotalY(),
+                                    overviewPanel.getWidth(), overviewPanel.getHeight());
                             overviewPanel.addComponent(item);
                         }
                     });
