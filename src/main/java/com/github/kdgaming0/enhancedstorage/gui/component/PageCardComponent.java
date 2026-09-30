@@ -5,7 +5,7 @@ import com.daqem.uilib.api.widget.IWidget;
 import com.daqem.uilib.gui.component.AbstractComponent;
 import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.daqem.uilib.gui.component.text.TextComponent;
-import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayTheme;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayState;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
 import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
@@ -55,13 +55,13 @@ public class PageCardComponent extends AbstractComponent {
         this.items = items;
 
         if (live) {
-            SpriteComponent background = new SpriteComponent(0, 0, width, height, getPageCardActiveTexture());
+            SpriteComponent background = new SpriteComponent(0, 0, width, height, OverlayTheme.sprite(OverlayTheme.PAGE_CARD_ACTIVE));
             this.addComponent(background);
         } else {
             WidgetSprites idleSprites = new WidgetSprites(
-                    getPageCardIdleTexture(), getPageCardIdleTexture(), getPageCardIdleTexture());
+                    OverlayTheme.sprite(OverlayTheme.PAGE_CARD_IDLE), OverlayTheme.sprite(OverlayTheme.PAGE_CARD_IDLE), OverlayTheme.sprite(OverlayTheme.PAGE_CARD_IDLE));
             WidgetSprites activeSprites = new WidgetSprites(
-                    getPageCardActiveTexture(), getPageCardActiveTexture(), getPageCardActiveTexture());
+                    OverlayTheme.sprite(OverlayTheme.PAGE_CARD_ACTIVE), OverlayTheme.sprite(OverlayTheme.PAGE_CARD_ACTIVE), OverlayTheme.sprite(OverlayTheme.PAGE_CARD_ACTIVE));
 
             PageCardButtonWidget background = new PageCardButtonWidget(
                     0, 0, width, height,
@@ -77,8 +77,8 @@ public class PageCardComponent extends AbstractComponent {
 
         int titleX = 3;
         int titleY = 3;
-        TextComponent pageTitle = new TextComponent(titleX, titleY, Component.literal(displayName), getTitleTextColor());
-        pageTitle.setDrawShadow(shouldDrawTitleShadow());
+        TextComponent pageTitle = new TextComponent(titleX, titleY, Component.literal(displayName), OverlayTheme.titleColor());
+        pageTitle.setDrawShadow(OverlayTheme.titleShadow());
         this.addComponent(pageTitle);
 
         var font = Minecraft.getInstance().font;
@@ -97,7 +97,7 @@ public class PageCardComponent extends AbstractComponent {
             SpriteComponent slotGrid = new SpriteComponent(
                     cardBorder, titleAreaHeight + 2,
                     slotsAcross * slotSize, pageRows * slotSize,
-                    getStorageSlotTexture());
+                    OverlayTheme.sprite(OverlayTheme.STORAGE_SLOT));
             this.addComponent(slotGrid);
 
             for (int slotRow = 0; slotRow < pageRows; slotRow++) {
@@ -122,37 +122,10 @@ public class PageCardComponent extends AbstractComponent {
             Component label = Component.literal("Click To Open");
             int textX = (width - font.width(label)) / 2;
             int textY = (height - font.lineHeight) / 2;
-            TextComponent pageInfo = new TextComponent(textX, textY, label, getTitleTextColor());
-            pageInfo.setDrawShadow(shouldDrawTitleShadow());
+            TextComponent pageInfo = new TextComponent(textX, textY, label, OverlayTheme.titleColor());
+            pageInfo.setDrawShadow(OverlayTheme.titleShadow());
             this.addComponent(pageInfo);
         }
-    }
-
-    private static int getTitleTextColor() {
-        return switch (EnhancedStorageConfig.backgroundType) {
-            case LIGHT -> 0xFF000000; // vanilla black
-            default -> 0xFFAAAAAA;
-        };
-    }
-
-    private static boolean shouldDrawTitleShadow() {
-        return EnhancedStorageConfig.backgroundType != EnhancedStorageConfig.BackgroundType.LIGHT;
-    }
-
-    private static Identifier getPageCardIdleTexture() {
-        return switch (EnhancedStorageConfig.backgroundType) {
-            case TRANSPARENT -> Identifier.fromNamespaceAndPath(MOD_ID, "transparent/page_card_idle_trans");
-            case DARK -> Identifier.fromNamespaceAndPath(MOD_ID, "dark/page_card_idle_dark");
-            default -> Identifier.fromNamespaceAndPath(MOD_ID, "light/page_card_idle");
-        };
-    }
-
-    private static Identifier getPageCardActiveTexture() {
-        return switch (EnhancedStorageConfig.backgroundType) {
-            case TRANSPARENT -> Identifier.fromNamespaceAndPath(MOD_ID, "transparent/page_card_active_trans");
-            case DARK -> Identifier.fromNamespaceAndPath(MOD_ID, "dark/page_card_active_dark");
-            default -> Identifier.fromNamespaceAndPath(MOD_ID, "light/page_card_active");
-        };
     }
 
     private static Identifier getStorageSlotHighlightFrontTexture() {
@@ -161,14 +134,6 @@ public class PageCardComponent extends AbstractComponent {
 
     private static Identifier getStorageSlotHighlightBackTexture() {
         return Identifier.fromNamespaceAndPath(MOD_ID, "light/storage_slot_highlight_back");
-    }
-
-    private Identifier getStorageSlotTexture() {
-        return switch (EnhancedStorageConfig.backgroundType) {
-            case TRANSPARENT -> Identifier.fromNamespaceAndPath(MOD_ID, "transparent/storage_slot_trans");
-            case DARK -> Identifier.fromNamespaceAndPath(MOD_ID, "dark/storage_slot_dark");
-            default -> Identifier.fromNamespaceAndPath(MOD_ID, "light/storage_slot");
-        };
     }
 
     public StorageKey getKey() {

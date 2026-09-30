@@ -4,6 +4,7 @@ import com.daqem.uilib.gui.component.AbstractComponent;
 import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 
+import com.github.kdgaming0.enhancedstorage.gui.OverlayTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
@@ -25,7 +26,7 @@ public class IconButtonComponent extends AbstractComponent {
         this.tooltip = tooltip;
 
         // Nine-slice background, scaled to the button size (matches ItemButtonComponent).
-        SpriteComponent background = new SpriteComponent(0, 0, width, height, getIdleTexture());
+        SpriteComponent background = new SpriteComponent(0, 0, width, height, OverlayTheme.sprite(OverlayTheme.PAGE_CARD_IDLE));
         this.addComponent(background);
 
         // Center the icon on the background.
@@ -33,14 +34,6 @@ public class IconButtonComponent extends AbstractComponent {
         int iconY = (height - iconSize) / 2;
         SpriteComponent iconSprite = new SpriteComponent(iconX, iconY, iconSize, iconSize, icon);
         this.addComponent(iconSprite);
-    }
-
-    private static Identifier getIdleTexture() {
-        return switch (EnhancedStorageConfig.backgroundType) {
-            case TRANSPARENT -> Identifier.fromNamespaceAndPath(MOD_ID, "transparent/page_card_idle_trans");
-            case DARK -> Identifier.fromNamespaceAndPath(MOD_ID, "dark/page_card_idle_dark");
-            default -> Identifier.fromNamespaceAndPath(MOD_ID, "light/page_card_idle");
-        };
     }
 
     @Override

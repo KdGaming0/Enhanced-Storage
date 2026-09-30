@@ -93,7 +93,7 @@ public class StorageOverlay extends AbstractScreen {
         if (thb != null && event.button() == 0
                 && event.x() >= thb[0] && event.x() < thb[0] + thb[2]
                 && event.y() >= thb[1] && event.y() < thb[1] + thb[3]) {
-            StorageOverlayLayout.cycleTheme();
+            OverlayTheme.cycle();
             this.rebuildWidgets();
             return true;
         }

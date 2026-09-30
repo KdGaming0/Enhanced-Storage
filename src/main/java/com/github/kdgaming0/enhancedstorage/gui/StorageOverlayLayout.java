@@ -147,17 +147,6 @@ public class StorageOverlayLayout {
         }
     }
 
-    private static int getTitleTextColor() {
-        return switch (EnhancedStorageConfig.backgroundType) {
-            case LIGHT -> 0xFF000000; // vanilla black
-            default -> 0xFFAAAAAA;
-        };
-    }
-
-    private static boolean shouldDrawTitleShadow() {
-        return EnhancedStorageConfig.backgroundType != EnhancedStorageConfig.BackgroundType.LIGHT;
-    }
-
     private static List<StorageKey> applyCustomOrder(List<StorageKey> defaultOrder) {
         PageOrder order = PageOrder.getInstance();
 
@@ -204,22 +193,6 @@ public class StorageOverlayLayout {
         return Identifier.fromNamespaceAndPath(MOD_ID, "icons/gear_icon");
     }
 
-    private static Identifier getThemeIcon() {
-        return switch (EnhancedStorageConfig.backgroundType) {
-            case DARK -> Identifier.fromNamespaceAndPath(MOD_ID, "icons/icon_dark");
-            case LIGHT -> Identifier.fromNamespaceAndPath(MOD_ID, "icons/icon_light");
-            default -> Identifier.fromNamespaceAndPath(MOD_ID, "icons/icon_transparent");
-        };
-    }
-
-    private static String themeDisplayName() {
-        return switch (EnhancedStorageConfig.backgroundType) {
-            case DARK -> "Dark";
-            case LIGHT -> "Light";
-            default -> "Transparent";
-        };
-    }
-
     public static void cycleTheme() {
         EnhancedStorageConfig.backgroundType = switch (EnhancedStorageConfig.backgroundType) {
             case TRANSPARENT -> EnhancedStorageConfig.BackgroundType.DARK;
@@ -237,30 +210,6 @@ public class StorageOverlayLayout {
         stack.set(DataComponents.CUSTOM_NAME,
                 Component.literal("Toolkits").withStyle(s -> s.withItalic(false)));
         return stack;
-    }
-
-    private Identifier getMainBackgroundTexture() {
-        return switch (EnhancedStorageConfig.backgroundType) {
-            case TRANSPARENT -> Identifier.fromNamespaceAndPath(MOD_ID, "transparent/main_panel_trans");
-            case DARK -> Identifier.fromNamespaceAndPath(MOD_ID, "dark/main_panel_dark");
-            default -> Identifier.fromNamespaceAndPath(MOD_ID, "light/main_panel");
-        };
-    }
-
-    private Identifier getInventoryTexture() {
-        return switch (EnhancedStorageConfig.backgroundType) {
-            case TRANSPARENT -> Identifier.fromNamespaceAndPath(MOD_ID, "transparent/storage_inventory_trans");
-            case DARK -> Identifier.fromNamespaceAndPath(MOD_ID, "dark/storage_inventory_dark");
-            default -> Identifier.fromNamespaceAndPath(MOD_ID, "light/storage_inventory");
-        };
-    }
-
-    private Identifier getOverviewTexture() {
-        return switch (EnhancedStorageConfig.backgroundType) {
-            case TRANSPARENT -> Identifier.fromNamespaceAndPath(MOD_ID, "transparent/storage_overview_trans");
-            case DARK -> Identifier.fromNamespaceAndPath(MOD_ID, "dark/storage_overview_dark");
-            default -> Identifier.fromNamespaceAndPath(MOD_ID, "light/storage_overview");
-        };
     }
 
     public ItemButtonComponent getToolkitButton() {
@@ -394,7 +343,7 @@ public class StorageOverlayLayout {
         this.mainBackgroundWidth = mainBackgroundWidth;
         this.mainBackgroundHeight = mainBackgroundHeight;
 
-        SpriteComponent mainBackground = new SpriteComponent(mainBackgroundX, mainBackgroundY, mainBackgroundWidth, mainBackgroundHeight, getMainBackgroundTexture());
+        SpriteComponent mainBackground = new SpriteComponent(mainBackgroundX, mainBackgroundY, mainBackgroundWidth, mainBackgroundHeight, OverlayTheme.sprite(OverlayTheme.MAIN_PANEL));
         screen.addComponent(mainBackground);
 
         ScrollContainerWidget pageOverview = new ScrollContainerWidget(mainBackgroundWidth - INNER_PADDING * 2, mainBackgroundHeight - INNER_PADDING * 2, EnhancedStorageConfig.cardSpacing) {
@@ -510,13 +459,13 @@ public class StorageOverlayLayout {
         int inventoryY = mainBackgroundY + mainBackgroundHeight;
         int overviewY = mainBackgroundY + mainBackgroundHeight;
 
-        SpriteComponent inventory = new SpriteComponent(inventoryX, inventoryY, inventoryWidth, inventoryHeight, getInventoryTexture());
+        SpriteComponent inventory = new SpriteComponent(inventoryX, inventoryY, inventoryWidth, inventoryHeight, OverlayTheme.sprite(OverlayTheme.STORAGE_INVENTORY));
         screen.addComponent(inventory);
         this.inventoryPanel = inventory;
 
         SpriteComponent overview = null;
         if (showOverview) {
-            overview = new SpriteComponent(overviewX, overviewY, overviewWidth, overviewHeight, getOverviewTexture());
+            overview = new SpriteComponent(overviewX, overviewY, overviewWidth, overviewHeight, OverlayTheme.sprite(OverlayTheme.STORAGE_OVERVIEW));
             screen.addComponent(overview);
         }
         this.overviewPanel = overview;
@@ -545,18 +494,18 @@ public class StorageOverlayLayout {
                     });
         }
 
-        TextComponent inventoryTitle = new TextComponent(7, 3, Component.literal("Inventory"), getTitleTextColor());
+        TextComponent inventoryTitle = new TextComponent(7, 3, Component.literal("Inventory"), OverlayTheme.titleColor());
         inventoryTitle.updateParentPosition(inventory.getTotalX(), inventory.getTotalY(), inventory.getWidth(), inventory.getHeight());
-        inventoryTitle.setDrawShadow(shouldDrawTitleShadow());
+        inventoryTitle.setDrawShadow(OverlayTheme.titleShadow());
         inventory.addComponent(inventoryTitle);
 
         if (overview != null) {
             boolean overviewActive = liveKey != null && liveKey.type() == StorageKey.Type.STORAGE_INDEX;
-            int titleColor = overviewActive ? 0xFFFFD24A : getTitleTextColor();
+            int titleColor = overviewActive ? 0xFFFFD24A : OverlayTheme.titleColor();
 
             TextComponent storageOverviewTitle = new TextComponent(7, 3, Component.literal("Storage Overview"), titleColor);
             storageOverviewTitle.updateParentPosition(overview.getTotalX(), overview.getTotalY(), overview.getWidth(), overview.getHeight());
-            storageOverviewTitle.setDrawShadow(shouldDrawTitleShadow());
+            storageOverviewTitle.setDrawShadow(OverlayTheme.titleShadow());
             overview.addComponent(storageOverviewTitle);
         }
 
@@ -605,9 +554,9 @@ public class StorageOverlayLayout {
             int iconSize = 16;
             IconButtonComponent theme = new IconButtonComponent(
                     btnX, btnY, btnSize, btnSize,
-                    getThemeIcon(), iconSize,
+                    OverlayTheme.icon(), iconSize,
                     List.of(
-                            Component.literal("Theme: " + themeDisplayName())
+                            Component.literal("Theme: " + OverlayTheme.displayName())
                                     .withStyle(s -> s.withColor(0x55FF55).withItalic(false)),
                             Component.literal("Click to cycle")
                                     .withStyle(s -> s.withColor(0xFFAA00).withItalic(false))));
@@ -716,8 +665,8 @@ public class StorageOverlayLayout {
         int textY = (rowHeight - font.lineHeight) / 2 + 20;
 
         TruncatedTextComponent emptyText = new TruncatedTextComponent(
-                textX, textY, rowContentWidth - textX, message, getTitleTextColor());
-        emptyText.setDrawShadow(shouldDrawTitleShadow());
+                textX, textY, rowContentWidth - textX, message, OverlayTheme.titleColor());
+        emptyText.setDrawShadow(OverlayTheme.titleShadow());
 
         EmptyComponent emptyRow = new EmptyComponent(0, 0, rowContentWidth, rowHeight);
         emptyRow.addComponent(emptyText);

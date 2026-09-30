@@ -8,6 +8,7 @@ import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
 import com.github.kdgaming0.enhancedstorage.compat.RRVCompat;
 import com.github.kdgaming0.enhancedstorage.gui.OverlayScale;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayTheme;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayLayout;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayState;
 import com.github.kdgaming0.enhancedstorage.gui.component.EditDialogComponent;
@@ -758,7 +759,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         int[] thb = layout.getThemeButtonBounds();
         if (thb != null && event.button() == 0
                 && inRect(event.x(), event.y(), thb[0], thb[1], thb[2], thb[3])) {
-            StorageOverlayLayout.cycleTheme();
+            OverlayTheme.cycle();
             this.rebuildWidgets();
             return true;
         }
