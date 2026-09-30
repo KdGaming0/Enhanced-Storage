@@ -7,10 +7,7 @@ import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
 import com.github.kdgaming0.enhancedstorage.compat.RRVCompat;
-import com.github.kdgaming0.enhancedstorage.gui.OverlayScale;
-import com.github.kdgaming0.enhancedstorage.gui.OverlayTheme;
-import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayLayout;
-import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayState;
+import com.github.kdgaming0.enhancedstorage.gui.*;
 import com.github.kdgaming0.enhancedstorage.gui.component.EditDialogComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.PageCardComponent;
 import com.github.kdgaming0.enhancedstorage.mixin.AbstractContainerScreenAccessor;
@@ -67,10 +64,6 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
     private static long cordKey(int x, int y) {
         return ((long) x << 32) | (y & 0xFFFFFFFFL);
-    }
-
-    private static boolean inRect(double px, double py, int x, int y, int w, int h) {
-        return px >= x && px < x + w && py >= y && py < y + h;
     }
 
     private static boolean isRrvWidget(Object o) {
@@ -240,32 +233,9 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     }
 
     private boolean isInsideOverlay(double mx, double my) {
-        // Page overview panel
-        ScrollContainerWidget pageOverview = layout.getPageOverview();
-        if (pageOverview != null && inRect(mx, my,
-                pageOverview.getX(), pageOverview.getY(),
-                pageOverview.getWidth(), pageOverview.getHeight())) {
-            return true;
-        }
-
-        // Player inventory panel
-        SpriteComponent inventory = layout.getInventoryPanel();
-        if (inventory != null && inRect(mx, my,
-                inventory.getTotalX(), inventory.getTotalY(),
-                inventory.getWidth(), inventory.getHeight())) {
-            return true;
-        }
-
-        // Storage overview panel
-        SpriteComponent overviewPanel = layout.getOverviewPanel();
-        //noinspection RedundantIfStatement
-        if (overviewPanel != null && inRect(mx, my,
-                overviewPanel.getTotalX(), overviewPanel.getTotalY(),
-                overviewPanel.getWidth(), overviewPanel.getHeight())) {
-            return true;
-        }
-
-        return false;
+        return Rect.contains(layout.getPageOverviewBounds(), mx, my)
+                || Rect.contains(layout.getInventoryBounds(), mx, my)
+                || Rect.contains(layout.getOverviewBounds(), mx, my);
     }
 
     private void syncSlotPositions() {
@@ -585,10 +555,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     }
 
     private boolean isOverOverviewPanel(double mx, double my) {
-        SpriteComponent overview = layout.getOverviewPanel();
-        return overview != null && inRect(mx, my,
-                overview.getTotalX(), overview.getTotalY(),
-                overview.getWidth(), overview.getHeight());
+        return Rect.contains(layout.getOverviewBounds(), mx, my);
     }
 
     private Optional<StorageKey> indexItemAt(double mx, double my) {
@@ -629,10 +596,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     }
 
     private boolean isOverPageOverview(double mouseX, double mouseY) {
-        ScrollContainerWidget overview = layout.getPageOverview();
-        if (overview == null) return false;
-        return mouseX >= overview.getX() && mouseX < overview.getX() + overview.getWidth()
-                && mouseY >= overview.getY() && mouseY < overview.getY() + overview.getHeight();
+        return Rect.contains(layout.getPageOverviewBounds(), mouseX, mouseY);
     }
 
     // Call to reset the Storage Overlay if the cache changes while it open
@@ -648,8 +612,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         for (PageCardComponent card : layout.getPageCards()) {
             if (card == layout.getOpenCard()) continue;  // live card: title only
             if (!card.isCached()) continue;              // "Click To Open" cards: title only
-            if (inRect(mx, my, card.getTotalX(), card.getTotalY(),
-                    card.getWidth(), card.getHeight())) {
+            if (card.bounds().contains(mx, my)) {
                 return card;
             }
         }
@@ -742,23 +705,18 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
             return true;
         }
 
-        int[] tb = layout.getToolkitButtonBounds();
-        if (tb != null && (event.button() == 0 || event.button() == 1)
-                && inRect(event.x(), event.y(), tb[0], tb[1], tb[2], tb[3])) {
+        if ((event.button() == 0 || event.button() == 1)
+                && Rect.contains(layout.getToolkitButtonBounds(), event.x(), event.y())) {
             runToolkitCommand(event.button() == 0 ? "farmingtoolkit" : "huntingtoolkit");
             return true;
         }
 
-        int[] sb = layout.getSettingsButtonBounds();
-        if (sb != null && event.button() == 0
-                && inRect(event.x(), event.y(), sb[0], sb[1], sb[2], sb[3])) {
+        if (event.button() == 0 && Rect.contains(layout.getSettingsButtonBounds(), event.x(), event.y())) {
             onSettingsClicked();
             return true;
         }
 
-        int[] thb = layout.getThemeButtonBounds();
-        if (thb != null && event.button() == 0
-                && inRect(event.x(), event.y(), thb[0], thb[1], thb[2], thb[3])) {
+        if (event.button() == 0 && Rect.contains(layout.getThemeButtonBounds(), event.x(), event.y())) {
             OverlayTheme.cycle();
             this.rebuildWidgets();
             return true;

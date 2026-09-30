@@ -76,11 +76,13 @@ public class StorageOverlayLayout {
     private ScrollContainerWidget pageOverview;
     private EditBoxWidget searchBox;
     private ItemButtonComponent toolkitButton;
-    private int @Nullable [] toolkitButtonBounds;
     private IconButtonComponent settingsButton;
-    private int @Nullable [] settingsButtonBounds;
     private IconButtonComponent themeButton;
-    private int @Nullable [] themeButtonBounds;
+    private @Nullable Rect toolkitButtonBounds;
+    private @Nullable Rect settingsButtonBounds;
+    private @Nullable Rect themeButtonBounds;
+    private @Nullable Rect inventoryBounds;
+    private @Nullable Rect overviewBounds;
 
     public static int computeColumns(int width) {
         int cardWidth = CARD_BORDER * 2 + SLOTS_ACROSS * SLOT_SIZE;
@@ -216,24 +218,12 @@ public class StorageOverlayLayout {
         return toolkitButton;
     }
 
-    public int @Nullable [] getToolkitButtonBounds() {
-        return toolkitButtonBounds;
-    }
-
     public IconButtonComponent getSettingsButton() {
         return settingsButton;
     }
 
-    public int @Nullable [] getSettingsButtonBounds() {
-        return settingsButtonBounds;
-    }
-
     public IconButtonComponent getThemeButton() {
         return themeButton;
-    }
-
-    public int @Nullable [] getThemeButtonBounds() {
-        return themeButtonBounds;
     }
 
     public int getMainBackgroundX() {
@@ -274,6 +264,33 @@ public class StorageOverlayLayout {
 
     public EditBoxWidget getSearchBox() {
         return searchBox;
+    }
+
+    public @Nullable Rect getToolkitButtonBounds() {
+        return toolkitButtonBounds;
+    }
+
+    public @Nullable Rect getSettingsButtonBounds() {
+        return settingsButtonBounds;
+    }
+
+    public @Nullable Rect getThemeButtonBounds() {
+        return themeButtonBounds;
+    }
+
+    public @Nullable Rect getInventoryBounds() {
+        return inventoryBounds;
+    }
+
+    /** Null when the Storage Overview card is hidden (Rift context or disabled in config). */
+    public @Nullable Rect getOverviewBounds() {
+        return overviewBounds;
+    }
+
+    public @Nullable Rect getPageOverviewBounds() {
+        if (pageOverview == null) return null;
+        return new Rect(pageOverview.getX(), pageOverview.getY(),
+                pageOverview.getWidth(), pageOverview.getHeight());
     }
 
     /**
@@ -459,16 +476,22 @@ public class StorageOverlayLayout {
         int inventoryY = mainBackgroundY + mainBackgroundHeight;
         int overviewY = mainBackgroundY + mainBackgroundHeight;
 
-        SpriteComponent inventory = new SpriteComponent(inventoryX, inventoryY, inventoryWidth, inventoryHeight, OverlayTheme.sprite(OverlayTheme.STORAGE_INVENTORY));
+        SpriteComponent inventory = new SpriteComponent(inventoryX, inventoryY, inventoryWidth, inventoryHeight,
+                OverlayTheme.sprite(OverlayTheme.STORAGE_INVENTORY));
         screen.addComponent(inventory);
         this.inventoryPanel = inventory;
+        this.inventoryBounds = new Rect(inventory.getTotalX(), inventory.getTotalY(),
+                inventory.getWidth(), inventory.getHeight());
 
         SpriteComponent overview = null;
         if (showOverview) {
-            overview = new SpriteComponent(overviewX, overviewY, overviewWidth, overviewHeight, OverlayTheme.sprite(OverlayTheme.STORAGE_OVERVIEW));
+            overview = new SpriteComponent(overviewX, overviewY, overviewWidth, overviewHeight,
+                    OverlayTheme.sprite(OverlayTheme.STORAGE_OVERVIEW));
             screen.addComponent(overview);
         }
         this.overviewPanel = overview;
+        this.overviewBounds = overview == null ? null
+                : new Rect(overview.getTotalX(), overview.getTotalY(), overview.getWidth(), overview.getHeight());
 
         if (overview != null && (liveKey == null || liveKey.type() != StorageKey.Type.STORAGE_INDEX)) {
             SpriteComponent overviewPanel = overview;
@@ -533,7 +556,7 @@ public class StorageOverlayLayout {
             toolkit.updateParentPosition(0, 0, width, height);
             screen.addComponent(toolkit);
             this.toolkitButton = toolkit;
-            this.toolkitButtonBounds = new int[]{btnX, btnY, btnSize, btnSize};
+            this.toolkitButtonBounds = new Rect(btnX, btnY, btnSize, btnSize);
             btnX += btnSize + btnGap;
         }
 
@@ -546,7 +569,7 @@ public class StorageOverlayLayout {
             settings.updateParentPosition(0, 0, width, height);
             screen.addComponent(settings);
             this.settingsButton = settings;
-            this.settingsButtonBounds = new int[]{btnX, btnY, btnSize, btnSize};
+            this.settingsButtonBounds = new Rect(btnX, btnY, btnSize, btnSize);
             btnX += btnSize + btnGap;
         }
 
@@ -563,7 +586,7 @@ public class StorageOverlayLayout {
             theme.updateParentPosition(0, 0, width, height);
             screen.addComponent(theme);
             this.themeButton = theme;
-            this.themeButtonBounds = new int[]{btnX, btnY, btnSize, btnSize};
+            this.themeButtonBounds = new Rect(btnX, btnY, btnSize, btnSize);
             btnX += btnSize + btnGap;
         }
     }

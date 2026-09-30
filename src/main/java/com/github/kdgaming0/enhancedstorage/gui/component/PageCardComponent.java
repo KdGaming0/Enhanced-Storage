@@ -6,6 +6,7 @@ import com.daqem.uilib.gui.component.AbstractComponent;
 import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.daqem.uilib.gui.component.text.TextComponent;
 import com.github.kdgaming0.enhancedstorage.gui.OverlayTheme;
+import com.github.kdgaming0.enhancedstorage.gui.Rect;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayState;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
 import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
@@ -134,6 +135,10 @@ public class PageCardComponent extends AbstractComponent {
 
     private static Identifier getStorageSlotHighlightBackTexture() {
         return Identifier.fromNamespaceAndPath(MOD_ID, "light/storage_slot_highlight_back");
+    }
+
+    public Rect bounds() {
+        return new Rect(getTotalX(), getTotalY(), getWidth(), getHeight());
     }
 
     public StorageKey getKey() {

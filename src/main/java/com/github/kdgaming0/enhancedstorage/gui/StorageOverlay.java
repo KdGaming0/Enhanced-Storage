@@ -10,6 +10,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
+import org.jetbrains.annotations.Nullable;
 import org.jspecify.annotations.NonNull;
 
 import java.util.ArrayDeque;
@@ -89,10 +90,7 @@ public class StorageOverlay extends AbstractScreen {
 
     @Override
     public boolean mouseClicked(@NonNull MouseButtonEvent event, boolean doubleClick) {
-        int[] thb = layout.getThemeButtonBounds();
-        if (thb != null && event.button() == 0
-                && event.x() >= thb[0] && event.x() < thb[0] + thb[2]
-                && event.y() >= thb[1] && event.y() < thb[1] + thb[3]) {
+        if (event.button() == 0 && Rect.contains(layout.getThemeButtonBounds(), event.x(), event.y())) {
             OverlayTheme.cycle();
             this.rebuildWidgets();
             return true;
@@ -109,8 +107,7 @@ public class StorageOverlay extends AbstractScreen {
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         ScrollContainerWidget overview = layout.getPageOverview();
         if (overview != null
-                && mouseX >= overview.getX() && mouseX < overview.getX() + overview.getWidth()
-                && mouseY >= overview.getY() && mouseY < overview.getY() + overview.getHeight()
+                && Rect.contains(layout.getPageOverviewBounds(), mouseX, mouseY)
                 && overview.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) {
             return true;
         }
