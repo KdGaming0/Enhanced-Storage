@@ -125,7 +125,7 @@ public class PageCardComponent extends AbstractComponent {
                     this.addComponent(slotComponent);
                 }
             }
-            applySearch(state == null ? "" : state.getSearchQuery());
+            applySearch(state.getSearchQuery());
         } else {
             Component label = Component.literal("Click To Open");
             int textX = (width - font.width(label)) / 2;

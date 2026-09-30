@@ -47,6 +47,10 @@ public class StorageOverlayLayout {
     public static final int SCROLLBAR_WIDTH = 6;
     public static final int SCROLLBAR_GAP = 4;
     public static final int UNCACHED_CARD_HEIGHT = 50;
+    private static final int INVENTORY_WIDTH = 176;
+    private static final int INVENTORY_HEIGHT = 96;
+    private static final int OVERVIEW_WIDTH = 176;
+    private static final int OVERVIEW_HEIGHT = 85;
     private final List<PageCardComponent> pageCards = new ArrayList<>();
     private final List<PageCardComponent> visibleCards = new ArrayList<>();
     private final List<StorageKey> defaultOrder = new ArrayList<>();
@@ -117,7 +121,8 @@ public class StorageOverlayLayout {
     }
 
     private static int computeBottomMargin() {
-        int margin = EnhancedStorageConfig.overviewBottomMargin + 96; // 96 is the space for the inventory panel below the Storage overview panel, adding more will create spacing between the edge of the screen and the storage overview as a whole
+        // Reserve room for the inventory panel, which sits directly below the page overview.
+        int margin = EnhancedStorageConfig.overviewBottomMargin + INVENTORY_HEIGHT;
 
         // Quick Nav buttons sit in a row just above and below the container, so add more margin to make space for them.
         if (SKYBLOCKER_LOADED && isSkyblockerQuickNavEnabled()) {
@@ -454,26 +459,22 @@ public class StorageOverlayLayout {
 
         boolean showOverview = EnhancedStorageConfig.showStorageOverviewCard && !riftContext;
 
-        int inventoryWidth = 176;
-        int inventoryHeight = 96;
-        int overviewWidth = 176;
-        int overviewHeight = 85;
-        int combinedWidth = showOverview ? inventoryWidth + overviewWidth : inventoryWidth;
+        int combinedWidth = showOverview ? INVENTORY_WIDTH + OVERVIEW_WIDTH : INVENTORY_WIDTH;
 
-        int inventoryX = (width / 2) - (inventoryWidth / 2);
-        int overviewX = inventoryX - overviewWidth;
+        int inventoryX = (width / 2) - (INVENTORY_WIDTH / 2);
+        int overviewX = inventoryX - OVERVIEW_WIDTH;
 
         // If the screen is too narrow, shift the inventory and overview to be centered under the mainBackground instead of the screen
         if (showOverview && overviewX < mainBackgroundX) {
             int blockX = mainBackgroundCenterX - (combinedWidth / 2);
             overviewX = blockX;
-            inventoryX = blockX + overviewWidth;
+            inventoryX = blockX + OVERVIEW_WIDTH;
         }
 
         int inventoryY = mainBackgroundY + mainBackgroundHeight;
         int overviewY = mainBackgroundY + mainBackgroundHeight;
 
-        SpriteComponent inventory = new SpriteComponent(inventoryX, inventoryY, inventoryWidth, inventoryHeight,
+        SpriteComponent inventory = new SpriteComponent(inventoryX, inventoryY, INVENTORY_WIDTH, INVENTORY_HEIGHT,
                 OverlayTheme.sprite(OverlayTheme.STORAGE_INVENTORY));
         screen.addComponent(inventory);
         this.inventoryPanel = inventory;
@@ -482,7 +483,7 @@ public class StorageOverlayLayout {
 
         SpriteComponent overview = null;
         if (showOverview) {
-            overview = new SpriteComponent(overviewX, overviewY, overviewWidth, overviewHeight,
+            overview = new SpriteComponent(overviewX, overviewY, OVERVIEW_WIDTH, OVERVIEW_HEIGHT,
                     OverlayTheme.sprite(OverlayTheme.STORAGE_OVERVIEW));
             screen.addComponent(overview);
         }
@@ -542,7 +543,7 @@ public class StorageOverlayLayout {
         final int btnSize = 24;
         final int btnGap = 2;
         final int btnY = inventory.getTotalY() + 2;
-        int btnX = inventory.getTotalX() + inventoryWidth + 2;
+        int btnX = inventory.getTotalX() + INVENTORY_WIDTH + 2;
 
         if (EnhancedStorageConfig.showToolkitButton && !riftContext) {
             ItemButtonComponent toolkit = new ItemButtonComponent(btnX, btnY, btnSize, btnSize, buildToolkitIcon());

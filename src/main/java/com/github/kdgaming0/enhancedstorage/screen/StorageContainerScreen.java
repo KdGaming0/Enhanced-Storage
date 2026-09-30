@@ -56,6 +56,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     private EditDialogComponent renameDialog;
     private static final long DEFERRED_CLOSE_MS = 2000;
     private long deferredCloseAt = 0;
+    private static final int PARKED = -9999;
 
     public StorageContainerScreen(ChestMenu menu, Inventory inventory, Component title, StorageKey openKey) {
         super(menu, inventory, title);
@@ -72,6 +73,15 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
             return true; // treat wrappers as RRV widgets so we can re-process them
         }
         return o.getClass().getName().startsWith("cc.cassian.rrv");
+    }
+
+    private static void park(Slot slot) {
+        slot.x = PARKED;
+        slot.y = PARKED;
+    }
+
+    private static boolean isParked(Slot slot) {
+        return slot.y == PARKED;
     }
 
     /**
@@ -276,8 +286,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
             // Place the first 9 slots (top row) offscreen so the navigation buttons are not visible in the page when you view it
             if (i < 9) {
-                slot.x = -9999;
-                slot.y = -9999;
+                park(slot);
                 continue;
             }
 
@@ -334,26 +343,12 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     private void syncIndexSlotPositions() {
         SpriteComponent overview = layout.getOverviewPanel();
         if (overview == null) {
-            // When the Storage Overview card is disabled, we push every container slot offscreen so it doesn't render.
-            final int offX = this.leftPos;
-            final int offY = this.topPos;
-            final int panelX = overview.getTotalX();
-            final int panelY = overview.getTotalY();
-
-            int containerSlots = this.menu.getRowCount() * 9;
-            for (int i = 0; i < containerSlots; i++) {
-                Slot slot = this.menu.slots.get(i);
-
-                int visRow = IndexGrid.visibleRowOfMenuRow(i / 9);
-                if (visRow < 0) {
-                    slot.x = -9999;
-                    slot.y = -9999;
-                    continue;
-                }
-
-                slot.x = panelX + IndexGrid.cellX(i % 9) + StorageSlotComponent.ITEM_INSET - offX;
-                slot.y = panelY + IndexGrid.rowY(visRow) + StorageSlotComponent.ITEM_INSET - offY;
+            // With the Storage Overview card disabled there is nowhere to show the index slots.
+            int slots = this.menu.getRowCount() * 9;
+            for (int i = 0; i < slots; i++) {
+                park(this.menu.slots.get(i));
             }
+            return;
         }
 
         final int offX = this.leftPos;
@@ -379,8 +374,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
             if (visRow < 0) {
                 // Nav/filler rows: placed offscreen
-                slot.x = -9999;
-                slot.y = -9999;
+                park(slot);
                 continue;
             }
 
@@ -639,7 +633,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     protected void extractSlot(@NonNull GuiGraphicsExtractor graphics, Slot slot, int mouseX, int mouseY) {
         // Slots parked offscreen (nav row, hidden index rows) still cost full item extraction
         // plus every other mod's slot hooks — skip them entirely.
-        if (slot.y < -9000) return;
+        if (isParked(slot)) return;
 
         int containerSlots = this.menu.getRowCount() * 9;
 
@@ -819,7 +813,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         var box = layout.getSearchBox();
         // Stops E from closing the overlay when searching
         if (box != null && box.isFocused() && !event.isEscape()) {
-            if (box.keyPressed(event)) return true;
+            box.keyPressed(event);
             return true;
         }
         return super.keyPressed(event);
