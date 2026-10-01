@@ -1,13 +1,12 @@
 package com.github.kdgaming0.enhancedstorage.gui;
 
-import com.daqem.uilib.api.component.IComponent;
 import com.daqem.uilib.api.screen.IScreen;
 import com.daqem.uilib.gui.component.EmptyComponent;
+import com.daqem.uilib.gui.component.AbstractComponent;
 import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.daqem.uilib.gui.component.text.TextComponent;
 import com.daqem.uilib.gui.component.text.TruncatedTextComponent;
 import com.daqem.uilib.gui.widget.EditBoxWidget;
-import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.gui.component.*;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
@@ -18,8 +17,6 @@ import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
 import com.github.kdgaming0.enhancedstorage.util.TextUtils;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
@@ -27,10 +24,8 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import org.jetbrains.annotations.Nullable;
-import org.jspecify.annotations.NonNull;
 
 import java.util.*;
-import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static com.github.kdgaming0.enhancedstorage.EnhancedStorage.MOD_ID;
@@ -51,6 +46,7 @@ public class StorageOverlayLayout {
     private static final int INVENTORY_HEIGHT = 96;
     private static final int OVERVIEW_WIDTH = 176;
     private static final int OVERVIEW_HEIGHT = 85;
+    private static final long WARMUP_BUDGET_MS = 3;
     private final List<PageCardComponent> pageCards = new ArrayList<>();
     private final List<PageCardComponent> visibleCards = new ArrayList<>();
     private final List<StorageKey> defaultOrder = new ArrayList<>();
@@ -73,8 +69,12 @@ public class StorageOverlayLayout {
     private PageCardComponent openCard;
     private SpriteComponent inventoryPanel;
     private SpriteComponent overviewPanel;
-    private ScrollContainerWidget pageOverview;
+    private PageViewport pageOverview;
     private EditBoxWidget searchBox;
+    private StorageOverlayState state;
+    private OverlayActions actions;
+    private @Nullable Deque<ItemStack> warmupQueue;
+    private boolean searchDirty;
     private @Nullable Rect toolkitButtonBounds;
     private @Nullable Rect settingsButtonBounds;
     private @Nullable Rect themeButtonBounds;
@@ -232,24 +232,12 @@ public class StorageOverlayLayout {
         return overviewPanel;
     }
 
-    public ScrollContainerWidget getPageOverview() {
+    public PageViewport getPageOverview() {
         return pageOverview;
     }
 
     public EditBoxWidget getSearchBox() {
         return searchBox;
-    }
-
-    public @Nullable Rect getToolkitButtonBounds() {
-        return toolkitButtonBounds;
-    }
-
-    public @Nullable Rect getSettingsButtonBounds() {
-        return settingsButtonBounds;
-    }
-
-    public @Nullable Rect getThemeButtonBounds() {
-        return themeButtonBounds;
     }
 
     public @Nullable Rect getInventoryBounds() {
@@ -274,9 +262,36 @@ public class StorageOverlayLayout {
      * @param liveRows row count of the real menu (ignored when liveKey == null)
      */
     public void build(IScreen screen, Font font, int width, int height, StorageOverlayState state,
-                      @Nullable StorageKey liveKey, int liveRows, Consumer<StorageKey> onCardClick,
-                      Runnable onSearchChanged, Consumer<String> onToolkitClick) {
+                      @Nullable StorageKey liveKey, int liveRows, OverlayActions actions) {
+        resetForBuild(font, state, actions, liveKey);
+        computeGeometry(width);
 
+        SpriteComponent mainBackground = buildMainPanel(screen, height);
+        buildPageCards(collectPageKeys(liveKey), liveKey, liveRows);
+        buildPageViewport(mainBackground);
+
+        buildBottomPanels(screen, width, mainBackground);
+        addOverviewIndexItems(liveKey);
+        addPanelTitle(inventoryPanel, "Inventory", OverlayTheme.titleColor());
+        if (overviewPanel != null) {
+            boolean overviewActive = liveKey != null && liveKey.type() == StorageKey.Type.STORAGE_INDEX;
+            addPanelTitle(overviewPanel, "Storage Overview", overviewActive ? 0xFFFFD24A : OverlayTheme.titleColor());
+        }
+
+        ensureWarmupQueue();
+        buildSearchBox(screen);
+        buildButtons(screen, width, height);
+    }
+
+    private void resetForBuild(Font font, StorageOverlayState state, OverlayActions actions,
+                               @Nullable StorageKey liveKey) {
+        this.font = font;
+        this.state = state;
+        this.actions = actions;
+        this.titleAreaHeight = font.lineHeight + 2;
+        this.riftContext = liveKey != null && liveKey.type() == StorageKey.Type.RIFT;
+        this.openCard = null;
+        this.searchDirty = false;
         this.liveRowTop = -1;
         this.liveRowBottom = -1;
         this.pageCards.clear();
@@ -286,16 +301,27 @@ public class StorageOverlayLayout {
         this.toolkitButtonBounds = null;
         this.settingsButtonBounds = null;
         this.themeButtonBounds = null;
+    }
 
-        int titleAreaHeight = font.lineHeight + 2;
+    private void computeGeometry(int width) {
+        this.cardWidth = CARD_BORDER * 2 + SLOTS_ACROSS * SLOT_SIZE;
+        this.columns = computeColumns(width);
+        this.rowContentWidth = columns * cardWidth + (columns - 1) * EnhancedStorageConfig.cardSpacing;
+        this.mainBackgroundX = computeMainBackgroundX(width);
+        this.mainBackgroundY = computeMainBackgroundY();
+        this.mainBackgroundWidth = computeMainBackgroundWidth(width);
+    }
 
-        this.font = font;
-        this.titleAreaHeight = titleAreaHeight;
+    private SpriteComponent buildMainPanel(IScreen screen, int height) {
+        SpriteComponent mainBackground = new SpriteComponent(mainBackgroundX, mainBackgroundY,
+                mainBackgroundWidth, computeMainBackgroundHeight(height),
+                OverlayTheme.sprite(OverlayTheme.MAIN_PANEL));
+        screen.addComponent(mainBackground);
+        return mainBackground;
+    }
 
-        boolean riftContext = liveKey != null && liveKey.type() == StorageKey.Type.RIFT;
-        this.riftContext = riftContext;
-
-        List<StorageKey> pageKeys = Stream.concat(
+    private List<StorageKey> collectPageKeys(@Nullable StorageKey liveKey) {
+        List<StorageKey> keys = Stream.concat(
                         Stream.ofNullable(liveKey),
                         Stream.concat(
                                 PageCache.getInstance().all().keySet().stream(),
@@ -306,88 +332,13 @@ public class StorageOverlayLayout {
                 .sorted(StorageKey.DISPLAY_ORDER)
                 .toList();
 
-        this.defaultOrder.clear();
-        this.defaultOrder.addAll(pageKeys);
-        pageKeys = applyCustomOrder(pageKeys);
+        defaultOrder.clear();
+        defaultOrder.addAll(keys);
+        return applyCustomOrder(keys);
+    }
 
-        String query = state.getSearchQuery();
-
-        int cardWidth = CARD_BORDER * 2 + SLOTS_ACROSS * SLOT_SIZE;
-
-        int columns = computeColumns(width);
-        int rowContentWidth = columns * cardWidth + (columns - 1) * EnhancedStorageConfig.cardSpacing;
-
-        this.cardWidth = cardWidth;
-        this.columns = columns;
-        this.rowContentWidth = rowContentWidth;
-
-        int mainBackgroundWidth = computeMainBackgroundWidth(width);
-        int mainBackgroundHeight = computeMainBackgroundHeight(height);
-        int mainBackgroundX = computeMainBackgroundX(width);
-        int mainBackgroundY = computeMainBackgroundY();
-
-        this.mainBackgroundX = mainBackgroundX;
-        this.mainBackgroundY = mainBackgroundY;
-        this.mainBackgroundWidth = mainBackgroundWidth;
-
-        SpriteComponent mainBackground = new SpriteComponent(mainBackgroundX, mainBackgroundY, mainBackgroundWidth, mainBackgroundHeight, OverlayTheme.sprite(OverlayTheme.MAIN_PANEL));
-        screen.addComponent(mainBackground);
-
-        ScrollContainerWidget pageOverview = new ScrollContainerWidget(mainBackgroundWidth - INNER_PADDING * 2, mainBackgroundHeight - INNER_PADDING * 2, EnhancedStorageConfig.cardSpacing) {
-            @Override
-            public boolean isMouseOver(double x, double y) {
-                // Only claim the scrollbar in automatic (getChildAt) dispatch. Everything else falls through so container slot logic can run.
-                return this.visible && this.isOverScrollbar(x, y);
-            }
-
-            @Override
-            public boolean mouseClicked(@NonNull MouseButtonEvent event, boolean doubleClick) {
-                if (updateScrolling(event)) return true;
-                // Ignore clicks outside the visible viewport entirely
-                if (event.x() < getX() || event.x() >= getX() + getWidth()
-                        || event.y() < getY() || event.y() >= getY() + getHeight()) {
-                    return false;
-                }
-                for (GuiEventListener child : children()) {
-                    if (child.mouseClicked(event, doubleClick)) {
-                        setFocused(child);
-                        return true;
-                    }
-                }
-                return false;
-            }
-
-            @Override
-            public void setScrollAmount(double amount) {
-                super.setScrollAmount(amount);
-                state.setScrollAmount(scrollAmount());
-                positionRows(this);
-            }
-
-            @Override
-            protected double scrollRate() {
-                return EnhancedStorageConfig.overlayScrollSpeed;
-            }
-
-            @Override
-            protected void extractWidgetRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
-                guiGraphics.enableScissor(this.getX(), this.getY(),
-                        this.getX() + this.getWidth(), this.getY() + this.getHeight());
-
-                positionRows(this);
-                for (IComponent row : getComponents()) {
-                    int rowY = row.getY();
-                    if (rowY + row.getHeight() > 0 && rowY < this.getHeight()) {
-                        row.extractRenderStateBase(guiGraphics, mouseX, mouseY, partialTick, this.getWidth(), this.getHeight());
-                    }
-                }
-
-                guiGraphics.disableScissor();
-                this.extractScrollbar(guiGraphics, mouseX, mouseY);
-            }
-        };
-
-        // Build every card once, for the unfiltered page list. Search then decides which of these instances get added into rows (see reflowRows).
+    /** Builds every card once for the unfiltered list; search later picks which instances go into rows. */
+    private void buildPageCards(List<StorageKey> pageKeys, @Nullable StorageKey liveKey, int liveRows) {
         for (StorageKey key : pageKeys) {
             boolean isLive = key.equals(liveKey);
 
@@ -395,7 +346,7 @@ public class StorageOverlayLayout {
             List<ItemStack> items = isLive
                     ? List.of()
                     : PageCache.getInstance().get(key)
-                      .map(PageCache.CachedPage::items).orElse(List.of());
+                    .map(PageCache.CachedPage::items).orElse(List.of());
 
             int cardHeight = isLive
                     ? CARD_BORDER * 2 + titleAreaHeight + (liveRows - 1) * SLOT_SIZE
@@ -409,40 +360,44 @@ public class StorageOverlayLayout {
                     isLive || cached,
                     isLive,
                     CARD_BORDER, titleAreaHeight, SLOTS_ACROSS, SLOT_SIZE,
-                    onCardClick
+                    actions.onCardClick()
             );
             if (isLive) this.openCard = pageCard;
             this.pageCards.add(pageCard);
         }
+    }
+
+    private void buildPageViewport(SpriteComponent mainBackground) {
+        PageViewport viewport = new PageViewport(
+                mainBackgroundWidth - INNER_PADDING * 2,
+                mainBackground.getHeight() - INNER_PADDING * 2,
+                EnhancedStorageConfig.cardSpacing, state);
 
         this.pageOverviewParentX = mainBackground.getTotalX() + INNER_PADDING;
         this.pageOverviewParentY = mainBackground.getTotalY() + INNER_PADDING;
-        mainBackground.addWidget(pageOverview);
-        this.pageOverview = pageOverview;
+        mainBackground.addWidget(viewport);
+        this.pageOverview = viewport;
 
-        reflowRows(query);
-        pageOverview.setScrollAmount(state.getScrollAmount());
+        reflowRows(state.getSearchQuery());
+        viewport.setScrollAmount(state.getScrollAmount());
+    }
 
-        int mainBackgroundCenterX = mainBackgroundX + mainBackgroundWidth / 2;
-
+    private void buildBottomPanels(IScreen screen, int width, SpriteComponent mainBackground) {
         boolean showOverview = EnhancedStorageConfig.showStorageOverviewCard && !riftContext;
-
-        int combinedWidth = showOverview ? INVENTORY_WIDTH + OVERVIEW_WIDTH : INVENTORY_WIDTH;
 
         int inventoryX = (width / 2) - (INVENTORY_WIDTH / 2);
         int overviewX = inventoryX - OVERVIEW_WIDTH;
 
-        // If the screen is too narrow, shift the inventory and overview to be centered under the mainBackground instead of the screen
+        // On narrow screens, center the inventory + overview block under the main panel instead of the screen.
         if (showOverview && overviewX < mainBackgroundX) {
-            int blockX = mainBackgroundCenterX - (combinedWidth / 2);
-            overviewX = blockX;
-            inventoryX = blockX + OVERVIEW_WIDTH;
+            int mainCenterX = mainBackgroundX + mainBackgroundWidth / 2;
+            overviewX = mainCenterX - (INVENTORY_WIDTH + OVERVIEW_WIDTH) / 2;
+            inventoryX = overviewX + OVERVIEW_WIDTH;
         }
 
-        int inventoryY = mainBackgroundY + mainBackgroundHeight;
-        int overviewY = mainBackgroundY + mainBackgroundHeight;
+        int panelY = mainBackgroundY + mainBackground.getHeight();
 
-        SpriteComponent inventory = new SpriteComponent(inventoryX, inventoryY, INVENTORY_WIDTH, INVENTORY_HEIGHT,
+        SpriteComponent inventory = new SpriteComponent(inventoryX, panelY, INVENTORY_WIDTH, INVENTORY_HEIGHT,
                 OverlayTheme.sprite(OverlayTheme.STORAGE_INVENTORY));
         screen.addComponent(inventory);
         this.inventoryPanel = inventory;
@@ -451,90 +406,91 @@ public class StorageOverlayLayout {
 
         SpriteComponent overview = null;
         if (showOverview) {
-            overview = new SpriteComponent(overviewX, overviewY, OVERVIEW_WIDTH, OVERVIEW_HEIGHT,
+            overview = new SpriteComponent(overviewX, panelY, OVERVIEW_WIDTH, OVERVIEW_HEIGHT,
                     OverlayTheme.sprite(OverlayTheme.STORAGE_OVERVIEW));
             screen.addComponent(overview);
         }
         this.overviewPanel = overview;
         this.overviewBounds = overview == null ? null
                 : new Rect(overview.getTotalX(), overview.getTotalY(), overview.getWidth(), overview.getHeight());
+    }
 
-        if (overview != null && (liveKey == null || liveKey.type() != StorageKey.Type.STORAGE_INDEX)) {
-            SpriteComponent overviewPanel = overview;
-            PageCache.getInstance().get(new StorageKey(StorageKey.Type.STORAGE_INDEX, 0))
-                    .map(PageCache.CachedPage::items)
-                    .ifPresent(items -> {
-                        for (int idx = 0; idx < items.size(); idx++) {
-                            ItemStack stack = items.get(idx);
-                            if (stack == null || stack.isEmpty()) continue;
+    private void addOverviewIndexItems(@Nullable StorageKey liveKey) {
+        SpriteComponent overview = overviewPanel;
+        // On the live index page the real menu slots fill this grid instead.
+        if (overview == null || (liveKey != null && liveKey.type() == StorageKey.Type.STORAGE_INDEX)) return;
 
-                            int x = IndexGrid.cellX(idx % IndexGrid.COLUMNS) + StorageSlotComponent.ITEM_INSET;
-                            int y = IndexGrid.rowY(idx / IndexGrid.COLUMNS) + StorageSlotComponent.ITEM_INSET;
-                            TooltipItemComponent item = new TooltipItemComponent(x, y, ItemModels.withResolvableModel(stack), true);
-                            item.setTooltipEnabled(EnhancedStorageConfig.showItemTooltipsOnCachedItems);
-                            item.updateParentPosition(overviewPanel.getTotalX(), overviewPanel.getTotalY(),
-                                    overviewPanel.getWidth(), overviewPanel.getHeight());
-                            overviewPanel.addComponent(item);
-                        }
-                    });
+        List<ItemStack> items = PageCache.getInstance().get(new StorageKey(StorageKey.Type.STORAGE_INDEX, 0))
+                .map(PageCache.CachedPage::items)
+                .orElse(List.of());
+
+        for (int idx = 0; idx < items.size(); idx++) {
+            ItemStack stack = items.get(idx);
+            if (stack == null || stack.isEmpty()) continue;
+
+            int x = IndexGrid.cellX(idx % IndexGrid.COLUMNS) + StorageSlotComponent.ITEM_INSET;
+            int y = IndexGrid.rowY(idx / IndexGrid.COLUMNS) + StorageSlotComponent.ITEM_INSET;
+            TooltipItemComponent item = new TooltipItemComponent(x, y, ItemModels.withResolvableModel(stack), true);
+            item.setTooltipEnabled(EnhancedStorageConfig.showItemTooltipsOnCachedItems);
+            item.updateParentPosition(overview.getTotalX(), overview.getTotalY(),
+                    overview.getWidth(), overview.getHeight());
+            overview.addComponent(item);
         }
+    }
 
-        TextComponent inventoryTitle = new TextComponent(7, 3, Component.literal("Inventory"), OverlayTheme.titleColor());
-        inventoryTitle.updateParentPosition(inventory.getTotalX(), inventory.getTotalY(), inventory.getWidth(), inventory.getHeight());
-        inventoryTitle.setDrawShadow(OverlayTheme.titleShadow());
-        inventory.addComponent(inventoryTitle);
+    private static void addPanelTitle(SpriteComponent panel, String text, int color) {
+        TextComponent title = new TextComponent(7, 3, Component.literal(text), color);
+        title.updateParentPosition(panel.getTotalX(), panel.getTotalY(), panel.getWidth(), panel.getHeight());
+        title.setDrawShadow(OverlayTheme.titleShadow());
+        panel.addComponent(title);
+    }
 
-        if (overview != null) {
-            boolean overviewActive = liveKey != null && liveKey.type() == StorageKey.Type.STORAGE_INDEX;
-            int titleColor = overviewActive ? 0xFFFFD24A : OverlayTheme.titleColor();
+    private void ensureWarmupQueue() {
+        if (warmupQueue != null) return;
+        warmupQueue = new ArrayDeque<>();
+        PageCache.getInstance().all().values().forEach(page -> warmupQueue.addAll(page.items()));
+    }
 
-            TextComponent storageOverviewTitle = new TextComponent(7, 3, Component.literal("Storage Overview"), titleColor);
-            storageOverviewTitle.updateParentPosition(overview.getTotalX(), overview.getTotalY(), overview.getWidth(), overview.getHeight());
-            storageOverviewTitle.setDrawShadow(OverlayTheme.titleShadow());
-            overview.addComponent(storageOverviewTitle);
-        }
-
+    /** The search box instance survives rebuilds so typed text and focus are kept. */
+    private void buildSearchBox(IScreen screen) {
         if (this.searchBox == null) {
-            EditBoxWidget searchBox = new EditBoxWidget(font, 70, 1, 100, 12, Component.literal("Search"));
-            searchBox.setValue(state.getSearchQuery());
-            searchBox.setResponder(text -> {
-                if (text.equals(state.getSearchQuery())) return;
-                state.setSearchQuery(text);
-                onSearchChanged.run();
+            EditBoxWidget box = new EditBoxWidget(font, 70, 1, 100, 12, Component.literal("Search"));
+            box.setValue(state.getSearchQuery());
+            box.setResponder(text -> {
+                if (text.equals(this.state.getSearchQuery())) return;
+                this.state.setSearchQuery(text);
+                searchDirty = true;
             });
-            this.searchBox = searchBox;
+            this.searchBox = box;
         }
-        this.searchBox.uilib$updateParentPosition(inventory.getTotalX(), inventory.getTotalY());
+        this.searchBox.uilib$updateParentPosition(inventoryPanel.getTotalX(), inventoryPanel.getTotalY());
         screen.addWidget(this.searchBox);
+    }
 
-        // Buttons sit in a row to the right of the player inventory panel.
+    /** Buttons sit in a row to the right of the player inventory panel. */
+    private void buildButtons(IScreen screen, int width, int height) {
         final int btnSize = 24;
         final int btnGap = 2;
-        final int btnY = inventory.getTotalY() + 2;
-        int btnX = inventory.getTotalX() + INVENTORY_WIDTH + 2;
+        final int iconSize = 16;
+        final int btnY = inventoryPanel.getTotalY() + 2;
+        int btnX = inventoryPanel.getTotalX() + INVENTORY_WIDTH + 2;
 
         if (EnhancedStorageConfig.showToolkitButton && !riftContext) {
             ItemButtonComponent toolkit = new ItemButtonComponent(btnX, btnY, btnSize, btnSize, buildToolkitIcon());
-            toolkit.updateParentPosition(0, 0, width, height);
-            screen.addComponent(toolkit);
-            this.toolkitButtonBounds = new Rect(btnX, btnY, btnSize, btnSize);
+            this.toolkitButtonBounds = placeButton(screen, toolkit, btnX, btnY, btnSize, width, height);
             btnX += btnSize + btnGap;
         }
 
         if (EnhancedStorageConfig.showSettingsButton && !riftContext) {
-            int iconSize = 16;
             IconButtonComponent settings = new IconButtonComponent(
                     btnX, btnY, btnSize, btnSize,
                     getSettingsIcon(), iconSize,
                     List.of(Component.literal("Settings").withStyle(s -> s.withColor(0x55FF55).withItalic(false))));
-            settings.updateParentPosition(0, 0, width, height);
-            screen.addComponent(settings);
-            this.settingsButtonBounds = new Rect(btnX, btnY, btnSize, btnSize);
+            this.settingsButtonBounds = placeButton(screen, settings, btnX, btnY, btnSize, width, height);
             btnX += btnSize + btnGap;
         }
 
         if (EnhancedStorageConfig.showThemeButton && !riftContext) {
-            int iconSize = 16;
             IconButtonComponent theme = new IconButtonComponent(
                     btnX, btnY, btnSize, btnSize,
                     OverlayTheme.icon(), iconSize,
@@ -543,19 +499,56 @@ public class StorageOverlayLayout {
                                     .withStyle(s -> s.withColor(0x55FF55).withItalic(false)),
                             Component.literal("Click to cycle")
                                     .withStyle(s -> s.withColor(0xFFAA00).withItalic(false))));
-            theme.updateParentPosition(0, 0, width, height);
-            screen.addComponent(theme);
-            this.themeButtonBounds = new Rect(btnX, btnY, btnSize, btnSize);
-            btnX += btnSize + btnGap;
+            this.themeButtonBounds = placeButton(screen, theme, btnX, btnY, btnSize, width, height);
         }
     }
 
-    public void applySearch(String query) {
+    private static Rect placeButton(IScreen screen, AbstractComponent button, int x, int y, int size,
+                                    int screenWidth, int screenHeight) {
+        button.updateParentPosition(0, 0, screenWidth, screenHeight);
+        screen.addComponent(button);
+        return new Rect(x, y, size, size);
+    }
+
+    private void applySearch(String query) {
         if (pageOverview == null) return;
 
         reflowRows(query);
         // Hiding cards shrinks the content, so an old scroll offset can now point past the end.
         pageOverview.setScrollAmount(pageOverview.scrollAmount());
+    }
+
+    public void tick() {
+        if (warmupQueue != null && !warmupQueue.isEmpty()) {
+            ItemSearch.warmUp(warmupQueue, WARMUP_BUDGET_MS);
+        }
+        if (searchDirty) {
+            searchDirty = false;
+            applySearch(state.getSearchQuery());
+        }
+    }
+
+    public boolean handleButtonClick(MouseButtonEvent event) {
+        double x = event.x();
+        double y = event.y();
+        int button = event.button();
+
+        if ((button == 0 || button == 1) && Rect.contains(toolkitButtonBounds, x, y)) {
+            actions.sendCommand().accept(button == 0 ? "farmingtoolkit" : "huntingtoolkit");
+            return true;
+        }
+        if (button != 0) return false;
+
+        if (Rect.contains(settingsButtonBounds, x, y)) {
+            actions.openSettings().run();
+            return true;
+        }
+        if (Rect.contains(themeButtonBounds, x, y)) {
+            OverlayTheme.cycle();
+            actions.rebuild().run();
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -609,29 +602,7 @@ public class StorageOverlayLayout {
 
         // Rows were just re-parented, so push the container's position back down the tree.
         pageOverview.uilib$updateParentPosition(pageOverviewParentX, pageOverviewParentY);
-        positionRows(pageOverview);
-    }
-
-    /**
-     * Stacks the rows vertically at the current scroll offset. Runs eagerly (on reflow and scroll), not
-     * only while rendering, because the live page's container slots are placed from the open card's
-     * position before the first frame is drawn — rows left at y=0 until then flash its items in row one.
-     */
-    private static void positionRows(ScrollContainerWidget overview) {
-        List<IComponent> rows = overview.getComponents();
-        int currentY = -(int) overview.scrollAmount();
-        for (int i = 0; i < rows.size(); i++) {
-            IComponent row = rows.get(i);
-            // UI Lib propagates setY through the row's entire component tree. Avoid doing
-            // that work every frame when the scroll position has not changed.
-            if (row.getY() != currentY) {
-                row.setY(currentY);
-            }
-            currentY += row.getHeight();
-            if (i < rows.size() - 1) {
-                currentY += overview.getContentSpacing();
-            }
-        }
+        pageOverview.positionRows();
     }
 
     private EmptyComponent buildEmptyRow(String query) {

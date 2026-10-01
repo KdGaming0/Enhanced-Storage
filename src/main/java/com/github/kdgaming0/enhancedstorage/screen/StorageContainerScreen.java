@@ -17,8 +17,6 @@ import com.github.kdgaming0.enhancedstorage.storage.data.PageOrder;
 import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
 import com.github.kdgaming0.enhancedstorage.storage.profile.ProfileSession;
 import com.github.kdgaming0.enhancedstorage.storage.StorageCaptureHandler;
-import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
-import eu.midnightdust.lib.config.MidnightConfig;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -32,7 +30,6 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
@@ -43,12 +40,11 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
     private final StorageKey openKey;
     private final StorageOverlayState state = StorageOverlayState.session();
+    private final OverlayActions actions = OverlayActions.create(this, state, this::onPageCardClicked, this::rebuildWidgets);
     private final StorageOverlayLayout layout = new StorageOverlayLayout();
     private final LiveSlotPlacer slotPlacer;
     private final LiveSlotSearch liveSearch = new LiveSlotSearch();
     private final boolean rrvLoaded = FabricLoader.getInstance().isModLoaded("rrv");
-    private boolean searchDirty = false;
-    private Deque<ItemStack> searchWarmupQueue;
     private boolean autoScrolledToOpenCard = false;
     private EditDialogComponent renameDialog;
     private static final long DEFERRED_CLOSE_MS = 2000;
@@ -89,8 +85,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
             StorageCaptureHandler.discoverRiftPages(this.getTitle());
         }
 
-        layout.build(this, this.font, this.width, this.height, state, openKey, this.menu.getRowCount(),
-                this::onPageCardClicked, this::onSearchChanged, this::runToolkitCommand);
+        layout.build(this, this.font, this.width, this.height, state, openKey, this.menu.getRowCount(), actions);
 
         if (!autoScrolledToOpenCard) {
             layout.scrollLiveCardIntoView();
@@ -124,13 +119,6 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         this.topPos = boxTop;
 
         slotPlacer.sync(this.leftPos, this.topPos);
-
-        // Queue every cached stack for search-text warmup; init() also runs on every rebuildWidgets, so only build the queue once per screen.
-        if (searchWarmupQueue == null) {
-            searchWarmupQueue = new ArrayDeque<>();
-            PageCache.getInstance().all().values()
-                    .forEach(page -> searchWarmupQueue.addAll(page.items()));
-        }
 
         state.onStorageScreenOpened();
     }
@@ -231,10 +219,6 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
                 || Rect.contains(layout.getOverviewBounds(), mx, my);
     }
 
-    private void onSearchChanged() {
-        searchDirty = true;
-    }
-
     /**
      * Called when the server closes this menu. During a page switch the next page's open packet is
      * normally right behind, so hold the overlay up instead of dropping to no screen for a frame.
@@ -266,13 +250,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
             this.minecraft.player.clientSideCloseContainer();
             return;
         }
-        if (searchWarmupQueue != null && !searchWarmupQueue.isEmpty()) {
-            ItemSearch.warmUp(searchWarmupQueue, 3);
-        }
-        if (searchDirty) {
-            searchDirty = false;
-            layout.applySearch(state.getSearchQuery());
-        }
+        layout.tick();
     }
 
     /**
@@ -376,20 +354,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         };
         if (command == null) return;
 
-        state.beginNavigation();
-        assert Minecraft.getInstance().player != null;
-        Minecraft.getInstance().player.connection.sendCommand(command);
-    }
-
-    private void onSettingsClicked() {
-        Minecraft mc = Minecraft.getInstance();
-        mc.setScreen(MidnightConfig.getScreen(this, EnhancedStorage.MOD_ID));
-    }
-
-    private void runToolkitCommand(String command) {
-        state.beginNavigation();
-        assert Minecraft.getInstance().player != null;
-        Minecraft.getInstance().player.connection.sendCommand(command);
+        OverlayActions.sendCommand(state, command);
     }
 
     private boolean isOverOverviewPanel(double mx, double my) {
@@ -508,56 +473,50 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
     @Override
     public boolean mouseClicked(@NonNull MouseButtonEvent event, boolean doubleClick) {
-        // If the Rename Dialog is open, give it all the mouse clicks
-        if (renameDialog != null) {
-            for (IWidget widget : renameDialog.getWidgets()) {
-                if (widget.mouseClicked(event, doubleClick)) {
-                    renameDialog.getNameBox().setFocused(false);
-                    renameDialog.getPositionBox().setFocused(false);
-                    //noinspection ConstantValue
-                    if (widget instanceof GuiEventListener l) {
-                        this.setFocused(l);
-                        if (!l.isFocused()) l.setFocused(true);
-                    }
-                    return true;
+        if (renameDialog != null) return handleRenameDialogClick(event, doubleClick);
+        if (layout.handleButtonClick(event)) return true;
+        if (handleRenameRightClick(event)) return true;
+
+        boolean coveredByGui = isInsideOverlay(event.x(), event.y());
+        if (dispatchToWidgets(event, doubleClick, coveredByGui)) return true;
+        if (handleIndexSlotClick(event)) return true;
+        if (handleOverviewPanelClick(event)) return true;
+        return dispatchToSlots(event, doubleClick, coveredByGui);
+    }
+
+    /** While the rename dialog is open it receives every click; a left-click outside its panel closes it. */
+    private boolean handleRenameDialogClick(MouseButtonEvent event, boolean doubleClick) {
+        for (IWidget widget : renameDialog.getWidgets()) {
+            if (widget.mouseClicked(event, doubleClick)) {
+                renameDialog.getNameBox().setFocused(false);
+                renameDialog.getPositionBox().setFocused(false);
+                //noinspection ConstantValue
+                if (widget instanceof GuiEventListener l) {
+                    this.setFocused(l);
+                    if (!l.isFocused()) l.setFocused(true);
                 }
-            }
-            if (event.button() == 0 && !renameDialog.isOverPanel(event.x(), event.y())) {
-                closeRenameDialog();
-            }
-            return true;
-        }
-
-        if ((event.button() == 0 || event.button() == 1)
-                && Rect.contains(layout.getToolkitButtonBounds(), event.x(), event.y())) {
-            runToolkitCommand(event.button() == 0 ? "farmingtoolkit" : "huntingtoolkit");
-            return true;
-        }
-
-        if (event.button() == 0 && Rect.contains(layout.getSettingsButtonBounds(), event.x(), event.y())) {
-            onSettingsClicked();
-            return true;
-        }
-
-        if (event.button() == 0 && Rect.contains(layout.getThemeButtonBounds(), event.x(), event.y())) {
-            OverlayTheme.cycle();
-            this.rebuildWidgets();
-            return true;
-        }
-
-        // Makes Right-click opens the edit dialog: on the title of any card, or anywhere on a cached (non-live) card.
-        if (event.button() == 1) {
-            PageCardComponent target = cardTitleAt(event.x(), event.y());
-            if (target == null) target = cachedCardAt(event.x(), event.y());
-            if (target != null) {
-                openRenameDialog(target.getKey());
                 return true;
             }
         }
+        if (event.button() == 0 && !renameDialog.isOverPanel(event.x(), event.y())) {
+            closeRenameDialog();
+        }
+        return true;
+    }
 
-        boolean coveredByGui = isInsideOverlay(event.x(), event.y());
+    /** Right-click on any card's title, or anywhere on a cached (non-live) card, opens the rename dialog. */
+    private boolean handleRenameRightClick(MouseButtonEvent event) {
+        if (event.button() != 1) return false;
 
-        // 1. Widgets get first shot
+        PageCardComponent target = cardTitleAt(event.x(), event.y());
+        if (target == null) target = cachedCardAt(event.x(), event.y());
+        if (target == null) return false;
+
+        openRenameDialog(target.getKey());
+        return true;
+    }
+
+    private boolean dispatchToWidgets(MouseButtonEvent event, boolean doubleClick, boolean coveredByGui) {
         for (GuiEventListener child : this.children()) {
             if (coveredByGui && isRrvWidget(child)) continue;
             if (child.mouseClicked(event, doubleClick)) {
@@ -569,55 +528,60 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
                 return true;
             }
         }
+        return false;
+    }
 
-        // 2. Index mode: left-click on an item in the storage overview navigates to that page
-        if (openKey.type() == StorageKey.Type.STORAGE_INDEX && event.button() == 0) {
-            Slot slot = findHoveredContainerSlot(event.x(), event.y());
-            if (slot != null && slot.hasItem()) {
-                var key = StorageKey.fromIndexItem(slot.getItem().getHoverName());
-                if (key.isPresent()) {
-                    onPageCardClicked(key.get());
-                    return true;
-                }
+    /** On the live index page, left-clicking a page item navigates to that page. */
+    private boolean handleIndexSlotClick(MouseButtonEvent event) {
+        if (openKey.type() != StorageKey.Type.STORAGE_INDEX || event.button() != 0) return false;
+
+        Slot slot = findHoveredContainerSlot(event.x(), event.y());
+        if (slot == null || !slot.hasItem()) return false;
+
+        Optional<StorageKey> key = StorageKey.fromIndexItem(slot.getItem().getHoverName());
+        if (key.isEmpty()) return false;
+
+        onPageCardClicked(key.get());
+        return true;
+    }
+
+    /** Off the index page, left-clicking the cached overview opens the clicked page, or /storage when no item is hit. */
+    private boolean handleOverviewPanelClick(MouseButtonEvent event) {
+        if (event.button() != 0
+                || openKey.type() == StorageKey.Type.STORAGE_INDEX
+                || !this.menu.getCarried().isEmpty()
+                || !isOverOverviewPanel(event.x(), event.y())) {
+            return false;
+        }
+        indexItemAt(event.x(), event.y()).ifPresentOrElse(
+                this::onPageCardClicked,
+                () -> OverlayActions.sendCommand(state, "storage"));
+        return true;
+    }
+
+    /**
+     * Real slot clicks (live page and player inventory). The screen's own mouseClicked runs its child loop
+     * again before slot logic, so RRV widgets hidden under the overlay are pulled out for the duration of the call.
+     */
+    private boolean dispatchToSlots(MouseButtonEvent event, boolean doubleClick, boolean coveredByGui) {
+        if (!coveredByGui || !(this instanceof IScreenAccessor accessor)) {
+            return super.mouseClicked(event, doubleClick);
+        }
+
+        List<GuiEventListener> children = accessor.uilib$getChildren();
+        List<GuiEventListener> pulled = new ArrayList<>();
+        children.removeIf(c -> {
+            if (isRrvWidget(c)) {
+                pulled.add(c);
+                return true;
             }
+            return false;
+        });
+        try {
+            return super.mouseClicked(event, doubleClick);
+        } finally {
+            children.addAll(pulled);
         }
-
-        // 3. Browse mode: left-clicking on the storage overview panel area runs /storage to open the storage page
-        if (event.button() == 0
-                && openKey.type() != StorageKey.Type.STORAGE_INDEX
-                && this.menu.getCarried().isEmpty()
-                && isOverOverviewPanel(event.x(), event.y())) {
-            indexItemAt(event.x(), event.y()).ifPresentOrElse(
-                    this::onPageCardClicked,
-                    () -> {
-                        state.beginNavigation();
-                        assert Minecraft.getInstance().player != null;
-                        Minecraft.getInstance().player.connection.sendCommand("storage");
-                    });
-            return true;
-        }
-
-        // 4. Screen's own mouseClicked runs its child loop again before slot logic, which would give the hidden RRV widgets a second chance at the click.
-        // Pull them out of the children list for the duration of the call, and restore them afterward.
-        if (coveredByGui && this instanceof IScreenAccessor accessor) {
-            List<GuiEventListener> children = accessor.uilib$getChildren();
-            List<GuiEventListener> pulled = new ArrayList<>();
-            children.removeIf(c -> {
-                if (isRrvWidget(c)) {
-                    pulled.add(c);
-                    return true;
-                }
-                return false;
-            });
-            try {
-                return super.mouseClicked(event, doubleClick);
-            } finally {
-                children.addAll(pulled);
-            }
-        }
-
-        // 5. Everything else: real slot clicks (open page + player inventory)
-        return super.mouseClicked(event, doubleClick);
     }
 
     @Override

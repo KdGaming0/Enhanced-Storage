@@ -5,23 +5,22 @@ import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
 import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
-import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
-import org.jetbrains.annotations.Nullable;
 import org.jspecify.annotations.NonNull;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.Objects;
 
+/**
+ * Browse-only overlay showing cached pages without an open server menu.
+ * Used for testing outside Hypixel and as the host for edit mode.
+ */
 public class StorageOverlay extends AbstractScreen {
 
     private final StorageOverlayState state = StorageOverlayState.session();
     private final StorageOverlayLayout layout = new StorageOverlayLayout();
-    private Deque<ItemStack> searchWarmupQueue;
+    private final OverlayActions actions =
+            OverlayActions.create(this, state, this::onPageCardClicked, this::rebuildWidgets);
 
     public StorageOverlay() {
         super(Component.literal("Storage Overlay"));
@@ -29,57 +28,22 @@ public class StorageOverlay extends AbstractScreen {
 
     @Override
     protected void init() {
-        layout.build(this, this.font, this.width, this.height,
-                state, null, 0, this::onPageCardClicked, this::onSearchChanged, this::runToolkitCommand);
-
-        // Queue every cached stack for search-text warmup; init() also runs on every rebuildWidgets, so only build the queue once per screen.
-        if (searchWarmupQueue == null) {
-            searchWarmupQueue = new ArrayDeque<>();
-            PageCache.getInstance().all().values()
-                    .forEach(page -> searchWarmupQueue.addAll(page.items()));
-        }
-
+        layout.build(this, this.font, this.width, this.height, state, null, 0, actions);
         state.onStorageScreenOpened();
     }
 
     @Override
     public void tick() {
         super.tick();
-        if (searchWarmupQueue != null && !searchWarmupQueue.isEmpty()) {
-            ItemSearch.warmUp(searchWarmupQueue, 3);
-        }
+        layout.tick();
     }
 
-    // Called by PageCardComponent when a card is clicked.
     private void onPageCardClicked(StorageKey key) {
-
-        if (Objects.equals(key, state.getOpenKey())) {
-            return;
-        }
+        if (Objects.equals(key, state.getOpenKey())) return;
 
         EnhancedStorage.LOGGER.info("Storage page card clicked: {} (type={}, cached={})",
-                key.displayName(), key.type(),
-                PageCache.getInstance().get(key).isPresent());
-
+                key.displayName(), key.type(), PageCache.getInstance().get(key).isPresent());
         state.setOpenKey(key);
-    }
-
-    private void onSearchChanged() {
-        Minecraft.getInstance().schedule(() -> {
-            this.rebuildWidgets();
-
-            var box = layout.getSearchBox();
-            if (box != null) {
-                this.setFocused(box);
-                box.setFocused(true);
-            }
-        });
-    }
-
-    private void runToolkitCommand(String command) {
-        state.beginNavigation();
-        assert Minecraft.getInstance().player != null;
-        Minecraft.getInstance().player.connection.sendCommand(command);
     }
 
     @Override
@@ -90,11 +54,7 @@ public class StorageOverlay extends AbstractScreen {
 
     @Override
     public boolean mouseClicked(@NonNull MouseButtonEvent event, boolean doubleClick) {
-        if (event.button() == 0 && Rect.contains(layout.getThemeButtonBounds(), event.x(), event.y())) {
-            OverlayTheme.cycle();
-            this.rebuildWidgets();
-            return true;
-        }
+        if (layout.handleButtonClick(event)) return true;
 
         ScrollContainerWidget overview = layout.getPageOverview();
         if (overview != null && overview.mouseClicked(event, doubleClick)) {
