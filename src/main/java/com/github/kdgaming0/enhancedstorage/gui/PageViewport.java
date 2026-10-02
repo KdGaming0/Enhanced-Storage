@@ -11,6 +11,7 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.DoubleConsumer;
 
 /**
  * Scrollable viewport holding the page-card rows. Rows are stacked by {@link #positionRows()}
@@ -18,12 +19,12 @@ import java.util.function.Consumer;
  */
 public class PageViewport extends ScrollContainerWidget {
 
-    private final StorageOverlayState state;
+    private final DoubleConsumer scrollListener;
     private @Nullable Consumer<GuiGraphicsExtractor> backgroundPainter;
 
-    public PageViewport(int width, int height, int rowSpacing, StorageOverlayState state) {
+    public PageViewport(int width, int height, int rowSpacing, DoubleConsumer scrollListener) {
         super(width, height, rowSpacing);
-        this.state = state;
+        this.scrollListener = scrollListener;
     }
 
     /**
@@ -58,7 +59,7 @@ public class PageViewport extends ScrollContainerWidget {
     @Override
     public void setScrollAmount(double amount) {
         super.setScrollAmount(amount);
-        state.setScrollAmount(scrollAmount());
+        scrollListener.accept(scrollAmount());
         positionRows();
     }
 

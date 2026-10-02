@@ -28,6 +28,9 @@
   "enhanced_storage.midnightconfig.showEditButton": "Show Edit Button",
   "enhanced_storage.midnightconfig.showEditButton.tooltip": "Show the Edit button beside the inventory panel. Click to open the Enhanced Storage edit mode.",
 
+  "enhanced_storage.midnightconfig.navigationPanel": "Navigation Panel",
+  "enhanced_storage.midnightconfig.navigationPanel.tooltip": "Show the Navigation Panel beside the overlay panel. Click to open the Enhanced Storage edit mode.",
+
   "enhanced_storage.midnightconfig.backgroundType": "Background Style",
   "enhanced_storage.midnightconfig.backgroundType.tooltip": "Visual style for the overlay background: light, dark, or transparent.",
 
@@ -88,5 +91,9 @@
 
   "enhanced_storage.midnightconfig.enum.AutoScrollMode.OFF": "Off",
   "enhanced_storage.midnightconfig.enum.AutoScrollMode.IF_PARTLY_HIDDEN": "If Partly Hidden",
-  "enhanced_storage.midnightconfig.enum.AutoScrollMode.IF_FULLY_HIDDEN": "If Fully Hidden"
+  "enhanced_storage.midnightconfig.enum.AutoScrollMode.IF_FULLY_HIDDEN": "If Fully Hidden",
+
+  "enhanced_storage.midnightconfig.enum.NavigationPanelSide.LEFT": "Left",
+  "enhanced_storage.midnightconfig.enum.NavigationPanelSide.RIGHT": "Right",
+  "enhanced_storage.midnightconfig.enum.NavigationPanelSide.DISABLED": "Disabled"
 }

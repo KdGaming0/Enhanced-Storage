@@ -1,5 +1,6 @@
 package com.github.kdgaming0.enhancedstorage.gui;
 
+import com.daqem.uilib.api.component.IComponent;
 import com.daqem.uilib.api.screen.IScreen;
 import com.daqem.uilib.gui.component.AbstractComponent;
 import com.daqem.uilib.gui.component.EmptyComponent;
@@ -15,6 +16,7 @@ import com.github.kdgaming0.enhancedstorage.util.ItemModels;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
 import com.github.kdgaming0.enhancedstorage.util.TextUtils;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -56,6 +58,11 @@ public class StorageOverlayLayout {
             "Hover between rows to add a section.");
     private static final int SECTION_LINE_REACH = 3;
     private static final int SECTION_INSET = 4;
+    private static final int NAV_GAP = 2;
+    private static final int NAV_INSET = 2;
+    private static final int NAV_GROUP_GAP = 4;
+    private static final int NAV_MIN_WIDTH = 70;
+    private static final int NAV_MAX_WIDTH = 120;
     private final boolean editMode;
     private final boolean editRiftContext;
     private final List<GridCellComponent> cells = new ArrayList<>();
@@ -90,6 +97,12 @@ public class StorageOverlayLayout {
     private OverlayActions actions;
     private @Nullable Deque<ItemStack> warmupQueue;
     private @Nullable SectionHeaderComponent draggedSection;
+    private int navigationWidth;
+    private int navigationParentX;
+    private int navigationParentY;
+    private @Nullable PageViewport navigationList;
+    private @Nullable NavigationTitleComponent navigationTitle;
+    private @Nullable Rect navigationBounds;
     private boolean searchDirty;
     private @Nullable Rect toolkitButtonBounds;
     private @Nullable Rect settingsButtonBounds;
@@ -287,6 +300,17 @@ public class StorageOverlayLayout {
     }
 
     /**
+     * Null when the navigation panel is disabled or there is no room for it.
+     */
+    public @Nullable Rect getNavigationBounds() {
+        return navigationBounds;
+    }
+
+    public @Nullable PageViewport getNavigationList() {
+        return navigationList;
+    }
+
+    /**
      * Builds the full overlay onto the given screen.
      *
      * @param liveKey  the page backed by a real menu right now, or null in browse mode
@@ -299,6 +323,7 @@ public class StorageOverlayLayout {
         computeGeometry(width, entries.stream().anyMatch(LayoutEntry.Section.class::isInstance));
 
         SpriteComponent mainBackground = buildMainPanel(screen, height);
+        buildNavigationPanel(screen, mainBackground, entries);
         buildCells(entries, liveKey, liveRows);
         buildPageViewport(mainBackground);
 
@@ -342,18 +367,39 @@ public class StorageOverlayLayout {
         this.editButtonBounds = null;
         this.resetButtonBounds = null;
         this.draggedSection = null;
+        this.navigationList = null;
+        this.navigationTitle = null;
+        this.navigationBounds = null;
     }
 
     private void computeGeometry(int width, boolean framed) {
         // Frames need room around the cards, so every row moves in to keep the columns aligned.
         this.contentInset = framed ? SECTION_INSET : 0;
         this.cardWidth = CARD_BORDER * 2 + SLOTS_ACROSS * SLOT_SIZE;
-        this.columns = computeColumns(width - contentInset * 2);
+        this.mainBackgroundY = computeMainBackgroundY();
+        setColumns(width, computeColumns(width - contentInset * 2));
+
+        this.navigationWidth = 0;
+        if (EnhancedStorageConfig.navigationPanel == EnhancedStorageConfig.NavigationPanelSide.DISABLED) return;
+        // The panel uses the free space beside the overlay; when there is too little, a column is removed to makes room.
+        while (navigationSpace() < NAV_MIN_WIDTH && columns > 1) {
+            setColumns(width, columns - 1);
+        }
+        if (navigationSpace() >= NAV_MIN_WIDTH) {
+            this.navigationWidth = Math.min(navigationSpace(), NAV_MAX_WIDTH);
+        }
+    }
+
+    private void setColumns(int width, int columns) {
+        this.columns = columns;
         this.rowContentWidth = columns * cardWidth + (columns - 1) * EnhancedStorageConfig.cardSpacing;
         this.frameWidth = rowContentWidth + contentInset * 2;
         this.mainBackgroundWidth = frameWidth + INNER_PADDING * 2 + SCROLLBAR_WIDTH + SCROLLBAR_GAP;
         this.mainBackgroundX = (width / 2) - (mainBackgroundWidth / 2);
-        this.mainBackgroundY = computeMainBackgroundY();
+    }
+
+    private int navigationSpace() {
+        return mainBackgroundX - EnhancedStorageConfig.horizontalMargin / 2 - NAV_GAP;
     }
 
     private SpriteComponent buildMainPanel(IScreen screen, int height) {
@@ -362,6 +408,38 @@ public class StorageOverlayLayout {
                 OverlayTheme.sprite(OverlayTheme.MAIN_PANEL));
         screen.addComponent(mainBackground);
         return mainBackground;
+    }
+
+    private void buildNavigationPanel(IScreen screen, SpriteComponent mainBackground, List<LayoutEntry> entries) {
+        if (navigationWidth == 0) return;
+        boolean left = EnhancedStorageConfig.navigationPanel == EnhancedStorageConfig.NavigationPanelSide.LEFT;
+        int x = left ? mainBackgroundX - NAV_GAP - navigationWidth : mainBackgroundX + mainBackgroundWidth + NAV_GAP;
+        int height = mainBackground.getHeight();
+
+        SpriteComponent panel = new SpriteComponent(x, mainBackgroundY, navigationWidth, height,
+                OverlayTheme.sprite(OverlayTheme.PAGE_CARD_IDLE));
+        screen.addComponent(panel);
+        this.navigationBounds = new Rect(x, mainBackgroundY, navigationWidth, height);
+
+        boolean hasSections = entries.stream().anyMatch(LayoutEntry.Section.class::isInstance);
+        String toggle = !hasSections ? null : anySectionOpen(entries) ? "Collapse all" : "Expand all";
+        NavigationTitleComponent title = new NavigationTitleComponent(NAV_INSET, NAV_INSET,
+                navigationWidth - NAV_INSET * 2, toggle);
+        title.updateParentPosition(panel.getTotalX(), panel.getTotalY(), panel.getWidth(), panel.getHeight());
+        panel.addComponent(title);
+        this.navigationTitle = title;
+
+        int listTop = NAV_INSET * 2 + NavigationTitleComponent.HEIGHT;
+        PageViewport list = new PageViewport(navigationWidth - NAV_INSET * 2, height - listTop - NAV_INSET, 0,
+                state::setNavigationScroll);
+        this.navigationParentX = panel.getTotalX() + NAV_INSET;
+        this.navigationParentY = panel.getTotalY() + listTop;
+        panel.addWidget(list);
+        this.navigationList = list;
+    }
+
+    private static boolean anySectionOpen(List<LayoutEntry> entries) {
+        return entries.stream().anyMatch(entry -> entry instanceof LayoutEntry.Section section && !section.collapsed());
     }
 
     private List<LayoutEntry> collectEntries(@Nullable StorageKey liveKey) {
@@ -625,7 +703,7 @@ public class StorageOverlayLayout {
         PageViewport viewport = new PageViewport(
                 mainBackgroundWidth - INNER_PADDING * 2,
                 mainBackground.getHeight() - INNER_PADDING * 2,
-                EnhancedStorageConfig.cardSpacing, state);
+                EnhancedStorageConfig.cardSpacing, state::setScrollAmount);
 
         this.pageOverviewParentX = mainBackground.getTotalX() + INNER_PADDING;
         this.pageOverviewParentY = mainBackground.getTotalY() + INNER_PADDING;
@@ -853,6 +931,7 @@ public class StorageOverlayLayout {
         if (button != 0) return false;
 
         if (handleSectionClick(x, y)) return true;
+        if (handleNavigationClick(x, y)) return true;
         if (Rect.contains(settingsButtonBounds, x, y)) {
             actions.openSettings().run();
             return true;
@@ -971,6 +1050,101 @@ public class StorageOverlayLayout {
         // Rows were just re-parented, so push the container's position back down the tree.
         pageOverview.uilib$updateParentPosition(pageOverviewParentX, pageOverviewParentY);
         pageOverview.positionRows();
+        refreshNavigation(shown);
+    }
+
+    /**
+     * Lists what the grid shows (before collapsing), so search filters the panel too.
+     */
+    private void refreshNavigation(List<GridCellComponent> shown) {
+        if (navigationList == null) return;
+        navigationList.clearComponents();
+        int width = navigationList.getWidth() - SCROLLBAR_WIDTH - SCROLLBAR_GAP;
+
+        record Item(GridCellComponent cell, boolean grouped) {
+        }
+        List<Item> items = new ArrayList<>();
+        boolean inSection = false;
+        for (GridCellComponent cell : shown) {
+            if (cell instanceof SectionHeaderComponent) inSection = true;
+            else if (cell instanceof SectionEndComponent) inSection = false;
+            if (cell instanceof SectionHeaderComponent || cell instanceof PageCardComponent) {
+                items.add(new Item(cell, inSection));
+            }
+        }
+
+        for (int i = 0; i < items.size(); i++) {
+            Item item = items.get(i);
+            Item previous = i > 0 ? items.get(i - 1) : null;
+            Item next = i + 1 < items.size() ? items.get(i + 1) : null;
+
+            if (previous != null && (item.cell() instanceof SectionHeaderComponent
+                    || (!item.grouped() && previous.grouped()))) {
+                navigationList.addComponent(new EmptyComponent(0, 0, width, NAV_GROUP_GAP));
+            }
+
+            boolean nextIsChild = next != null && next.grouped() && next.cell() instanceof PageCardComponent;
+            if (item.cell() instanceof SectionHeaderComponent header) {
+                navigationList.addComponent(NavigationRowComponent.section(width, header, nextIsChild));
+            } else if (item.cell() instanceof PageCardComponent card) {
+                boolean open = card.isLive() || state.isOpen(card.getKey());
+                navigationList.addComponent(NavigationRowComponent.page(width, card, item.grouped(), nextIsChild, open));
+            }
+        }
+
+        navigationList.uilib$updateParentPosition(navigationParentX, navigationParentY);
+        // The listener keeps the state equal to the current scroll, so this restores it after a rebuild and clamps it after a search.
+        navigationList.setScrollAmount(state.getNavigationScroll());
+    }
+
+    private @Nullable NavigationRowComponent navigationRowAt(double x, double y) {
+        if (navigationList == null) return null;
+        Rect list = new Rect(navigationList.getX(), navigationList.getY(),
+                navigationList.getWidth(), navigationList.getHeight());
+        if (!list.contains(x, y)) return null;
+        for (IComponent component : navigationList.getComponents()) {
+            if (component instanceof NavigationRowComponent row && row.bounds().contains(x, y)) return row;
+        }
+        return null;
+    }
+
+    private boolean handleNavigationClick(double x, double y) {
+        if (navigationTitle != null && navigationTitle.isOverToggle(x, y)) {
+            List<LayoutEntry> entries = currentEntries();
+            boolean collapse = anySectionOpen(entries);
+            entries.replaceAll(entry -> entry instanceof LayoutEntry.Section s ? s.withCollapsed(collapse) : entry);
+            saveOrder(entries);
+            actions.rebuild().run();
+            return true;
+        }
+
+        NavigationRowComponent row = navigationRowAt(x, y);
+        if (row == null) return false;
+        if (row.isOverTriangle(x, y) && row.target() instanceof SectionHeaderComponent header) {
+            LayoutEntry.Section section = header.entry();
+            replaceSection(section, section.withCollapsed(!section.collapsed()));
+            return true;
+        }
+        scrollToCell(row.target());
+        if (!editMode && row.target() instanceof PageCardComponent card && !state.isOpen(card.getKey())) {
+            actions.onCardClick().accept(card.getKey());
+        }
+        return true;
+    }
+
+    private void scrollToCell(GridCellComponent target) {
+        GridCellComponent cell = target;
+        // A page in a collapsed section has no position, so its header stands in for it.
+        if (!visibleCells.contains(cell)) {
+            for (int i = cells.indexOf(target) - 1; i >= 0; i--) {
+                if (cells.get(i) instanceof SectionHeaderComponent header) {
+                    cell = header;
+                    break;
+                }
+            }
+        }
+        if (!visibleCells.contains(cell)) return;
+        pageOverview.setScrollAmount(pageOverview.scrollAmount() + cell.getTotalY() - pageOverview.getY());
     }
 
     /** Headers and the end marker sit alone on their row, so they also end the row before them. */
@@ -1061,6 +1235,46 @@ public class StorageOverlayLayout {
         else entries.set(index, replacement);
         saveOrder(entries);
         actions.rebuild().run();
+    }
+
+    public void extractOverlayTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        if (navigationTitle != null && navigationTitle.isOverToggle(mouseX, mouseY)) {
+            boolean collapse = anySectionOpen(currentEntries());
+            graphics.setComponentTooltipForNextFrame(font, List.of(
+                    Component.literal(collapse ? "Collapse all sections" : "Expand all sections"),
+                    Component.literal(collapse
+                                    ? "Hides the pages inside every section in the grid."
+                                    : "Shows the pages inside every section in the grid.")
+                            .withStyle(ChatFormatting.GRAY),
+                    Component.literal("This list always shows every page.").withStyle(ChatFormatting.GRAY)),
+                    mouseX, mouseY);
+            return;
+        }
+        NavigationRowComponent navigationRow = navigationRowAt(mouseX, mouseY);
+        if (navigationRow != null) {
+            if (navigationRow.isTruncated()) {
+                graphics.setTooltipForNextFrame(font, Component.literal(navigationRow.name()), mouseX, mouseY);
+            }
+            return;
+        }
+
+        if (!Rect.contains(getPageOverviewBounds(), mouseX, mouseY)) return;
+        for (GridCellComponent cell : visibleCells) {
+            if (!(cell instanceof SectionHeaderComponent header) || !header.bounds().contains(mouseX, mouseY)) continue;
+            if (!header.isCollapsed() || header.isOverArrow(mouseX, mouseY)
+                    || header.isOverGrip(mouseX, mouseY) || header.isOverTrash(mouseX, mouseY)) return;
+
+            List<Component> lines = new ArrayList<>();
+            lines.add(Component.literal(header.entry().name()));
+            for (int i = cells.indexOf(header) + 1; i < cells.size() && !isBoundary(cells.get(i)); i++) {
+                if (cells.get(i) instanceof PageCardComponent card) {
+                    String name = PageNames.getInstance().get(card.getKey()).orElse(card.getKey().displayName());
+                    lines.add(Component.literal(name).withStyle(ChatFormatting.GRAY));
+                }
+            }
+            if (lines.size() > 1) graphics.setComponentTooltipForNextFrame(font, lines, mouseX, mouseY);
+            return;
+        }
     }
 
     private EmptyComponent buildEmptyRow(String query) {

@@ -24,9 +24,23 @@ public final class OverlayTheme {
     public static final String MAIN_PANEL = "main_panel";
     public static final String STORAGE_INVENTORY = "storage_inventory";
     public static final String STORAGE_OVERVIEW = "storage_overview";
+    public static final String NAV_PAGE = "nav_page";
+    public static final String NAV_SECTION_EXPANDED = "nav_section_expanded";
+    public static final String NAV_SECTION_COLLAPSED = "nav_section_collapsed";
+    public static final String NAV_ROW_HOVER = "nav_row_hover";
+    public static final String NAV_ROW_ACTIVE = "nav_row_active";
+    public static final String NAV_SECTION = "nav_section";
+    public static final String NAV_GUIDE = "nav_guide";
 
     private static final int LIGHT_TITLE_COLOR = 0xFF000000;
     private static final int DEFAULT_TITLE_COLOR = 0xFFAAAAAA;
+    private static final int NAV_ACTIVE_TITLE_COLOR = 0xFFF5C842;
+    private static final int NAV_EMPHASIS_COLOR = 0xFFE8E8E8;
+    private static final int NAV_UNCACHED_COLOR = 0xFF6A6A6A;
+    private static final int NAV_LABEL_COLOR = 0xFFA0A0A0;
+    private static final int LIGHT_NAV_PAGE_COLOR = 0xFF3C3C3C;
+    private static final int LIGHT_NAV_UNCACHED_COLOR = 0xFF8C8C8C;
+    private static final int LIGHT_NAV_LABEL_COLOR = 0xFF5A5A5A;
 
     private OverlayTheme() {
     }
@@ -61,6 +75,25 @@ public final class OverlayTheme {
         return current() == BackgroundType.LIGHT ? LIGHT_TITLE_COLOR : DEFAULT_TITLE_COLOR;
     }
 
+    public static int navActiveTitleColor() {
+        return current() == BackgroundType.LIGHT ? LIGHT_TITLE_COLOR : NAV_ACTIVE_TITLE_COLOR;
+    }
+
+    public static int navEmphasisColor() {
+        return current() == BackgroundType.LIGHT ? LIGHT_TITLE_COLOR : NAV_EMPHASIS_COLOR;
+    }
+
+    public static int navPageColor() {
+        return current() == BackgroundType.LIGHT ? LIGHT_NAV_PAGE_COLOR : DEFAULT_TITLE_COLOR;
+    }
+
+    public static int navUncachedColor() {
+        return current() == BackgroundType.LIGHT ? LIGHT_NAV_UNCACHED_COLOR : NAV_UNCACHED_COLOR;
+    }
+
+    public static int navLabelColor() {
+        return current() == BackgroundType.LIGHT ? LIGHT_NAV_LABEL_COLOR : NAV_LABEL_COLOR;
+    }
     public static boolean titleShadow() {
         return current() != BackgroundType.LIGHT;
     }

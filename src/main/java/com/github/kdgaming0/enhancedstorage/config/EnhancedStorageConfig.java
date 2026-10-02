@@ -29,6 +29,9 @@ public class EnhancedStorageConfig extends MidnightConfig {
     @Entry(category = CATEGORY_GENERAL)
     public static boolean showEditButton = true;
 
+    @Entry(category = CATEGORY_GENERAL)
+    public static NavigationPanelSide navigationPanel = NavigationPanelSide.DISABLED;
+
     @Comment(category = CATEGORY_GENERAL)
     public static Comment spacerAppearance;
 
@@ -111,5 +114,9 @@ public class EnhancedStorageConfig extends MidnightConfig {
         OFF,
         IF_PARTLY_HIDDEN,
         IF_FULLY_HIDDEN
+    }
+
+    public enum NavigationPanelSide {
+        LEFT, RIGHT, DISABLED
     }
 }

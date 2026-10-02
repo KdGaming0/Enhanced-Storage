@@ -192,6 +192,13 @@ public class StorageOverlay extends AbstractScreen {
             }
         }
 
+        ScrollContainerWidget navigation = layout.getNavigationList();
+        if (navigation != null && navigation.mouseClicked(event, doubleClick)) {
+            setFocused(navigation);
+            if (event.button() == 0) setDragging(true);
+            return true;
+        }
+
         ScrollContainerWidget overview = layout.getPageOverview();
         if (overview != null && overview.mouseClicked(event, doubleClick)) {
             setFocused(overview);
@@ -209,6 +216,7 @@ public class StorageOverlay extends AbstractScreen {
             super.extractRenderState(graphics, -9999, -9999, partialTick);
         } else {
             super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+            if (!drag.isActive() && renameBox == null) layout.extractOverlayTooltip(graphics, mouseX, mouseY);
         }
     }
 
@@ -509,6 +517,12 @@ public class StorageOverlay extends AbstractScreen {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (popup != null) return true;
+        ScrollContainerWidget navigation = layout.getNavigationList();
+        if (navigation != null
+                && Rect.contains(layout.getNavigationBounds(), mouseX, mouseY)
+                && navigation.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) {
+            return true;
+        }
         ScrollContainerWidget overview = layout.getPageOverview();
         if (overview != null
                 && Rect.contains(layout.getPageOverviewBounds(), mouseX, mouseY)

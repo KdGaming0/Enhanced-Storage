@@ -6,6 +6,7 @@
   - Pages can now be reordered in Customize Storage mode: click and drag a page to move it. The new order is saved automatically.
   - Added a "Spacer" page type, which can be used to create empty space between other pages. While in Customize Storage mode, right-click any page to add a "Spacer" to the left or right of it. Spacers are empty spaces where a page would normally be. They can be used to create sections and separate pages, giving you more control over the overlay's layout.
   - Added a new "Section" feature. Create new sections anywhere in the overlay between two rows while in Customize Storage mode. Sections can be named and collapsed, and they can contain any number of pages. This allows you to group related pages together and hide them when not needed.
+  - Added a new "Navigation" panel. Can be Disabled or Placed LEFT/RIGHT of the overlay. It shows all pages and sections in a list, allowing you to quickly jump to any page or section.
 
 ### Fixes
 - Fixed Storage Overlay cache not saving for some players between game restarts.

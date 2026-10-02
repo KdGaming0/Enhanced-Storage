@@ -91,6 +91,11 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         int storageLeft = layout.getMainBackgroundX();
         int boxTop = layout.getMainBackgroundY();
         int storageRight = storageLeft + layout.getMainBackgroundWidth();
+        Rect navigation = layout.getNavigationBounds();
+        if (navigation != null) {
+            storageLeft = Math.min(storageLeft, navigation.x());
+            storageRight = Math.max(storageRight, navigation.right());
+        }
 
         int invLeft = inventory.getTotalX();
         int invRight = inventory.getTotalX() + inventory.getWidth();
@@ -157,6 +162,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     public void extractContents(@NonNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float a) {
         slotPlacer.sync(this.leftPos, this.topPos);
         super.extractContents(guiGraphics, mouseX, mouseY, a);
+        if (this.menu.getCarried().isEmpty()) layout.extractOverlayTooltip(guiGraphics, mouseX, mouseY);
         if (rrvLoaded) {
             RRVCompat.renderHighlightAbove(this, guiGraphics, mouseX, mouseY, a);
         }
@@ -205,7 +211,8 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     private boolean isInsideOverlay(double mx, double my) {
         return Rect.contains(layout.getPageOverviewBounds(), mx, my)
                 || Rect.contains(layout.getInventoryBounds(), mx, my)
-                || Rect.contains(layout.getOverviewBounds(), mx, my);
+                || Rect.contains(layout.getOverviewBounds(), mx, my)
+                || Rect.contains(layout.getNavigationBounds(), mx, my);
     }
 
     /**
@@ -329,6 +336,11 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        ScrollContainerWidget navigation = layout.getNavigationList();
+        if (navigation != null && Rect.contains(layout.getNavigationBounds(), mouseX, mouseY)
+                && navigation.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) {
+            return true;
+        }
         if (isOverPageOverview(mouseX, mouseY)) {
             ScrollContainerWidget overview = layout.getPageOverview();
             if (overview.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) {

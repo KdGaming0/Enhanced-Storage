@@ -10,6 +10,7 @@ public class StorageOverlayState {
     private @Nullable StorageKey openKey;
     private String searchQuery = "";
     private double scrollAmount = 0;
+    private double navigationScroll = 0;
     // Used to tell page switch from closing the menu and reopening it
     private long navigatingUntil = 0;
 
@@ -23,6 +24,14 @@ public class StorageOverlayState {
 
     public void setScrollAmount(double amount) {
         this.scrollAmount = amount;
+    }
+
+    public double getNavigationScroll() {
+        return navigationScroll;
+    }
+
+    public void setNavigationScroll(double amount) {
+        this.navigationScroll = amount;
     }
 
     public void beginNavigation() {
@@ -47,6 +56,7 @@ public class StorageOverlayState {
         }
         if (!EnhancedStorageConfig.rememberScrollOnReopen) {
             scrollAmount = 0;
+            navigationScroll = 0;
         }
     }
 
