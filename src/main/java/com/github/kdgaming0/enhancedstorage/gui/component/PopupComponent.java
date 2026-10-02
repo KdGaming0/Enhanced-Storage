@@ -40,7 +40,9 @@ public class PopupComponent extends AbstractComponent {
     private final int panelWidth;
     private final int panelHeight;
 
-    /** Centred over a dimming scrim. The first line is drawn as the title. */
+    /**
+     * Centred over a dimming scrim. The first line is drawn as the title.
+     */
     public static PopupComponent confirm(int screenWidth, int screenHeight, Font font,
                                          List<Component> lines, List<Option> options) {
         int height = panelHeight(font, lines.size(), options.size());
@@ -49,7 +51,9 @@ public class PopupComponent extends AbstractComponent {
                 CONFIRM_WIDTH, true, lines, options);
     }
 
-    /** A right-click menu opening at the cursor, shifted to stay on screen. */
+    /**
+     * A right-click menu opening at the cursor, shifted to stay on screen.
+     */
     public static PopupComponent menu(int screenWidth, int screenHeight, Font font, int x, int y, List<Option> options) {
         int labelWidth = options.stream().mapToInt(o -> font.width(o.label())).max().orElse(0);
         int width = PADDING * 2 + labelWidth + BUTTON_LABEL_PADDING;

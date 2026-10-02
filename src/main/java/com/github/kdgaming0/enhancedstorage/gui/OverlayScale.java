@@ -63,7 +63,9 @@ public final class OverlayScale {
         setGuiScale(minecraft, resolveScale(minecraft));
     }
 
-    /** Puts the player's own GUI scale back. Called when the overlay closes or is replaced. */
+    /**
+     * Puts the player's own GUI scale back. Called when the overlay closes or is replaced.
+     */
     public static void restoreGameScale(Minecraft minecraft) {
         setGuiScale(minecraft, gameScale(minecraft));
     }

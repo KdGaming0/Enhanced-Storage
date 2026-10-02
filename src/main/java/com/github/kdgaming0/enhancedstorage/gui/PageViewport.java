@@ -7,8 +7,10 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.input.MouseButtonEvent;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * Scrollable viewport holding the page-card rows. Rows are stacked by {@link #positionRows()}
@@ -17,10 +19,18 @@ import java.util.List;
 public class PageViewport extends ScrollContainerWidget {
 
     private final StorageOverlayState state;
+    private @Nullable Consumer<GuiGraphicsExtractor> backgroundPainter;
 
     public PageViewport(int width, int height, int rowSpacing, StorageOverlayState state) {
         super(width, height, rowSpacing);
         this.state = state;
+    }
+
+    /**
+     * Paints behind the rows, inside the viewport's scissor, after the rows are positioned for this frame.
+     */
+    public void setBackgroundPainter(@Nullable Consumer<GuiGraphicsExtractor> painter) {
+        this.backgroundPainter = painter;
     }
 
     @Override
@@ -63,6 +73,7 @@ public class PageViewport extends ScrollContainerWidget {
                 this.getX() + this.getWidth(), this.getY() + this.getHeight());
 
         positionRows();
+        if (backgroundPainter != null) backgroundPainter.accept(guiGraphics);
         for (IComponent row : getComponents()) {
             int rowY = row.getY();
             if (rowY + row.getHeight() > 0 && rowY < this.getHeight()) {

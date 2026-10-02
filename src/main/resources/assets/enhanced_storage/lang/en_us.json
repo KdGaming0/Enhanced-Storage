@@ -67,6 +67,9 @@
   "enhanced_storage.midnightconfig.overlayScrollSpeed": "Scroll Speed",
   "enhanced_storage.midnightconfig.overlayScrollSpeed.tooltip": "Mouse-wheel scroll speed for the overlay (1–60).",
 
+  "enhanced_storage.midnightconfig.collapseSectionsWhileDragging": "Collapse Sections While Dragging",
+  "enhanced_storage.midnightconfig.collapseSectionsWhileDragging.tooltip": "Shows every section as its collapsed bar while you move a section in edit mode.",
+
   "enhanced_storage.midnightconfig.saveCursorPosition": "Save Cursor Position",
   "enhanced_storage.midnightconfig.saveCursorPosition.tooltip": "Keep the cursor where it was when moving between storage pages.",
 

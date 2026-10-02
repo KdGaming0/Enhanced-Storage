@@ -25,7 +25,9 @@ public class SpacerCardComponent extends GridCellComponent {
         return entry;
     }
 
-    /** Spacers don't set the row height; they fill whatever height the row's pages need. */
+    /**
+     * Spacers don't set the row height; they fill whatever height the row's pages need.
+     */
     public void setSlotHeight(int slotHeight) {
         this.slotHeight = slotHeight;
     }

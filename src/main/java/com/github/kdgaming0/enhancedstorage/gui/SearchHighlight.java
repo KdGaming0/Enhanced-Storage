@@ -2,7 +2,9 @@ package com.github.kdgaming0.enhancedstorage.gui;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
-/** Search tints for a 16x16 item area: match is drawn under the item, no-match over it. */
+/**
+ * Search tints for a 16x16 item area: match is drawn under the item, no-match over it.
+ */
 public final class SearchHighlight {
 
     private static final int ITEM_SIZE = 16;

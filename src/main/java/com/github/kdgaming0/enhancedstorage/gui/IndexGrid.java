@@ -19,13 +19,17 @@ public final class IndexGrid {
         return START_X + col * SLOT_SIZE;
     }
 
-    /** Rows past the defined ones continue downward at slot pitch. */
+    /**
+     * Rows past the defined ones continue downward at slot pitch.
+     */
     public static int rowY(int row) {
         if (row < ROW_Y.length) return ROW_Y[row];
         return ROW_Y[ROW_Y.length - 1] + (row - ROW_Y.length + 1) * SLOT_SIZE;
     }
 
-    /** Index of the cell under a panel-local point, or -1 if none. */
+    /**
+     * Index of the cell under a panel-local point, or -1 if none.
+     */
     public static int cellAt(int localX, int localY) {
         int gridX = localX - START_X;
         if (gridX < 0 || gridX >= COLUMNS * SLOT_SIZE) return -1;
@@ -38,7 +42,9 @@ public final class IndexGrid {
         return -1;
     }
 
-    /** Visible row for a row of the /storage menu, or -1 for navigation and filler rows. */
+    /**
+     * Visible row for a row of the /storage menu, or -1 for navigation and filler rows.
+     */
     public static int visibleRowOfMenuRow(int menuRow) {
         return switch (menuRow) {
             case 1 -> 0;

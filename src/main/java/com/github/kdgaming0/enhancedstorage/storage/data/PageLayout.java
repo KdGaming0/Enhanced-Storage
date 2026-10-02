@@ -33,6 +33,10 @@ public final class PageLayout extends ProfileScopedStore {
     private static final PageLayout INSTANCE = new PageLayout();
     private static final String PAGE_KEY = "page";
     private static final String SPACER_KEY = "spacer";
+    private static final String SECTION_KEY = "section";
+    private static final String NAME_KEY = "name";
+    private static final String COLLAPSED_KEY = "collapsed";
+    private static final String SECTION_END_KEY = "sections_end";
 
     private final Map<Context, List<LayoutEntry>> orders = new ConcurrentHashMap<>();
 
@@ -42,10 +46,6 @@ public final class PageLayout extends ProfileScopedStore {
 
     public static PageLayout getInstance() {
         return INSTANCE;
-    }
-
-    public boolean hasOrder(Context context) {
-        return orders.containsKey(context);
     }
 
     /**
@@ -106,6 +106,12 @@ public final class PageLayout extends ProfileScopedStore {
                 switch (entry) {
                     case LayoutEntry.Page(StorageKey key) -> tag.putString(PAGE_KEY, key.id());
                     case LayoutEntry.Spacer(int id) -> tag.putInt(SPACER_KEY, id);
+                    case LayoutEntry.Section(int id, String name, boolean collapsed) -> {
+                        tag.putInt(SECTION_KEY, id);
+                        tag.putString(NAME_KEY, name);
+                        if (collapsed) tag.putBoolean(COLLAPSED_KEY, true);
+                    }
+                    case LayoutEntry.SectionEnd() -> tag.putBoolean(SECTION_END_KEY, true);
                 }
                 list.add(tag);
             }
@@ -117,12 +123,18 @@ public final class PageLayout extends ProfileScopedStore {
     protected void readFrom(CompoundTag root, int fileVersion) {
         for (Context context : Context.values()) {
             root.getList(context.id).ifPresent(list -> {
-                Set<LayoutEntry> entries = new LinkedHashSet<>();
+                List<LayoutEntry> entries = new ArrayList<>();
+                Set<LayoutEntry> seen = new HashSet<>();
                 for (Tag tag : list) {
                     if (!(tag instanceof CompoundTag entry)) continue;
                     entry.getString(PAGE_KEY).flatMap(StorageKey::fromId)
                             .<LayoutEntry>map(LayoutEntry.Page::new)
                             .or(() -> entry.getInt(SPACER_KEY).map(LayoutEntry.Spacer::new))
+                            .or(() -> entry.getInt(SECTION_KEY).map(id -> new LayoutEntry.Section(id,
+                                    entry.getString(NAME_KEY).orElse(LayoutEntry.Section.DEFAULT_NAME),
+                                    entry.getBoolean(COLLAPSED_KEY).orElse(false))))
+                            .or(() -> entry.getBoolean(SECTION_END_KEY).map(present -> new LayoutEntry.SectionEnd()))
+                            .filter(e -> e instanceof LayoutEntry.SectionEnd || seen.add(e))
                             .ifPresent(entries::add);
                 }
                 orders.put(context, List.copyOf(entries));

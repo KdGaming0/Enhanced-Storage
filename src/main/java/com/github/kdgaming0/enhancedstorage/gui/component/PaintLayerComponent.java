@@ -4,7 +4,9 @@ import com.daqem.uilib.gui.component.AbstractComponent;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import org.jetbrains.annotations.NotNull;
 
-/** Full-screen component that paints on top of everything added before it, such as drag visuals. */
+/**
+ * Full-screen component that paints on top of everything added before it, such as drag visuals.
+ */
 public class PaintLayerComponent extends AbstractComponent {
 
     @FunctionalInterface

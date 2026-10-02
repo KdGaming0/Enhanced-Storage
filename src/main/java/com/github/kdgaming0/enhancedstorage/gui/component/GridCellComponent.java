@@ -4,7 +4,9 @@ import com.daqem.uilib.gui.component.AbstractComponent;
 import com.github.kdgaming0.enhancedstorage.gui.Rect;
 import com.github.kdgaming0.enhancedstorage.storage.data.LayoutEntry;
 
-/** One cell of the page grid: a page card or a spacer. */
+/**
+ * One cell of the page grid: a page card or a spacer.
+ */
 public abstract class GridCellComponent extends AbstractComponent {
 
     protected GridCellComponent(int x, int y, int width, int height) {

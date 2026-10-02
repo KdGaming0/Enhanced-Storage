@@ -12,6 +12,14 @@ public final class OverlayTheme {
     public static final String PAGE_CARD_ACTIVE = "page_card_active";
     public static final String PAGE_CARD_HOVER = "page_card_hover";
     public static final String PAGE_SPACER = "page_spacer";
+    public static final String SECTION_FRAME = "section_frame";
+    public static final String SECTION_HEADER = "section_header";
+    public static final String SECTION_EXPAND_ARROW = "section_expand_arrow";
+    public static final String SECTION_COLLAPSE_ARROW = "section_collapse_arrow";
+    public static final String SECTION_TRASH = "section_trash";
+    public static final String SECTION_TRASH_HOVER = "section_trash_hover";
+    public static final String SECTION_GRIP = "section_grip";
+    public static final String SECTION_GRIP_HOVER = "section_grip_hover";
     public static final String STORAGE_SLOT = "storage_slot";
     public static final String MAIN_PANEL = "main_panel";
     public static final String STORAGE_INVENTORY = "storage_inventory";
@@ -61,7 +69,9 @@ public final class OverlayTheme {
         return current() == BackgroundType.LIGHT ? 0x18000000 : 0x18FFFFFF;
     }
 
-    /** Advances to the next theme and persists the choice. */
+    /**
+     * Advances to the next theme and persists the choice.
+     */
     public static void cycle() {
         EnhancedStorageConfig.backgroundType = switch (current()) {
             case TRANSPARENT -> BackgroundType.DARK;

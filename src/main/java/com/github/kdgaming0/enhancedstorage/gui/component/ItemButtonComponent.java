@@ -2,18 +2,13 @@ package com.github.kdgaming0.enhancedstorage.gui.component;
 
 import com.daqem.uilib.gui.component.AbstractComponent;
 import com.daqem.uilib.gui.component.sprite.SpriteComponent;
-import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
-
 import com.github.kdgaming0.enhancedstorage.gui.OverlayTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
-
-import static com.github.kdgaming0.enhancedstorage.EnhancedStorage.MOD_ID;
 
 /**
  * A clickable button that shows an item icon on a nine-slice card background.

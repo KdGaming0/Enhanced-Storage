@@ -79,7 +79,13 @@ final class LiveSlotPlacer {
         this.viewport = view;
 
         PageCardComponent openCard = layout.getOpenCard();
-        if (openCard == null) return;
+        if (openCard == null) {
+            int containerSlots = menu.getRowCount() * 9;
+            for (int i = 0; i < containerSlots; i++) {
+                park(menu.slots.get(i));
+            }
+            return;
+        }
 
         int originX = openCard.slotGridScreenX() + ITEM_INSET;
         int originY = openCard.slotGridScreenY() + ITEM_INSET;
