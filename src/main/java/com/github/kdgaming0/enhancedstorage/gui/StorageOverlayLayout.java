@@ -9,10 +9,7 @@ import com.daqem.uilib.gui.component.text.TruncatedTextComponent;
 import com.daqem.uilib.gui.widget.EditBoxWidget;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.gui.component.*;
-import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
-import com.github.kdgaming0.enhancedstorage.storage.data.PageLayout;
-import com.github.kdgaming0.enhancedstorage.storage.data.PageOrder;
-import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
+import com.github.kdgaming0.enhancedstorage.storage.data.*;
 import com.github.kdgaming0.enhancedstorage.storage.profile.ProfileSession;
 import com.github.kdgaming0.enhancedstorage.util.ItemModels;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
@@ -52,12 +49,13 @@ public class StorageOverlayLayout {
     private static final int EDIT_MODE_TITLE_COLOR = 0xFFFFD24A;
     private static final List<String> EDIT_MODE_HINTS = List.of(
             "Click a page title to rename it.",
-            "Drag a page to move it.");
+            "Drag a page to move it.",
+            "Right-click to add or remove spacers.");
     private final boolean editMode;
     private final boolean editRiftContext;
-    private final List<PageCardComponent> pageCards = new ArrayList<>();
+    private final List<GridCellComponent> cells = new ArrayList<>();
+    private final List<GridCellComponent> visibleCells = new ArrayList<>();
     private final List<PageCardComponent> visibleCards = new ArrayList<>();
-    private final List<StorageKey> defaultOrder = new ArrayList<>();
     private final Map<StorageKey, Boolean> pageMatchCache = new HashMap<>();
     private String pageMatchQuery = "";
     private int liveRowTop = -1;
@@ -87,6 +85,7 @@ public class StorageOverlayLayout {
     private @Nullable Rect settingsButtonBounds;
     private @Nullable Rect themeButtonBounds;
     private @Nullable Rect editButtonBounds;
+    private @Nullable Rect resetButtonBounds;
     private @Nullable Rect inventoryBounds;
     private @Nullable Rect overviewBounds;
 
@@ -221,6 +220,11 @@ public class StorageOverlayLayout {
         return Identifier.fromNamespaceAndPath(MOD_ID, "icons/edit_icon");
     }
 
+
+    private static Identifier getResetIcon() {
+        return Identifier.fromNamespaceAndPath(MOD_ID, "icons/reset_icon");
+    }
+
     private static ItemStack buildToolkitIcon() {
         ItemStack stack = new ItemStack(Items.PAPER);
         stack.set(DataComponents.ITEM_MODEL,
@@ -295,7 +299,7 @@ public class StorageOverlayLayout {
         computeGeometry(width);
 
         SpriteComponent mainBackground = buildMainPanel(screen, height);
-        buildPageCards(collectPageKeys(liveKey), liveKey, liveRows);
+        buildCells(collectEntries(liveKey), liveKey, liveRows);
         buildPageViewport(mainBackground);
 
         buildBottomPanels(screen, width, mainBackground);
@@ -327,7 +331,8 @@ public class StorageOverlayLayout {
         this.searchDirty = false;
         this.liveRowTop = -1;
         this.liveRowBottom = -1;
-        this.pageCards.clear();
+        this.cells.clear();
+        this.visibleCells.clear();
         this.visibleCards.clear();
         this.pageMatchCache.clear();
         this.pageMatchQuery = "";
@@ -335,6 +340,7 @@ public class StorageOverlayLayout {
         this.settingsButtonBounds = null;
         this.themeButtonBounds = null;
         this.editButtonBounds = null;
+        this.resetButtonBounds = null;
     }
 
     private void computeGeometry(int width) {
@@ -354,62 +360,116 @@ public class StorageOverlayLayout {
         return mainBackground;
     }
 
-    private List<StorageKey> collectPageKeys(@Nullable StorageKey liveKey) {
+    private List<LayoutEntry> collectEntries(@Nullable StorageKey liveKey) {
         List<StorageKey> keys = Stream.concat(
                         Stream.ofNullable(liveKey),
                         Stream.concat(
                                 PageCache.getInstance().all().keySet().stream(),
                                 PageCache.getInstance().allKnown().stream())).filter(Objects::nonNull)
-                .filter(k -> k.type() != StorageKey.Type.STORAGE_INDEX)
-                .filter(k -> riftContext == (k.type() == StorageKey.Type.RIFT))
+                .filter(this::inContext)
                 .distinct()
                 .sorted(StorageKey.DISPLAY_ORDER)
                 .toList();
 
-        defaultOrder.clear();
-        defaultOrder.addAll(keys);
         // Legacy per-page positions only apply until the player saves an order for this context.
         return PageLayout.getInstance().resolve(PageLayout.Context.of(riftContext), keys)
-                .orElseGet(() -> applyCustomOrder(keys));
+                .orElseGet(() -> applyCustomOrder(keys).stream().<LayoutEntry>map(LayoutEntry.Page::new).toList());
     }
 
-    public void saveOrder(List<StorageKey> order) {
+    public void saveOrder(List<LayoutEntry> order) {
         PageLayout.getInstance().setOrder(PageLayout.Context.of(riftContext), order);
-        for (StorageKey key : order) {
-            PageOrder.getInstance().clear(key);
+        for (LayoutEntry entry : order) {
+            if (entry instanceof LayoutEntry.Page(StorageKey key)) PageOrder.getInstance().clear(key);
         }
         ProfileSession.getInstance().saveAll();
     }
 
-    /** Builds every card once for the unfiltered list; search later picks which instances go into rows. */
-    private void buildPageCards(List<StorageKey> pageKeys, @Nullable StorageKey liveKey, int liveRows) {
-        for (StorageKey key : pageKeys) {
-            boolean isLive = key.equals(liveKey);
+    List<GridCellComponent> getCells() {
+        return visibleCells;
+    }
 
-            boolean cached = PageCache.getInstance().get(key).isPresent();
-            List<ItemStack> items = isLive
-                    ? List.of()
-                    : PageCache.getInstance().get(key)
-                    .map(PageCache.CachedPage::items).orElse(List.of());
-
-            int cardHeight = isLive
-                    ? CARD_BORDER * 2 + titleAreaHeight + (liveRows - 1) * SLOT_SIZE
-                    : cardHeightFor(key, titleAreaHeight);
-
-            PageCardComponent pageCard = new PageCardComponent(
-                    0, 0,
-                    cardWidth, cardHeight,
-                    key, state,
-                    items,
-                    isLive || cached,
-                    isLive,
-                    !editMode,
-                    CARD_BORDER, titleAreaHeight, SLOTS_ACROSS, SLOT_SIZE,
-                    actions.onCardClick()
-            );
-            if (isLive) this.openCard = pageCard;
-            this.pageCards.add(pageCard);
+    List<LayoutEntry> currentEntries() {
+        List<LayoutEntry> entries = new ArrayList<>();
+        for (GridCellComponent cell : visibleCells) {
+            entries.add(cell.entry());
         }
+        return entries;
+    }
+
+    int nextSpacerId() {
+        int max = 0;
+        for (GridCellComponent cell : cells) {
+            if (cell.entry() instanceof LayoutEntry.Spacer(int id)) max = Math.max(max, id);
+        }
+        return max + 1;
+    }
+
+    boolean isPastLastCell(double x, double y) {
+        if (visibleCells.isEmpty() || !Rect.contains(getPageOverviewBounds(), x, y)) return false;
+        Rect last = visibleCells.getLast().bounds();
+        return y >= last.bottom() || (y >= last.y() && x >= last.right());
+    }
+
+    private boolean inContext(StorageKey key) {
+        return key.type() != StorageKey.Type.STORAGE_INDEX && riftContext == (key.type() == StorageKey.Type.RIFT);
+    }
+
+    public boolean isRiftContext() {
+        return riftContext;
+    }
+
+    /** Restores defaults for the current context only. */
+    public void resetLayout(boolean order, boolean names) {
+        if (order) {
+            PageLayout.getInstance().clear(PageLayout.Context.of(riftContext));
+            for (StorageKey key : List.copyOf(PageOrder.getInstance().all().keySet())) {
+                if (inContext(key)) PageOrder.getInstance().clear(key);
+            }
+        }
+        if (names) {
+            for (StorageKey key : List.copyOf(PageNames.getInstance().all().keySet())) {
+                if (inContext(key)) PageNames.getInstance().clear(key);
+            }
+        }
+        ProfileSession.getInstance().saveAll();
+    }
+
+    /** Builds every cell once for the unfiltered list; search later picks which instances go into rows. */
+    private void buildCells(List<LayoutEntry> entries, @Nullable StorageKey liveKey, int liveRows) {
+        for (LayoutEntry entry : entries) {
+            switch (entry) {
+                case LayoutEntry.Spacer spacer -> cells.add(new SpacerCardComponent(cardWidth, UNCACHED_CARD_HEIGHT, spacer));
+                case LayoutEntry.Page(StorageKey key) -> cells.add(buildPageCard(key, liveKey, liveRows));
+            }
+        }
+    }
+
+    private PageCardComponent buildPageCard(StorageKey key, @Nullable StorageKey liveKey, int liveRows) {
+        boolean isLive = key.equals(liveKey);
+
+        boolean cached = PageCache.getInstance().get(key).isPresent();
+        List<ItemStack> items = isLive
+                ? List.of()
+                : PageCache.getInstance().get(key)
+                .map(PageCache.CachedPage::items).orElse(List.of());
+
+        int cardHeight = isLive
+                ? CARD_BORDER * 2 + titleAreaHeight + (liveRows - 1) * SLOT_SIZE
+                : cardHeightFor(key, titleAreaHeight);
+
+        PageCardComponent pageCard = new PageCardComponent(
+                0, 0,
+                cardWidth, cardHeight,
+                key, state,
+                items,
+                isLive || cached,
+                isLive,
+                !editMode,
+                CARD_BORDER, titleAreaHeight, SLOTS_ACROSS, SLOT_SIZE,
+                actions.onCardClick()
+        );
+        if (isLive) this.openCard = pageCard;
+        return pageCard;
     }
 
     private void buildPageViewport(SpriteComponent mainBackground) {
@@ -536,7 +596,8 @@ public class StorageOverlayLayout {
         final int btnGap = 2;
         final int iconSize = 16;
         final int btnY = inventoryPanel.getTotalY() + 2;
-        int btnX = inventoryPanel.getTotalX() + INVENTORY_WIDTH + 2;
+        final int rowStartX = inventoryPanel.getTotalX() + INVENTORY_WIDTH + 2;
+        int btnX = rowStartX;
 
         if (EnhancedStorageConfig.showToolkitButton && !riftContext && !editMode) {
             ItemButtonComponent toolkit = new ItemButtonComponent(btnX, btnY, btnSize, btnSize, buildToolkitIcon());
@@ -575,6 +636,21 @@ public class StorageOverlayLayout {
                             .withStyle(s -> s.withColor(0x55FF55).withItalic(false))));
             this.editButtonBounds = placeButton(screen, edit, btnX, btnY, btnSize, width, height);
         }
+
+        if (editMode) {
+            int resetY = btnY + btnSize + btnGap;
+            IconButtonComponent reset = new IconButtonComponent(
+                    rowStartX, resetY, btnSize, btnSize,
+                    getResetIcon(), iconSize,
+                    List.of(Component.literal("Reset Layout").withStyle(s -> s.withColor(0x55FF55).withItalic(false)),
+                            Component.literal("Restore default order or names")
+                                    .withStyle(s -> s.withColor(0xFFAA00).withItalic(false))));
+            this.resetButtonBounds = placeButton(screen, reset, rowStartX, resetY, btnSize, width, height);
+        }
+    }
+
+    public boolean isOverResetButton(double x, double y) {
+        return Rect.contains(resetButtonBounds, x, y);
     }
 
     private static Rect placeButton(IScreen screen, AbstractComponent button, int x, int y, int size,
@@ -593,9 +669,9 @@ public class StorageOverlayLayout {
     }
 
     /** Re-packs the rows in a new card order without rebuilding the cards. */
-    void previewOrder(List<PageCardComponent> order) {
-        pageCards.clear();
-        pageCards.addAll(order);
+    void previewOrder(List<GridCellComponent> order) {
+        cells.clear();
+        cells.addAll(order);
         applySearch(activeQuery());
     }
 
@@ -637,49 +713,59 @@ public class StorageOverlayLayout {
     }
 
     /**
-     * Packs the cards matching {@code query} into rows of {@link #columns}, replacing whatever the
-     * scroll container held before. Card instances are reused; only the lightweight row wrappers
+     * Packs the cells matching {@code query} into rows of {@link #columns}, replacing whatever the
+     * scroll container held before. Cell instances are reused; only the lightweight row wrappers
      * are allocated.
      */
     private void reflowRows(String query) {
-        List<PageCardComponent> visible = visibleCards;
-        visible.clear();
-        for (PageCardComponent card : pageCards) {
-            if (query.isBlank() || card.isLive() || pageMatches(card.getKey(), query)) {
-                card.applySearch(query);
-                visible.add(card);
+        visibleCells.clear();
+        visibleCards.clear();
+        for (GridCellComponent cell : cells) {
+            if (cell instanceof PageCardComponent card) {
+                if (query.isBlank() || card.isLive() || pageMatches(card.getKey(), query)) {
+                    card.applySearch(query);
+                    visibleCells.add(card);
+                    visibleCards.add(card);
+                }
+            } else if (query.isBlank()) {
+                // Spacers arrange the full list; while searching they would only leave holes.
+                visibleCells.add(cell);
             }
         }
+        // Spacers on their own aren't content, so fall through to the empty message.
+        if (visibleCards.isEmpty()) visibleCells.clear();
 
         pageOverview.clearComponents();
         liveRowTop = -1;
         liveRowBottom = -1;
 
-        if (visible.isEmpty()) {
+        if (visibleCells.isEmpty()) {
             pageOverview.addComponent(buildEmptyRow(query));
         }
 
         int contentY = 0;
-        for (int i = 0; i < visible.size(); i += columns) {
-            List<PageCardComponent> rowCards = visible.subList(i, Math.min(i + columns, visible.size()));
+        for (int i = 0; i < visibleCells.size(); i += columns) {
+            List<GridCellComponent> rowCells = visibleCells.subList(i, Math.min(i + columns, visibleCells.size()));
 
-            // Row height = tallest card in this row
-            int rowHeight = rowCards.stream()
-                    .mapToInt(PageCardComponent::getHeight)
+            // Row height = tallest page in the row; spacers stretch to fit instead of setting it.
+            int rowHeight = rowCells.stream()
+                    .filter(PageCardComponent.class::isInstance)
+                    .mapToInt(GridCellComponent::getHeight)
                     .max()
                     .orElse(UNCACHED_CARD_HEIGHT);
 
             EmptyComponent row = new EmptyComponent(0, 0, rowContentWidth, rowHeight);
-            for (int col = 0; col < rowCards.size(); col++) {
-                PageCardComponent card = rowCards.get(col);
-                card.setX(col * (cardWidth + EnhancedStorageConfig.cardSpacing));
+            for (int col = 0; col < rowCells.size(); col++) {
+                GridCellComponent cell = rowCells.get(col);
+                cell.setX(col * (cardWidth + EnhancedStorageConfig.cardSpacing));
+                if (cell instanceof SpacerCardComponent spacer) spacer.setSlotHeight(rowHeight);
 
-                // Checks if the current row being build has the live storage page, if so get it's Y position in the scroll component
-                if (card.isLive()) {
+                // Remember the live page's row so it can be scrolled into view.
+                if (cell instanceof PageCardComponent card && card.isLive()) {
                     liveRowTop = contentY;
                     liveRowBottom = contentY + rowHeight;
                 }
-                row.addComponent(card);
+                row.addComponent(cell);
             }
             pageOverview.addComponent(row);
             contentY += rowHeight + pageOverview.getContentSpacing();
@@ -755,10 +841,5 @@ public class StorageOverlayLayout {
             pageOverview.setScrollAmount(liveRowBottom - viewHeight);
         }
         // else: already fully visible do nothing
-    }
-
-    public int defaultPositionOf(StorageKey key) {
-        int i = defaultOrder.indexOf(key);
-        return i < 0 ? -1 : i + 1;
     }
 }

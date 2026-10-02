@@ -4,6 +4,7 @@
 - Added a new "Customize Storage" mode, from here you can now edit the storage overlay's appearance and behavior to your liking.
   - Pages can now be renamed in Customize Storage mode: click a page's title and type a new name. Press Enter or click anywhere outside the title to save, or press Escape to cancel. Clearing the name restores the default.
   - Pages can now be reordered in Customize Storage mode: click and drag a page to move it. The new order is saved automatically.
+  - Added a "Spacer" page type, which can be used to create empty space between other pages. While in Customize Storage mode, right-click any page to add a "Spacer" to the left or right of it. Spacers are empty spaces where a page would normally be. They can be used to create sections and separate pages, giving you more control over the overlay's layout.
 
 ### Fixes
 - Fixed Storage Overlay cache not saving for some players between game restarts.

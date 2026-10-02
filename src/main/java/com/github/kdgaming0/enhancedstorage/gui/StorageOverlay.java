@@ -1,16 +1,18 @@
 package com.github.kdgaming0.enhancedstorage.gui;
 
+import com.daqem.uilib.api.widget.IWidget;
 import com.daqem.uilib.gui.AbstractScreen;
 import com.daqem.uilib.gui.widget.EditBoxWidget;
 import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
-import com.github.kdgaming0.enhancedstorage.gui.component.PageCardComponent;
-import com.github.kdgaming0.enhancedstorage.gui.component.PaintLayerComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.*;
+import com.github.kdgaming0.enhancedstorage.storage.data.LayoutEntry;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
 import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
 import com.github.kdgaming0.enhancedstorage.storage.profile.ProfileSession;
 import com.mojang.blaze3d.platform.cursor.CursorTypes;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.KeyEvent;
@@ -39,12 +41,15 @@ public class StorageOverlay extends AbstractScreen {
     private boolean returnRequested;
 
     private final CardDragController drag;
-    private @Nullable PageCardComponent pressedCard;
+    private @Nullable GridCellComponent pressedCard;
     private boolean pressedOnTitle;
     private double pressX;
     private double pressY;
     private @Nullable PageCardComponent renamingCard;
     private @Nullable EditBoxWidget renameBox;
+    private @Nullable PopupComponent popup;
+    private int realMouseX;
+    private int realMouseY;
 
     public StorageOverlay() {
         this(new StorageOverlayLayout(), false, null);
@@ -55,7 +60,7 @@ public class StorageOverlay extends AbstractScreen {
         this.layout = layout;
         this.editMode = editMode;
         this.returnCommand = returnCommand;
-        this.drag = new CardDragController(layout, this::onDrop);
+        this.drag = new CardDragController(layout, this::applyOrder);
     }
 
     /**
@@ -79,6 +84,7 @@ public class StorageOverlay extends AbstractScreen {
         drag.reset();
         renamingCard = null;
         renameBox = null;
+        popup = null;
 
         layout.build(this, this.font, this.width, this.height, state, null, 0, actions);
 
@@ -131,8 +137,15 @@ public class StorageOverlay extends AbstractScreen {
         OverlayScale.restoreGameScale(Minecraft.getInstance());
     }
 
-    @Override
     public boolean mouseClicked(@NonNull MouseButtonEvent event, boolean doubleClick) {
+        if (popup != null) {
+            for (IWidget widget : popup.getWidgets()) {
+                if (widget.mouseClicked(event, doubleClick)) return true;
+            }
+            // Clicking outside the panel dismisses it.
+            if (!popup.isOverPanel(event.x(), event.y())) popup = null;
+            return true;
+        }
         if (renameBox != null) {
             if (renameBox.isMouseOver(event.x(), event.y())) {
                 renameBox.mouseClicked(event, doubleClick);
@@ -143,13 +156,19 @@ public class StorageOverlay extends AbstractScreen {
             endRename(true);
         }
 
+        if (editMode && event.button() == 0 && layout.isOverResetButton(event.x(), event.y())) {
+            openResetDialog();
+            return true;
+        }
         if (layout.handleButtonClick(event)) return true;
 
+        if (editMode && event.button() == 1 && openSpacerMenu(event.x(), event.y())) return true;
+
         if (editMode && event.button() == 0) {
-            PageCardComponent card = cardAt(event.x(), event.y());
-            if (card != null) {
-                pressedCard = card;
-                pressedOnTitle = card.isOverTitleRow(event.x(), event.y());
+            GridCellComponent cell = cellAt(event.x(), event.y());
+            if (cell != null) {
+                pressedCard = cell;
+                pressedOnTitle = cell instanceof PageCardComponent card && card.isOverTitleRow(event.x(), event.y());
                 pressX = event.x();
                 pressY = event.y();
                 return true;
@@ -164,15 +183,27 @@ public class StorageOverlay extends AbstractScreen {
     }
 
     @Override
+    public void extractRenderState(@NonNull GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        realMouseX = mouseX;
+        realMouseY = mouseY;
+        if (popup != null) {
+            super.extractRenderState(graphics, -9999, -9999, partialTick);
+        } else {
+            super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        }
+    }
+
+    @Override
     public boolean mouseReleased(@NonNull MouseButtonEvent event) {
         if (event.button() == 0 && drag.isActive()) {
             drag.drop();
             return true;
         }
         if (event.button() == 0 && pressedCard != null) {
-            PageCardComponent card = pressedCard;
+            GridCellComponent cell = pressedCard;
             pressedCard = null;
-            if (pressedOnTitle && !movedPastThreshold(event.x(), event.y())
+            if (cell instanceof PageCardComponent card && pressedOnTitle
+                    && !movedPastThreshold(event.x(), event.y())
                     && titleRowAt(event.x(), event.y()) == card) {
                 beginRename(card);
             }
@@ -201,13 +232,65 @@ public class StorageOverlay extends AbstractScreen {
         return dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD;
     }
 
-    private void onDrop(List<StorageKey> order) {
+    private void applyOrder(List<LayoutEntry> order) {
         layout.saveOrder(order);
         rebuildWidgets();
     }
 
+    /** Right-click on a page or a spacer. Returns false if neither is under the cursor. */
+    private boolean openSpacerMenu(double x, double y) {
+        List<GridCellComponent> cells = layout.getCells();
+        GridCellComponent cell = cellAt(x, y);
+        List<PopupComponent.Option> options;
+        if (cell instanceof SpacerCardComponent) {
+            options = List.of(option("Remove Spacer", () -> removeSpacer(cell)));
+        } else if (cell != null) {
+            int index = cells.indexOf(cell);
+            options = List.of(
+                    option("Add Spacer Before", () -> insertSpacer(index)),
+                    option("Add Spacer After", () -> insertSpacer(index + 1)));
+        } else {
+            return false;
+        }
+        popup = PopupComponent.menu(this.width, this.height, this.font, (int) x, (int) y, options);
+        return true;
+    }
+
+    private void insertSpacer(int index) {
+        List<LayoutEntry> entries = layout.currentEntries();
+        entries.add(index, new LayoutEntry.Spacer(layout.nextSpacerId()));
+        applyOrder(entries);
+    }
+
+    private void removeSpacer(GridCellComponent spacer) {
+        List<LayoutEntry> entries = layout.currentEntries();
+        entries.remove(spacer.entry());
+        applyOrder(entries);
+    }
+
+    // Spacers draw nothing themselves, so they only become visible here, in edit mode.
+    private void paintSpacers(GuiGraphicsExtractor graphics, Rect viewport) {
+        graphics.enableScissor(viewport.x(), viewport.y(), viewport.right(), viewport.bottom());
+        for (GridCellComponent cell : layout.getCells()) {
+            if (cell instanceof SpacerCardComponent) {
+                Rect r = cell.bounds();
+                graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(OverlayTheme.PAGE_SPACER),
+                        r.x(), r.y(), r.width(), r.height());
+            }
+        }
+        graphics.disableScissor();
+    }
 
     private void paintEditLayer(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        Rect viewport = layout.getPageOverviewBounds();
+        if (viewport != null) paintSpacers(graphics, viewport);
+
+        if (popup != null) {
+            // Requested before the popup renders, so its buttons can still ask for the hand cursor.
+            graphics.requestCursor(CursorTypes.ARROW);
+            popup.extractRenderStateBase(graphics, realMouseX, realMouseY, 0, this.width, this.height);
+            return;
+        }
         if (drag.isActive()) {
             drag.paint(graphics, mouseX, mouseY);
             graphics.requestCursor(CursorTypes.RESIZE_ALL);
@@ -215,29 +298,32 @@ public class StorageOverlay extends AbstractScreen {
         }
         if (renameBox != null) return;
 
-        PageCardComponent hovered = cardAt(mouseX, mouseY);
-        Rect viewport = layout.getPageOverviewBounds();
+        GridCellComponent hovered = cellAt(mouseX, mouseY);
         if (hovered == null || viewport == null) return;
 
-        boolean overTitle = hovered.isOverTitleRow(mouseX, mouseY);
-        Rect card = hovered.bounds();
+        Rect title = hovered instanceof PageCardComponent card && card.isOverTitleRow(mouseX, mouseY)
+                ? card.titleRowBounds() : null;
+        Rect bounds = hovered.bounds();
 
         // Hover cues: the frame says "draggable", the title wash says "click to rename".
         graphics.enableScissor(viewport.x(), viewport.y(), viewport.right(), viewport.bottom());
         graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(OverlayTheme.PAGE_CARD_HOVER),
-                card.x(), card.y(), card.right() - card.x(), card.bottom() - card.y());
-        if (overTitle) {
-            Rect title = hovered.titleRowBounds();
+                bounds.x(), bounds.y(), bounds.width(), bounds.height());
+        if (title != null) {
             graphics.fill(title.x() + 2, title.y(), title.right() - 2, title.bottom(), OverlayTheme.titleHoverFill());
         }
         graphics.disableScissor();
 
         // Replaces the disabled button's cursor.
-        graphics.requestCursor(overTitle ? CursorTypes.IBEAM : CursorTypes.RESIZE_ALL);
+        graphics.requestCursor(title != null ? CursorTypes.IBEAM : CursorTypes.RESIZE_ALL);
     }
 
     @Override
     public boolean keyPressed(@NonNull KeyEvent event) {
+        if (popup != null) {
+            if (event.isEscape()) popup = null;
+            return true;
+        }
         if (drag.isActive()) {
             if (event.isEscape()) drag.cancel();
             return true;
@@ -264,10 +350,10 @@ public class StorageOverlay extends AbstractScreen {
         return null;
     }
 
-    private @Nullable PageCardComponent cardAt(double x, double y) {
+    private @Nullable GridCellComponent cellAt(double x, double y) {
         if (!Rect.contains(layout.getPageOverviewBounds(), x, y)) return null;
-        for (PageCardComponent card : layout.getPageCards()) {
-            if (card.bounds().contains(x, y)) return card;
+        for (GridCellComponent cell : layout.getCells()) {
+            if (cell.bounds().contains(x, y)) return cell;
         }
         return null;
     }
@@ -293,8 +379,33 @@ public class StorageOverlay extends AbstractScreen {
         rebuildWidgets();
     }
 
+    private void openResetDialog() {
+        String context = layout.isRiftContext() ? "Rift Storage" : "Storage";
+        popup = PopupComponent.confirm(this.width, this.height, this.font,
+                List.of(Component.literal("Reset " + context + " layout?"),
+                        Component.literal("This can't be undone.").withStyle(ChatFormatting.RED)),
+                List.of(option("Reset Order", () -> resetLayout(true, false)),
+                        option("Reset Names", () -> resetLayout(false, true)),
+                        option("Reset Both", () -> resetLayout(true, true)),
+                        option("Cancel", () -> {
+                        })));
+    }
+
+    private void resetLayout(boolean order, boolean names) {
+        layout.resetLayout(order, names);
+        rebuildWidgets();
+    }
+
+    private PopupComponent.Option option(String label, Runnable action) {
+        return new PopupComponent.Option(label, () -> {
+            popup = null;
+            action.run();
+        });
+    }
+
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (popup != null) return true;
         ScrollContainerWidget overview = layout.getPageOverview();
         if (overview != null
                 && Rect.contains(layout.getPageOverviewBounds(), mouseX, mouseY)

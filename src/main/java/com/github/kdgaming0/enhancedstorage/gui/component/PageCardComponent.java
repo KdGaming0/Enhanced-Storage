@@ -2,13 +2,13 @@ package com.github.kdgaming0.enhancedstorage.gui.component;
 
 import com.daqem.uilib.api.component.IComponent;
 import com.daqem.uilib.api.widget.IWidget;
-import com.daqem.uilib.gui.component.AbstractComponent;
 import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.daqem.uilib.gui.component.text.TextComponent;
 import com.daqem.uilib.gui.widget.EditBoxWidget;
 import com.github.kdgaming0.enhancedstorage.gui.OverlayTheme;
 import com.github.kdgaming0.enhancedstorage.gui.Rect;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayState;
+import com.github.kdgaming0.enhancedstorage.storage.data.LayoutEntry;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
 import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
@@ -31,7 +31,7 @@ import static com.github.kdgaming0.enhancedstorage.EnhancedStorage.MOD_ID;
 /**
  * A clickable storage page card.
  */
-public class PageCardComponent extends AbstractComponent {
+public class PageCardComponent extends GridCellComponent {
 
     private final StorageKey key;
     private final int titleLocalX;
@@ -149,8 +149,9 @@ public class PageCardComponent extends AbstractComponent {
     private static final Identifier SLOT_HIGHLIGHT_FRONT =
             Identifier.fromNamespaceAndPath(MOD_ID, "light/storage_slot_highlight_front");
 
-    public Rect bounds() {
-        return new Rect(getTotalX(), getTotalY(), getWidth(), getHeight());
+    @Override
+    public LayoutEntry entry() {
+        return new LayoutEntry.Page(key);
     }
 
     public int slotGridScreenX() {

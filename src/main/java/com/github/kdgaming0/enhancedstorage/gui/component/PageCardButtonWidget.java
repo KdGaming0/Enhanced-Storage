@@ -1,6 +1,9 @@
 package com.github.kdgaming0.enhancedstorage.gui.component;
 
 import com.daqem.uilib.gui.widget.ButtonWidget;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayTheme;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.WidgetSprites;
 import net.minecraft.client.renderer.RenderPipelines;
@@ -11,7 +14,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.function.Supplier;
 
 /**
- * Custom ButtonWidget that updated its texture every frame
+ * ButtonWidget with themed sprites resolved at draw time and a theme-aware label shadow.
  */
 public class PageCardButtonWidget extends ButtonWidget {
 
@@ -27,7 +30,7 @@ public class PageCardButtonWidget extends ButtonWidget {
     }
 
     @Override
-    protected void extractContents(@NotNull GuiGraphicsExtractor guiGraphics, int i, int j, float f) {
+    protected void extractContents(@NotNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         WidgetSprites sprites = spriteSupplier.get();
         guiGraphics.blitSprite(
                 RenderPipelines.GUI_TEXTURED,
@@ -36,7 +39,12 @@ public class PageCardButtonWidget extends ButtonWidget {
                 this.getWidth(), this.getHeight(),
                 ARGB.white(this.alpha)
         );
-        this.extractDefaultLabel(guiGraphics.textRendererForWidget(this, GuiGraphicsExtractor.HoveredTextEffects.NONE));
+
+        // Drawn manually instead of extractDefaultLabel so the shadow can follow the theme.
+        Font font = Minecraft.getInstance().font;
+        Component message = this.getMessage();
+        int textX = this.getX() + (this.getWidth() - font.width(message)) / 2;
+        int textY = this.getY() + (this.getHeight() - font.lineHeight) / 2 + 1;
+        guiGraphics.text(font, message, textX, textY, ARGB.white(this.alpha), OverlayTheme.titleShadow());
     }
 }
-
