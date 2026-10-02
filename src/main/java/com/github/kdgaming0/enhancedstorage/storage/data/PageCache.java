@@ -44,6 +44,9 @@ public final class PageCache extends ProfileScopedStore {
     }
 
     public record CachedPage(List<ItemStack> items, long capturedAt) {
+        public int emptySlots() {
+            return (int) items.stream().filter(ItemStack::isEmpty).count();
+        }
     }
 
     private record EncodedPage(CachedPage source, ListTag items) {

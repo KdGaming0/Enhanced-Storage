@@ -24,6 +24,7 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
@@ -156,6 +157,23 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     @Override
     protected boolean hasClickedOutside(double mx, double my, int xo, int yo) {
         return !isInsideOverlay(mx, my);
+    }
+
+    @Override
+    public void extractRenderState(@NonNull GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        CopyHighlight.setTarget(hoveredStack(mouseX, mouseY));
+        layout.updateCopyFilter();
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+    }
+
+    private ItemStack hoveredStack(int mouseX, int mouseY) {
+        for (Slot slot : this.menu.slots) {
+            if (!LiveSlotPlacer.isParked(slot) && slot.hasItem()
+                    && this.isHovering(slot.x, slot.y, 16, 16, mouseX, mouseY)) {
+                return slot.getItem();
+            }
+        }
+        return layout.hoveredCachedStack(mouseX, mouseY);
     }
 
     @Override
@@ -358,6 +376,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
         Rect viewport = slotPlacer.viewport();
         if (viewport == null || slot.index >= this.menu.getRowCount() * 9) {
+            if (CopyHighlight.isCopy(slot.getItem())) CopyHighlight.draw(graphics, slot.x, slot.y);
             super.extractSlot(graphics, slot, mouseX, mouseY);
             return;
         }
@@ -371,6 +390,9 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
         if (searching && match) {
             SearchHighlight.drawMatch(graphics, slot.x, slot.y);
+        }
+        if (CopyHighlight.isCopy(slot.getItem())) {
+            CopyHighlight.draw(graphics, slot.x, slot.y);
         }
 
         super.extractSlot(graphics, slot, mouseX, mouseY);

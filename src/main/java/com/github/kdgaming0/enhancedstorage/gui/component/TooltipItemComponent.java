@@ -2,6 +2,7 @@ package com.github.kdgaming0.enhancedstorage.gui.component;
 
 import com.daqem.uilib.gui.component.item.ItemComponent;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
+import com.github.kdgaming0.enhancedstorage.gui.CopyHighlight;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -62,7 +63,7 @@ public class TooltipItemComponent extends ItemComponent {
             super.extractRenderState(guiGraphics, mouseX, mouseY, partialTick, parentWidth, parentHeight);
         }
 
-        if (tooltipEnabled && isHovered(guiGraphics, mouseX, mouseY)) {
+        if (tooltipEnabled && !CopyHighlight.hidesTooltips() && isHovered(guiGraphics, mouseX, mouseY)) {
             guiGraphics.setTooltipForNextFrame(
                     Minecraft.getInstance().font,
                     getItemStack(),

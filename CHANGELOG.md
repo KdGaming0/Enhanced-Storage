@@ -7,6 +7,9 @@
   - Added a "Spacer" page type, which can be used to create empty space between other pages. While in Customize Storage mode, right-click any page to add a "Spacer" to the left or right of it. Spacers are empty spaces where a page would normally be. They can be used to create sections and separate pages, giving you more control over the overlay's layout.
   - Added a new "Section" feature. Create new sections anywhere in the overlay between two rows while in Customize Storage mode. Sections can be named and collapsed, and they can contain any number of pages. This allows you to group related pages together and hide them when not needed.
   - Added a new "Navigation" panel. Can be Disabled or Placed LEFT/RIGHT of the overlay. It shows all pages and sections in a list, allowing you to quickly jump to any page or section.
+  - Each page now shows how many free slots it has left in the top right corner of its title bar. Can be disabled in the settings.
+  - Added a new Search mode "DIM". While in Dim mode pages don't get hidden when they have no matching items, instead they are dimmed.
+  - Added the ability to highlight matching items in the storage overlay. By default, while holding Left Alt, all slots containing the same item are highlighted in blue. You can change this in the settings to use a different key or to always highlight matching items when hovering over them. You can also enable a setting to show only pages with matching items while holding Left Alt.
 
 ### Fixes
 - Fixed Storage Overlay cache not saving for some players between game restarts.

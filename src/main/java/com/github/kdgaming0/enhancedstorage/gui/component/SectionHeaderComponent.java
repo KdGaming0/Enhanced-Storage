@@ -63,7 +63,8 @@ public class SectionHeaderComponent extends GridCellComponent {
         this.trashX = width - BORDER - EDGE_PAD - ICON_SIZE;
         int statsRight = editMode ? trashX - GAP : width - BORDER - EDGE_PAD;
 
-        String stats = pages + (pages == 1 ? " page" : " pages") + " · " + freeSlots + " free";
+        String stats = pages + (pages == 1 ? " page" : " pages") + " · " + freeSlots
+                + (freeSlots == 1 ? " empty slot" : " empty slots");
         int statsX = statsRight - font.width(stats);
         TextComponent statsText = new TextComponent(statsX, TEXT_Y, Component.literal(stats), OverlayTheme.titleColor());
         statsText.setDrawShadow(OverlayTheme.titleShadow());

@@ -5,10 +5,12 @@ import com.daqem.uilib.api.widget.IWidget;
 import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.daqem.uilib.gui.component.text.TextComponent;
 import com.daqem.uilib.gui.widget.EditBoxWidget;
+import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.gui.OverlayTheme;
 import com.github.kdgaming0.enhancedstorage.gui.Rect;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayState;
 import com.github.kdgaming0.enhancedstorage.storage.data.LayoutEntry;
+import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
 import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
@@ -17,6 +19,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.WidgetSprites;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
@@ -40,6 +43,8 @@ public class PageCardComponent extends GridCellComponent {
     private final int titleLocalHeight;
 
     private static final int TITLE_GAP = 2;
+    private static final int EMPTY_LABEL_GAP = 6;
+    private static final String FULL_TEXT = "Full";
 
     private final int slotGridX;
     private final int slotGridY;
@@ -50,6 +55,8 @@ public class PageCardComponent extends GridCellComponent {
     private final List<StorageSlotComponent> slots = new ArrayList<>();
     private final TextComponent pageTitle;
     private @Nullable EditBoxWidget titleEditor;
+    private @Nullable TextComponent emptyLabel;
+    private @Nullable String shownEmptyText;
 
     Identifier idle = OverlayTheme.sprite(OverlayTheme.PAGE_CARD_IDLE);
     Identifier active = OverlayTheme.sprite(OverlayTheme.PAGE_CARD_ACTIVE);
@@ -134,6 +141,12 @@ public class PageCardComponent extends GridCellComponent {
                 }
             }
             applySearch(state.getSearchQuery());
+
+            if (EnhancedStorageConfig.showEmptySlotCount) {
+                this.emptyLabel = new TextComponent(width - titleX, titleY, Component.empty(), OverlayTheme.secondaryTextColor());
+                emptyLabel.setDrawShadow(OverlayTheme.titleShadow());
+                this.addComponent(emptyLabel);
+            }
         } else {
             Component label = Component.literal(clickable ? "Click To Open" : "Not Cached");
             int textX = (width - font.width(label)) / 2;
@@ -174,6 +187,13 @@ public class PageCardComponent extends GridCellComponent {
         return live;
     }
 
+    public ItemStack stackAt(double x, double y) {
+        for (StorageSlotComponent slot : slots) {
+            if (slot.contains(x, y)) return slot.getStack();
+        }
+        return ItemStack.EMPTY;
+    }
+
     // Apply the slot tint when searching
     public void applySearch(String query) {
         if (live || slots.isEmpty()) return;
@@ -193,13 +213,27 @@ public class PageCardComponent extends GridCellComponent {
         }
     }
 
-    public boolean isOverTitle(double screenX, double screenY) {
-        int absX = getTotalX() + titleLocalX;
-        int absY = getTotalY() + titleLocalY;
-        return screenX >= absX && screenX < absX + titleLocalWidth
-                && screenY >= absY && screenY < absY + titleLocalHeight;
+    // Re-read every frame: the live page's cache follows the player's clicks, and renaming hides the label.
+    private void updateEmptyLabel() {
+        if (emptyLabel == null) return;
+        String text = titleEditor != null ? "" : PageCache.getInstance().get(key)
+                .map(page -> emptyText(page.emptySlots()))
+                .orElse("");
+        if (text.equals(shownEmptyText)) return;
+        shownEmptyText = text;
+
+        int labelX = getWidth() - titleLocalX - Minecraft.getInstance().font.width(text);
+        // A long custom title wins; the navigation panel's tooltip still shows the count.
+        boolean fits = titleLocalX + titleLocalWidth + EMPTY_LABEL_GAP <= labelX;
+        MutableComponent label = Component.literal(text);
+        if (text.equals(FULL_TEXT)) label = label.withColor(OverlayTheme.fullTextColor() & 0xFFFFFF);
+        emptyLabel.setText(fits ? label : Component.empty());
+        emptyLabel.setX(labelX);
     }
 
+    private static String emptyText(int empty) {
+        return empty == 0 ? FULL_TEXT : empty + " empty";
+    }
 
     // Makes the whole title area clickable, not just the text to make short titles easier to click.
     public Rect titleRowBounds() {
@@ -238,6 +272,7 @@ public class PageCardComponent extends GridCellComponent {
         if (titleEditor != null) {
             titleEditor.uilib$updateParentPosition(getTotalX(), getTotalY());
         }
+        updateEmptyLabel();
 
         // Render the background/button widget first
         for (IWidget widget : getWidgets()) {

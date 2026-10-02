@@ -41,6 +41,10 @@ public final class OverlayTheme {
     private static final int LIGHT_NAV_PAGE_COLOR = 0xFF3C3C3C;
     private static final int LIGHT_NAV_UNCACHED_COLOR = 0xFF8C8C8C;
     private static final int LIGHT_NAV_LABEL_COLOR = 0xFF5A5A5A;
+    private static final int SECONDARY_TEXT_COLOR = 0xFF808080;
+    private static final int LIGHT_SECONDARY_TEXT_COLOR = 0xFF5A5A5A;
+    private static final int FULL_TEXT_COLOR = 0xFFC86464;
+    private static final int LIGHT_FULL_TEXT_COLOR = 0xFFA03232;
 
     private OverlayTheme() {
     }
@@ -94,6 +98,15 @@ public final class OverlayTheme {
     public static int navLabelColor() {
         return current() == BackgroundType.LIGHT ? LIGHT_NAV_LABEL_COLOR : NAV_LABEL_COLOR;
     }
+
+    public static int secondaryTextColor() {
+        return current() == BackgroundType.LIGHT ? LIGHT_SECONDARY_TEXT_COLOR : SECONDARY_TEXT_COLOR;
+    }
+
+    public static int fullTextColor() {
+        return current() == BackgroundType.LIGHT ? LIGHT_FULL_TEXT_COLOR : FULL_TEXT_COLOR;
+    }
+
     public static boolean titleShadow() {
         return current() != BackgroundType.LIGHT;
     }

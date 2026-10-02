@@ -71,6 +71,8 @@ public class StorageOverlayLayout {
     private final List<SectionFrame> sectionFrames = new ArrayList<>();
     private final List<PlacedRow> rows = new ArrayList<>();
     private final Map<StorageKey, Boolean> pageMatchCache = new HashMap<>();
+    private final Set<GridCellComponent> searchMisses = new HashSet<>();
+    private ItemStack copyFilterTarget = ItemStack.EMPTY;
     private String pageMatchQuery = "";
     private int contentInset;
     private int frameWidth;
@@ -666,9 +668,7 @@ public class StorageOverlayLayout {
     }
 
     private static int freeSlots(StorageKey key) {
-        return PageCache.getInstance().get(key)
-                .map(page -> (int) page.items().stream().filter(ItemStack::isEmpty).count())
-                .orElse(0);
+        return PageCache.getInstance().get(key).map(PageCache.CachedPage::emptySlots).orElse(0);
     }
 
     private PageCardComponent buildPageCard(StorageKey key, @Nullable StorageKey liveKey, int liveRows) {
@@ -953,19 +953,38 @@ public class StorageOverlayLayout {
      * before. Cell instances are reused; only the lightweight row wrappers are allocated.
      */
     private void reflowRows(String query) {
+        boolean searching = !query.isBlank();
+        boolean dim = searching && EnhancedStorageConfig.searchMode == EnhancedStorageConfig.SearchMode.DIM;
+        boolean copyFilter = !copyFilterTarget.isEmpty();
+        searchMisses.clear();
         List<GridCellComponent> shown = new ArrayList<>();
+        boolean sectionNameMatches = false;
         for (GridCellComponent cell : cells) {
+            if (cell instanceof SectionHeaderComponent header) {
+                sectionNameMatches = searching && nameMatches(header.entry().name(), query);
+            } else if (cell instanceof SectionEndComponent) {
+                sectionNameMatches = false;
+            }
+
             if (cell instanceof PageCardComponent card) {
-                if (query.isBlank() || card.isLive() || pageMatches(card.getKey(), query)) {
-                    card.applySearch(query);
+                // Filtering by a held item hides the page whatever the search says.
+                if (copyFilter && !containsCopy(card)) continue;
+                boolean itemMatch = searching && pageMatches(card.getKey(), query);
+                boolean nameMatch = sectionNameMatches || (searching && customNameMatches(card.getKey(), query));
+                // A page found by its name is the result, so the items aren't dimmed.
+                card.applySearch(itemMatch || !nameMatch ? query : "");
+                if (!searching || card.isLive() || itemMatch || nameMatch) {
                     shown.add(card);
+                } else if (dim) {
+                    shown.add(card);
+                    searchMisses.add(card);
                 }
-            } else if (query.isBlank() || isBoundary(cell)) {
-                // Spacers arrange the full list; while searching they would only leave holes.
+            } else if ((!copyFilter && (!searching || dim)) || isBoundary(cell)) {
                 shown.add(cell);
             }
         }
-        if (!query.isBlank()) hideEmptySections(shown);
+        if (copyFilter || (searching && !dim)) hideEmptySections(shown);
+        if (dim) dimEmptySections(shown);
         if (shown.stream().noneMatch(PageCardComponent.class::isInstance)) shown.clear();
 
         boolean collapseForDrag = draggedSection != null && EnhancedStorageConfig.collapseSectionsWhileDragging;
@@ -974,7 +993,7 @@ public class StorageOverlayLayout {
         boolean hidden = false;
         for (GridCellComponent cell : shown) {
             if (cell instanceof SectionHeaderComponent header) {
-                hidden = header.isCollapsed() || collapseForDrag;
+                hidden = (header.isCollapsed() && copyFilterTarget.isEmpty()) || collapseForDrag;
             } else if (cell instanceof SectionEndComponent) {
                 hidden = false;
             } else if (hidden) {
@@ -1084,11 +1103,13 @@ public class StorageOverlayLayout {
             }
 
             boolean nextIsChild = next != null && next.grouped() && next.cell() instanceof PageCardComponent;
+            boolean dimmed = searchMisses.contains(item.cell());
             if (item.cell() instanceof SectionHeaderComponent header) {
-                navigationList.addComponent(NavigationRowComponent.section(width, header, nextIsChild));
+                navigationList.addComponent(NavigationRowComponent.section(width, header, nextIsChild, dimmed));
             } else if (item.cell() instanceof PageCardComponent card) {
                 boolean open = card.isLive() || state.isOpen(card.getKey());
-                navigationList.addComponent(NavigationRowComponent.page(width, card, item.grouped(), nextIsChild, open));
+                navigationList.addComponent(
+                        NavigationRowComponent.page(width, card, item.grouped(), nextIsChild, open, dimmed));
             }
         }
 
@@ -1173,6 +1194,31 @@ public class StorageOverlayLayout {
         }
     }
 
+    // Dim mode keeps every header, so one with no matching page under it is dimmed instead of hidden.
+    private void dimEmptySections(List<GridCellComponent> list) {
+        boolean hitBelow = false;
+        for (int i = list.size() - 1; i >= 0; i--) {
+            GridCellComponent cell = list.get(i);
+            if (cell instanceof SectionHeaderComponent) {
+                if (!hitBelow) searchMisses.add(cell);
+                hitBelow = false;
+            } else if (cell instanceof SectionEndComponent) {
+                hitBelow = false;
+            } else if (cell instanceof PageCardComponent && !searchMisses.contains(cell)) {
+                hitBelow = true;
+            }
+        }
+    }
+
+    private static boolean nameMatches(String name, String query) {
+        return EnhancedStorageConfig.searchPageAndSectionNames
+                && TextUtils.stripString(name).contains(TextUtils.stripString(query));
+    }
+
+    private static boolean customNameMatches(StorageKey key, String query) {
+        return PageNames.getInstance().get(key).map(name -> nameMatches(name, query)).orElse(false);
+    }
+
     record SectionFrame(SectionHeaderComponent header, EmptyComponent lastRow) {
         Rect bounds() {
             int top = header.getTotalY();
@@ -1252,7 +1298,12 @@ public class StorageOverlayLayout {
         }
         NavigationRowComponent navigationRow = navigationRowAt(mouseX, mouseY);
         if (navigationRow != null) {
-            if (navigationRow.isTruncated()) {
+            if (navigationRow.target() instanceof PageCardComponent card) {
+                graphics.setComponentTooltipForNextFrame(font, List.of(
+                                Component.literal(navigationRow.name()),
+                                Component.literal(emptySlotsDescription(card.getKey())).withStyle(ChatFormatting.GRAY)),
+                        mouseX, mouseY);
+            } else if (navigationRow.isTruncated()) {
                 graphics.setTooltipForNextFrame(font, Component.literal(navigationRow.name()), mouseX, mouseY);
             }
             return;
@@ -1261,7 +1312,7 @@ public class StorageOverlayLayout {
         if (!Rect.contains(getPageOverviewBounds(), mouseX, mouseY)) return;
         for (GridCellComponent cell : visibleCells) {
             if (!(cell instanceof SectionHeaderComponent header) || !header.bounds().contains(mouseX, mouseY)) continue;
-            if (!header.isCollapsed() || header.isOverArrow(mouseX, mouseY)
+            if (!header.isCollapsed() || !copyFilterTarget.isEmpty() || header.isOverArrow(mouseX, mouseY)
                     || header.isOverGrip(mouseX, mouseY) || header.isOverTrash(mouseX, mouseY)) return;
 
             List<Component> lines = new ArrayList<>();
@@ -1275,6 +1326,48 @@ public class StorageOverlayLayout {
             if (lines.size() > 1) graphics.setComponentTooltipForNextFrame(font, lines, mouseX, mouseY);
             return;
         }
+    }
+
+    public ItemStack hoveredCachedStack(double x, double y) {
+        if (!Rect.contains(getPageOverviewBounds(), x, y)) return ItemStack.EMPTY;
+        for (PageCardComponent card : visibleCards) {
+            if (card.bounds().contains(x, y)) return card.stackAt(x, y);
+        }
+        return ItemStack.EMPTY;
+    }
+
+    public void updateCopyFilter() {
+        ItemStack next = editMode ? ItemStack.EMPTY : CopyHighlight.filterTarget();
+        if (next == copyFilterTarget || pageOverview == null) return;
+
+        if (!next.isEmpty() && state.getScrollBeforeCopyFilter() == null) {
+            state.setScrollBeforeCopyFilter(pageOverview.scrollAmount());
+        }
+        copyFilterTarget = next;
+        applySearch(activeQuery());
+
+        if (!next.isEmpty()) {
+            pageOverview.setScrollAmount(0);
+            return;
+        }
+        Double saved = state.getScrollBeforeCopyFilter();
+        state.setScrollBeforeCopyFilter(null);
+        if (saved != null) pageOverview.setScrollAmount(saved);
+        scrollLiveCardIntoView();
+    }
+
+    private boolean containsCopy(PageCardComponent card) {
+        return card.isLive() || PageCache.getInstance().get(card.getKey())
+                .map(page -> page.items().stream().anyMatch(stack -> !stack.isEmpty()
+                        && CopyHighlight.sameItem(copyFilterTarget, stack)))
+                .orElse(false);
+    }
+
+    private static String emptySlotsDescription(StorageKey key) {
+        return PageCache.getInstance().get(key).map(page -> {
+            int empty = page.emptySlots();
+            return empty == 0 ? "Full: no empty slots" : empty == 1 ? "1 empty slot" : empty + " empty slots";
+        }).orElse("Not cached yet: open it once to see it here");
     }
 
     private EmptyComponent buildEmptyRow(String query) {

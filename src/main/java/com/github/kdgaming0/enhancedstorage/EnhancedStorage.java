@@ -2,6 +2,7 @@ package com.github.kdgaming0.enhancedstorage;
 
 import com.github.kdgaming0.enhancedstorage.command.EnhancedStorageCommand;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
+import com.github.kdgaming0.enhancedstorage.gui.CopyHighlight;
 import com.github.kdgaming0.enhancedstorage.screen.StorageContainerScreen;
 import com.github.kdgaming0.enhancedstorage.storage.*;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
@@ -52,6 +53,7 @@ public class EnhancedStorage implements ClientModInitializer {
         StorageLifecycle.register();
         StorageCaptureHandler.register();
         EnhancedStorageCommand.register();
+        CopyHighlight.register();
 
         LOGGER.info("Enhanced Storage initialized.");
     }

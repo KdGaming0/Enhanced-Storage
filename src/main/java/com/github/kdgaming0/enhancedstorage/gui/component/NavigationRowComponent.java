@@ -43,13 +43,14 @@ public class NavigationRowComponent extends AbstractComponent {
     private final boolean open;
     private final boolean cached;
     private final boolean continues;
+    private final boolean dimmed;
     private final boolean truncated;
     private final int iconX;
     private final int textEnd;
 
     private NavigationRowComponent(int width, GridCellComponent target, String name, boolean section,
                                    boolean collapsed, boolean indented, boolean open, boolean cached,
-                                   boolean continues) {
+                                   boolean continues, boolean dimmed) {
         super(0, 0, width, HEIGHT);
         this.target = target;
         this.name = name;
@@ -59,6 +60,7 @@ public class NavigationRowComponent extends AbstractComponent {
         this.open = open;
         this.cached = cached;
         this.continues = continues;
+        this.dimmed = dimmed;
         this.iconX = indented ? ICON_X + INDENT : ICON_X;
 
         Font font = Minecraft.getInstance().font;
@@ -67,6 +69,7 @@ public class NavigationRowComponent extends AbstractComponent {
         this.truncated = font.width(name) > textWidth;
         this.textEnd = textX + Math.min(font.width(name), textWidth);
         int color = open ? OverlayTheme.navActiveTitleColor()
+                : dimmed ? OverlayTheme.navUncachedColor()
                 : section ? OverlayTheme.navEmphasisColor()
                 : cached ? OverlayTheme.navPageColor()
                 : OverlayTheme.navUncachedColor();
@@ -77,23 +80,26 @@ public class NavigationRowComponent extends AbstractComponent {
 
     /**
      * @param hasPages whether page rows follow, so the guide line connects to the triangle
+     * @param dimmed   no page in the section matches the search (dim mode)
      */
-    public static NavigationRowComponent section(int width, SectionHeaderComponent header, boolean hasPages) {
+    public static NavigationRowComponent section(int width, SectionHeaderComponent header, boolean hasPages,
+                                                 boolean dimmed) {
         // The saved state, like the grid's arrow, even while the live page keeps the section open.
         LayoutEntry.Section entry = header.entry();
         return new NavigationRowComponent(width, header, entry.name(), true, entry.collapsed(), false, false, true,
-                hasPages);
+                hasPages, dimmed);
     }
 
     /**
      * @param continues whether the next row is another page of the same section
+     * @param dimmed    the page doesn't match the search (dim mode)
      */
     public static NavigationRowComponent page(int width, PageCardComponent card, boolean indented,
-                                              boolean continues, boolean open) {
+                                              boolean continues, boolean open, boolean dimmed) {
         StorageKey key = card.getKey();
         String name = PageNames.getInstance().get(key).orElse(key.displayName());
         return new NavigationRowComponent(width, card, name, false, false, indented, open, card.isCached(),
-                continues);
+                continues, dimmed);
     }
 
     public GridCellComponent target() {
@@ -129,8 +135,9 @@ public class NavigationRowComponent extends AbstractComponent {
         }
 
         if (section) {
-            blit(graphics, collapsed ? OverlayTheme.NAV_SECTION_COLLAPSED : OverlayTheme.NAV_SECTION_EXPANDED,
-                    x + ICON_X, y + ICON_Y, ICON_SIZE, ICON_SIZE);
+            graphics.blitSprite(RenderPipelines.GUI_TEXTURED,
+                    OverlayTheme.sprite(collapsed ? OverlayTheme.NAV_SECTION_COLLAPSED : OverlayTheme.NAV_SECTION_EXPANDED),
+                    x + ICON_X, y + ICON_Y, ICON_SIZE, ICON_SIZE, dimmed ? UNCACHED_ALPHA : 1.0F);
             // Joins the triangle to the guide line of the pages below.
             int belowIcon = ICON_Y + ICON_SIZE;
             if (continues) blit(graphics, OverlayTheme.NAV_GUIDE, x + GUIDE_X, y + belowIcon, 1, HEIGHT - belowIcon);
@@ -142,7 +149,7 @@ public class NavigationRowComponent extends AbstractComponent {
                 blit(graphics, OverlayTheme.NAV_GUIDE, x + GUIDE_X, y, 1, continues ? HEIGHT : HEIGHT - GUIDE_END_GAP);
             }
             graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(OverlayTheme.NAV_PAGE),
-                    x + iconX, y + ICON_Y, ICON_SIZE, ICON_SIZE, cached ? CACHED_ALPHA : UNCACHED_ALPHA);
+                    x + iconX, y + ICON_Y, ICON_SIZE, ICON_SIZE, cached && !dimmed ? CACHED_ALPHA : UNCACHED_ALPHA);
         }
 
         for (IComponent component : getComponents()) {

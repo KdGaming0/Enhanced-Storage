@@ -32,6 +32,9 @@ public class EnhancedStorageConfig extends MidnightConfig {
     @Entry(category = CATEGORY_GENERAL)
     public static NavigationPanelSide navigationPanel = NavigationPanelSide.DISABLED;
 
+    @Entry(category = CATEGORY_GENERAL)
+    public static boolean showEmptySlotCount = true;
+
     @Comment(category = CATEGORY_GENERAL)
     public static Comment spacerAppearance;
 
@@ -80,6 +83,18 @@ public class EnhancedStorageConfig extends MidnightConfig {
     public static boolean rememberScrollOnReopen = false;
 
     @Entry(category = CATEGORY_GENERAL)
+    public static SearchMode searchMode = SearchMode.FILTER;
+
+    @Entry(category = CATEGORY_GENERAL)
+    public static boolean searchPageAndSectionNames = false;
+
+    @Entry(category = CATEGORY_GENERAL)
+    public static HighlightCopiesMode highlightCopies = HighlightCopiesMode.HOLD_KEY;
+
+    @Entry(category = CATEGORY_GENERAL)
+    public static boolean hidePagesWithoutCopies = false;
+
+    @Entry(category = CATEGORY_GENERAL)
     public static AutoScrollMode autoScrollToOpenPage = AutoScrollMode.IF_PARTLY_HIDDEN;
 
     @Entry(category = CATEGORY_GENERAL, isSlider = true, min = 1, max = 60, precision = 1)
@@ -118,5 +133,13 @@ public class EnhancedStorageConfig extends MidnightConfig {
 
     public enum NavigationPanelSide {
         LEFT, RIGHT, DISABLED
+    }
+
+    public enum SearchMode {
+        FILTER, DIM
+    }
+
+    public enum HighlightCopiesMode {
+        OFF, HOLD_KEY, ALWAYS
     }
 }

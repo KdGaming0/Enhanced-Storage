@@ -20,6 +20,7 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
@@ -212,6 +213,9 @@ public class StorageOverlay extends AbstractScreen {
     public void extractRenderState(@NonNull GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         realMouseX = mouseX;
         realMouseY = mouseY;
+        boolean blocked = popup != null || drag.isActive();
+        CopyHighlight.setTarget(blocked ? ItemStack.EMPTY : layout.hoveredCachedStack(mouseX, mouseY));
+        layout.updateCopyFilter();
         if (popup != null) {
             super.extractRenderState(graphics, -9999, -9999, partialTick);
         } else {

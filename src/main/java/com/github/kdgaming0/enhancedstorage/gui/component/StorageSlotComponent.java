@@ -3,6 +3,7 @@ package com.github.kdgaming0.enhancedstorage.gui.component;
 import com.daqem.uilib.gui.component.AbstractComponent;
 import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
+import com.github.kdgaming0.enhancedstorage.gui.CopyHighlight;
 import com.github.kdgaming0.enhancedstorage.gui.SearchHighlight;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.resources.Identifier;
@@ -14,6 +15,7 @@ public class StorageSlotComponent extends AbstractComponent {
     private final @Nullable SpriteComponent highlightBack;
     private final @Nullable SpriteComponent highlightFront;
     private final @Nullable TooltipItemComponent item;
+    private final ItemStack stack;
 
     private boolean hoverEnabled = true;
     private SearchState searchState = SearchState.NONE;
@@ -25,6 +27,7 @@ public class StorageSlotComponent extends AbstractComponent {
                                 @Nullable Identifier highlightFrontTexture,
                                 @Nullable ItemStack stack) {
         super(x, y, width, height);
+        this.stack = stack == null ? ItemStack.EMPTY : stack;
 
         this.highlightBack = highlightBackTexture == null ? null
                 : new SpriteComponent(0, 0, width, height, highlightBackTexture);
@@ -59,6 +62,14 @@ public class StorageSlotComponent extends AbstractComponent {
         return item;
     }
 
+    public ItemStack getStack() {
+        return stack;
+    }
+
+    public boolean contains(double x, double y) {
+        return x >= getTotalX() && x < getTotalX() + getWidth() && y >= getTotalY() && y < getTotalY() + getHeight();
+    }
+
     protected boolean isHovered(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY) {
         return mouseX >= getTotalX() && mouseX < getTotalX() + getWidth()
                 && mouseY >= getTotalY() && mouseY < getTotalY() + getHeight()
@@ -85,6 +96,9 @@ public class StorageSlotComponent extends AbstractComponent {
 
         if (searchState == SearchState.MATCH) {
             SearchHighlight.drawMatch(guiGraphics, itemX, itemY);
+        }
+        if (CopyHighlight.isCopy(stack)) {
+            CopyHighlight.draw(guiGraphics, itemX, itemY);
         }
         // Children are leaves — extract them directly instead of via extractRenderStateBase,
         // which allocates two filtered stream lists per component per frame.
