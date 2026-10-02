@@ -10,6 +10,7 @@ public final class OverlayTheme {
 
     public static final String PAGE_CARD_IDLE = "page_card_idle";
     public static final String PAGE_CARD_ACTIVE = "page_card_active";
+    public static final String PAGE_CARD_HOVER = "page_card_hover";
     public static final String STORAGE_SLOT = "storage_slot";
     public static final String MAIN_PANEL = "main_panel";
     public static final String STORAGE_INVENTORY = "storage_inventory";
@@ -53,6 +54,10 @@ public final class OverlayTheme {
 
     public static boolean titleShadow() {
         return current() != BackgroundType.LIGHT;
+    }
+
+    public static int titleHoverFill() {
+        return current() == BackgroundType.LIGHT ? 0x18000000 : 0x18FFFFFF;
     }
 
     /** Advances to the next theme and persists the choice. */

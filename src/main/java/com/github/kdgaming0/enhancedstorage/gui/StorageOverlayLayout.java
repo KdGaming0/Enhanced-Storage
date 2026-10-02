@@ -10,8 +10,10 @@ import com.daqem.uilib.gui.widget.EditBoxWidget;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.gui.component.*;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
+import com.github.kdgaming0.enhancedstorage.storage.data.PageLayout;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageOrder;
 import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
+import com.github.kdgaming0.enhancedstorage.storage.profile.ProfileSession;
 import com.github.kdgaming0.enhancedstorage.util.ItemModels;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
 import com.github.kdgaming0.enhancedstorage.util.TextUtils;
@@ -48,7 +50,9 @@ public class StorageOverlayLayout {
     private static final int OVERVIEW_HEIGHT = 85;
     private static final long WARMUP_BUDGET_MS = 3;
     private static final int EDIT_MODE_TITLE_COLOR = 0xFFFFD24A;
-    private static final List<String> EDIT_MODE_HINTS = List.of("Click a page title to rename it.");
+    private static final List<String> EDIT_MODE_HINTS = List.of(
+            "Click a page title to rename it.",
+            "Drag a page to move it.");
     private final boolean editMode;
     private final boolean editRiftContext;
     private final List<PageCardComponent> pageCards = new ArrayList<>();
@@ -364,7 +368,17 @@ public class StorageOverlayLayout {
 
         defaultOrder.clear();
         defaultOrder.addAll(keys);
-        return applyCustomOrder(keys);
+        // Legacy per-page positions only apply until the player saves an order for this context.
+        return PageLayout.getInstance().resolve(PageLayout.Context.of(riftContext), keys)
+                .orElseGet(() -> applyCustomOrder(keys));
+    }
+
+    public void saveOrder(List<StorageKey> order) {
+        PageLayout.getInstance().setOrder(PageLayout.Context.of(riftContext), order);
+        for (StorageKey key : order) {
+            PageOrder.getInstance().clear(key);
+        }
+        ProfileSession.getInstance().saveAll();
     }
 
     /** Builds every card once for the unfiltered list; search later picks which instances go into rows. */
@@ -576,6 +590,13 @@ public class StorageOverlayLayout {
         reflowRows(query);
         // Hiding cards shrinks the content, so an old scroll offset can now point past the end.
         pageOverview.setScrollAmount(pageOverview.scrollAmount());
+    }
+
+    /** Re-packs the rows in a new card order without rebuilding the cards. */
+    void previewOrder(List<PageCardComponent> order) {
+        pageCards.clear();
+        pageCards.addAll(order);
+        applySearch(activeQuery());
     }
 
     public void tick() {

@@ -5,17 +5,22 @@ import com.daqem.uilib.gui.widget.EditBoxWidget;
 import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
 import com.github.kdgaming0.enhancedstorage.gui.component.PageCardComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.PaintLayerComponent;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
 import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
 import com.github.kdgaming0.enhancedstorage.storage.profile.ProfileSession;
+import com.mojang.blaze3d.platform.cursor.CursorTypes;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import org.jspecify.annotations.Nullable;
 import org.jspecify.annotations.NonNull;
 
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -33,7 +38,9 @@ public class StorageOverlay extends AbstractScreen {
     private final @Nullable String returnCommand;
     private boolean returnRequested;
 
-    private @Nullable PageCardComponent pressedTitle;
+    private final CardDragController drag;
+    private @Nullable PageCardComponent pressedCard;
+    private boolean pressedOnTitle;
     private double pressX;
     private double pressY;
     private @Nullable PageCardComponent renamingCard;
@@ -48,6 +55,7 @@ public class StorageOverlay extends AbstractScreen {
         this.layout = layout;
         this.editMode = editMode;
         this.returnCommand = returnCommand;
+        this.drag = new CardDragController(layout, this::onDrop);
     }
 
     /**
@@ -67,11 +75,18 @@ public class StorageOverlay extends AbstractScreen {
         this.width = minecraft.getWindow().getGuiScaledWidth();
         this.height = minecraft.getWindow().getGuiScaledHeight();
 
-        pressedTitle = null;
+        pressedCard = null;
+        drag.reset();
         renamingCard = null;
         renameBox = null;
 
         layout.build(this, this.font, this.width, this.height, state, null, 0, actions);
+
+        if (editMode) {
+            PaintLayerComponent dragLayer = new PaintLayerComponent(this.width, this.height, this::paintEditLayer);
+            dragLayer.updateParentPosition(0, 0, this.width, this.height);
+            addComponent(dragLayer);
+        }
         state.onStorageScreenOpened();
     }
 
@@ -131,9 +146,10 @@ public class StorageOverlay extends AbstractScreen {
         if (layout.handleButtonClick(event)) return true;
 
         if (editMode && event.button() == 0) {
-            PageCardComponent card = titleRowAt(event.x(), event.y());
+            PageCardComponent card = cardAt(event.x(), event.y());
             if (card != null) {
-                pressedTitle = card;
+                pressedCard = card;
+                pressedOnTitle = card.isOverTitleRow(event.x(), event.y());
                 pressX = event.x();
                 pressY = event.y();
                 return true;
@@ -149,13 +165,15 @@ public class StorageOverlay extends AbstractScreen {
 
     @Override
     public boolean mouseReleased(@NonNull MouseButtonEvent event) {
-        if (pressedTitle != null && event.button() == 0) {
-            PageCardComponent card = pressedTitle;
-            pressedTitle = null;
-            double dx = event.x() - pressX;
-            double dy = event.y() - pressY;
-            boolean moved = dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD;
-            if (!moved && titleRowAt(event.x(), event.y()) == card) {
+        if (event.button() == 0 && drag.isActive()) {
+            drag.drop();
+            return true;
+        }
+        if (event.button() == 0 && pressedCard != null) {
+            PageCardComponent card = pressedCard;
+            pressedCard = null;
+            if (pressedOnTitle && !movedPastThreshold(event.x(), event.y())
+                    && titleRowAt(event.x(), event.y()) == card) {
                 beginRename(card);
             }
             return true;
@@ -164,7 +182,66 @@ public class StorageOverlay extends AbstractScreen {
     }
 
     @Override
+    public boolean mouseDragged(@NonNull MouseButtonEvent event, double dragX, double dragY) {
+        if (event.button() == 0 && pressedCard != null && !drag.isActive()
+                && movedPastThreshold(event.x(), event.y())) {
+            drag.start(pressedCard, pressX, pressY, this.width, this.height);
+            pressedCard = null;
+        }
+        if (drag.isActive()) {
+            drag.update(event.x(), event.y());
+            return true;
+        }
+        return super.mouseDragged(event, dragX, dragY);
+    }
+
+    private boolean movedPastThreshold(double x, double y) {
+        double dx = x - pressX;
+        double dy = y - pressY;
+        return dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD;
+    }
+
+    private void onDrop(List<StorageKey> order) {
+        layout.saveOrder(order);
+        rebuildWidgets();
+    }
+
+
+    private void paintEditLayer(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        if (drag.isActive()) {
+            drag.paint(graphics, mouseX, mouseY);
+            graphics.requestCursor(CursorTypes.RESIZE_ALL);
+            return;
+        }
+        if (renameBox != null) return;
+
+        PageCardComponent hovered = cardAt(mouseX, mouseY);
+        Rect viewport = layout.getPageOverviewBounds();
+        if (hovered == null || viewport == null) return;
+
+        boolean overTitle = hovered.isOverTitleRow(mouseX, mouseY);
+        Rect card = hovered.bounds();
+
+        // Hover cues: the frame says "draggable", the title wash says "click to rename".
+        graphics.enableScissor(viewport.x(), viewport.y(), viewport.right(), viewport.bottom());
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(OverlayTheme.PAGE_CARD_HOVER),
+                card.x(), card.y(), card.right() - card.x(), card.bottom() - card.y());
+        if (overTitle) {
+            Rect title = hovered.titleRowBounds();
+            graphics.fill(title.x() + 2, title.y(), title.right() - 2, title.bottom(), OverlayTheme.titleHoverFill());
+        }
+        graphics.disableScissor();
+
+        // Replaces the disabled button's cursor.
+        graphics.requestCursor(overTitle ? CursorTypes.IBEAM : CursorTypes.RESIZE_ALL);
+    }
+
+    @Override
     public boolean keyPressed(@NonNull KeyEvent event) {
+        if (drag.isActive()) {
+            if (event.isEscape()) drag.cancel();
+            return true;
+        }
         if (renameBox != null) {
             if (event.isEscape()) {
                 endRename(false);
@@ -183,6 +260,14 @@ public class StorageOverlay extends AbstractScreen {
         if (!Rect.contains(layout.getPageOverviewBounds(), x, y)) return null;
         for (PageCardComponent card : layout.getPageCards()) {
             if (card.isOverTitleRow(x, y)) return card;
+        }
+        return null;
+    }
+
+    private @Nullable PageCardComponent cardAt(double x, double y) {
+        if (!Rect.contains(layout.getPageOverviewBounds(), x, y)) return null;
+        for (PageCardComponent card : layout.getPageCards()) {
+            if (card.bounds().contains(x, y)) return card;
         }
         return null;
     }

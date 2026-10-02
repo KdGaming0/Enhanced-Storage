@@ -3,6 +3,7 @@
 ## New Features and Improvements
 - Added a new "Customize Storage" mode, from here you can now edit the storage overlay's appearance and behavior to your liking.
   - Pages can now be renamed in Customize Storage mode: click a page's title and type a new name. Press Enter or click anywhere outside the title to save, or press Escape to cancel. Clearing the name restores the default.
+  - Pages can now be reordered in Customize Storage mode: click and drag a page to move it. The new order is saved automatically.
 
 ### Fixes
 - Fixed Storage Overlay cache not saving for some players between game restarts.

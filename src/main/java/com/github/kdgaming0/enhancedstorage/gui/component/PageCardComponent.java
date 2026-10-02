@@ -201,11 +201,12 @@ public class PageCardComponent extends AbstractComponent {
 
 
     // Makes the whole title area clickable, not just the text to make short titles easier to click.
+    public Rect titleRowBounds() {
+        return new Rect(getTotalX(), getTotalY() + titleLocalY, getWidth(), titleLocalHeight);
+    }
+
     public boolean isOverTitleRow(double screenX, double screenY) {
-        int absX = getTotalX();
-        int absY = getTotalY() + titleLocalY;
-        return screenX >= absX && screenX < absX + getWidth()
-                && screenY >= absY && screenY < absY + titleLocalHeight;
+        return titleRowBounds().contains(screenX, screenY);
     }
 
     /**
