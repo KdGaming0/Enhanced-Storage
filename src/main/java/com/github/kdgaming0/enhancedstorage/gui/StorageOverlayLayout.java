@@ -47,6 +47,10 @@ public class StorageOverlayLayout {
     private static final int OVERVIEW_WIDTH = 176;
     private static final int OVERVIEW_HEIGHT = 85;
     private static final long WARMUP_BUDGET_MS = 3;
+    private static final int EDIT_MODE_TITLE_COLOR = 0xFFFFD24A;
+    private static final List<String> EDIT_MODE_HINTS = List.of("Click a page title to rename it.");
+    private final boolean editMode;
+    private final boolean editRiftContext;
     private final List<PageCardComponent> pageCards = new ArrayList<>();
     private final List<PageCardComponent> visibleCards = new ArrayList<>();
     private final List<StorageKey> defaultOrder = new ArrayList<>();
@@ -78,8 +82,23 @@ public class StorageOverlayLayout {
     private @Nullable Rect toolkitButtonBounds;
     private @Nullable Rect settingsButtonBounds;
     private @Nullable Rect themeButtonBounds;
+    private @Nullable Rect editButtonBounds;
     private @Nullable Rect inventoryBounds;
     private @Nullable Rect overviewBounds;
+
+    public StorageOverlayLayout() {
+        this(false, false);
+    }
+
+    private StorageOverlayLayout(boolean editMode, boolean editRiftContext) {
+        this.editMode = editMode;
+        this.editRiftContext = editRiftContext;
+    }
+
+    /** Edit mode has no live page to infer the context from, so it is given explicitly. */
+    public static StorageOverlayLayout forEditMode(boolean rift) {
+        return new StorageOverlayLayout(true, rift);
+    }
 
     public static int computeColumns(int width) {
         int cardWidth = CARD_BORDER * 2 + SLOTS_ACROSS * SLOT_SIZE;
@@ -193,6 +212,11 @@ public class StorageOverlayLayout {
         return Identifier.fromNamespaceAndPath(MOD_ID, "icons/gear_icon");
     }
 
+
+    private static Identifier getEditIcon() {
+        return Identifier.fromNamespaceAndPath(MOD_ID, "icons/edit_icon");
+    }
+
     private static ItemStack buildToolkitIcon() {
         ItemStack stack = new ItemStack(Items.PAPER);
         stack.set(DataComponents.ITEM_MODEL,
@@ -272,14 +296,19 @@ public class StorageOverlayLayout {
 
         buildBottomPanels(screen, width, mainBackground);
         addOverviewIndexItems(liveKey);
-        addPanelTitle(inventoryPanel, "Inventory", OverlayTheme.titleColor());
+        if (editMode) {
+            addPanelTitle(inventoryPanel, "Edit Mode", EDIT_MODE_TITLE_COLOR);
+            addEditModeHints(inventoryPanel);
+        } else {
+            addPanelTitle(inventoryPanel, "Inventory", OverlayTheme.titleColor());
+        }
         if (overviewPanel != null) {
             boolean overviewActive = liveKey != null && liveKey.type() == StorageKey.Type.STORAGE_INDEX;
             addPanelTitle(overviewPanel, "Storage Overview", overviewActive ? 0xFFFFD24A : OverlayTheme.titleColor());
         }
 
         ensureWarmupQueue();
-        buildSearchBox(screen);
+        if (!editMode) buildSearchBox(screen);
         buildButtons(screen, width, height);
     }
 
@@ -289,7 +318,7 @@ public class StorageOverlayLayout {
         this.state = state;
         this.actions = actions;
         this.titleAreaHeight = font.lineHeight + 2;
-        this.riftContext = liveKey != null && liveKey.type() == StorageKey.Type.RIFT;
+        this.riftContext = editMode ? editRiftContext : liveKey != null && liveKey.type() == StorageKey.Type.RIFT;
         this.openCard = null;
         this.searchDirty = false;
         this.liveRowTop = -1;
@@ -301,6 +330,7 @@ public class StorageOverlayLayout {
         this.toolkitButtonBounds = null;
         this.settingsButtonBounds = null;
         this.themeButtonBounds = null;
+        this.editButtonBounds = null;
     }
 
     private void computeGeometry(int width) {
@@ -359,6 +389,7 @@ public class StorageOverlayLayout {
                     items,
                     isLive || cached,
                     isLive,
+                    !editMode,
                     CARD_BORDER, titleAreaHeight, SLOTS_ACROSS, SLOT_SIZE,
                     actions.onCardClick()
             );
@@ -378,8 +409,14 @@ public class StorageOverlayLayout {
         mainBackground.addWidget(viewport);
         this.pageOverview = viewport;
 
-        reflowRows(state.getSearchQuery());
+        reflowRows(activeQuery());
         viewport.setScrollAmount(state.getScrollAmount());
+    }
+
+
+    // A remembered search could hide or dim pages the player is trying to arrange. So we set the search box to empty when entering edit mode and restore it when leaving.
+    private String activeQuery() {
+        return editMode ? "" : state.getSearchQuery();
     }
 
     private void buildBottomPanels(IScreen screen, int width, SpriteComponent mainBackground) {
@@ -445,6 +482,18 @@ public class StorageOverlayLayout {
         panel.addComponent(title);
     }
 
+    // The inventory panel is empty in edit mode, so we reuse it to show hints about how to use edit mode.
+    private void addEditModeHints(SpriteComponent panel) {
+        int y = 18;
+        for (String hint : EDIT_MODE_HINTS) {
+            TextComponent text = new TextComponent(7, y, Component.literal(hint), OverlayTheme.titleColor());
+            text.updateParentPosition(panel.getTotalX(), panel.getTotalY(), panel.getWidth(), panel.getHeight());
+            text.setDrawShadow(OverlayTheme.titleShadow());
+            panel.addComponent(text);
+            y += font.lineHeight + 2;
+        }
+    }
+
     private void ensureWarmupQueue() {
         if (warmupQueue != null) return;
         warmupQueue = new ArrayDeque<>();
@@ -475,7 +524,7 @@ public class StorageOverlayLayout {
         final int btnY = inventoryPanel.getTotalY() + 2;
         int btnX = inventoryPanel.getTotalX() + INVENTORY_WIDTH + 2;
 
-        if (EnhancedStorageConfig.showToolkitButton && !riftContext) {
+        if (EnhancedStorageConfig.showToolkitButton && !riftContext && !editMode) {
             ItemButtonComponent toolkit = new ItemButtonComponent(btnX, btnY, btnSize, btnSize, buildToolkitIcon());
             this.toolkitButtonBounds = placeButton(screen, toolkit, btnX, btnY, btnSize, width, height);
             btnX += btnSize + btnGap;
@@ -500,6 +549,17 @@ public class StorageOverlayLayout {
                             Component.literal("Click to cycle")
                                     .withStyle(s -> s.withColor(0xFFAA00).withItalic(false))));
             this.themeButtonBounds = placeButton(screen, theme, btnX, btnY, btnSize, width, height);
+            btnX += btnSize + btnGap;
+        }
+
+        // We always show the edit button in edit mode, so the player can exit it. Otherwise, only show it if the config allows.
+        if (EnhancedStorageConfig.showEditButton || editMode) {
+            IconButtonComponent edit = new IconButtonComponent(
+                    btnX, btnY, btnSize, btnSize,
+                    getEditIcon(), iconSize,
+                    List.of(Component.literal(editMode ? "Exit Edit Mode" : "Edit Layout")
+                            .withStyle(s -> s.withColor(0x55FF55).withItalic(false))));
+            this.editButtonBounds = placeButton(screen, edit, btnX, btnY, btnSize, width, height);
         }
     }
 
@@ -546,6 +606,10 @@ public class StorageOverlayLayout {
         if (Rect.contains(themeButtonBounds, x, y)) {
             OverlayTheme.cycle();
             actions.rebuild().run();
+            return true;
+        }
+        if (Rect.contains(editButtonBounds, x, y)) {
+            actions.toggleEditMode().run();
             return true;
         }
         return false;

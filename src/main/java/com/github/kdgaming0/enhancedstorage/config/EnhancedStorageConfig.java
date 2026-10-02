@@ -26,6 +26,9 @@ public class EnhancedStorageConfig extends MidnightConfig {
     @Entry(category = CATEGORY_GENERAL)
     public static boolean showThemeButton = true;
 
+    @Entry(category = CATEGORY_GENERAL)
+    public static boolean showEditButton = true;
+
     @Comment(category = CATEGORY_GENERAL)
     public static Comment spacerAppearance;
 

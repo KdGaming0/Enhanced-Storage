@@ -17,14 +17,16 @@ public record OverlayActions(
         Consumer<StorageKey> onCardClick,
         Consumer<String> sendCommand,
         Runnable openSettings,
+        Runnable toggleEditMode,
         Runnable rebuild) {
 
-    public static OverlayActions create(Screen parent, StorageOverlayState state,
-                                        Consumer<StorageKey> onCardClick, Runnable rebuild) {
+    public static OverlayActions create(Screen parent, StorageOverlayState state, Consumer<StorageKey> onCardClick,
+                                        Runnable toggleEditMode, Runnable rebuild) {
         return new OverlayActions(
                 onCardClick,
                 command -> sendCommand(state, command),
                 () -> Minecraft.getInstance().setScreen(MidnightConfig.getScreen(parent, EnhancedStorage.MOD_ID)),
+                toggleEditMode,
                 rebuild);
     }
 

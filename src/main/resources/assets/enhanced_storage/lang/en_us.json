@@ -25,6 +25,9 @@
   "enhanced_storage.midnightconfig.showThemeButton": "Show Theme Button",
   "enhanced_storage.midnightconfig.showThemeButton.tooltip": "Show the Theme button beside the inventory panel. Click to cycle the background style between transparent, dark, and light.",
 
+  "enhanced_storage.midnightconfig.showEditButton": "Show Edit Button",
+  "enhanced_storage.midnightconfig.showEditButton.tooltip": "Show the Edit button beside the inventory panel. Click to open the Enhanced Storage edit mode.",
+
   "enhanced_storage.midnightconfig.backgroundType": "Background Style",
   "enhanced_storage.midnightconfig.backgroundType.tooltip": "Visual style for the overlay background: light, dark, or transparent.",
 

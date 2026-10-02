@@ -40,7 +40,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
     private final StorageKey openKey;
     private final StorageOverlayState state = StorageOverlayState.session();
-    private final OverlayActions actions = OverlayActions.create(this, state, this::onPageCardClicked, this::rebuildWidgets);
+    private final OverlayActions actions = OverlayActions.create(this, state, this::onPageCardClicked, this::enterEditMode, this::rebuildWidgets);
     private final StorageOverlayLayout layout = new StorageOverlayLayout();
     private final LiveSlotPlacer slotPlacer;
     private final LiveSlotSearch liveSearch = new LiveSlotSearch();
@@ -355,6 +355,15 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         if (command == null) return;
 
         OverlayActions.sendCommand(state, command);
+    }
+
+    private void enterEditMode() {
+        // Prevent opening the edit screen while dragging an item.
+        if (!this.menu.getCarried().isEmpty()) return;
+
+        boolean rift = openKey.type() == StorageKey.Type.RIFT;
+        this.minecraft.player.closeContainer();
+        this.minecraft.setScreen(StorageOverlay.forEditMode(rift, true));
     }
 
     private boolean isOverOverviewPanel(double mx, double my) {

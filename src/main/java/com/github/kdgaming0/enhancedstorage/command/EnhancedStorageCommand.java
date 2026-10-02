@@ -47,6 +47,10 @@ public class EnhancedStorageCommand {
                                 .executes(EnhancedStorageCommand::executeStorageSearch)))
                 .then(literal("config")
                         .executes(EnhancedStorageCommand::executeOpenConfig))
+                .then(literal("edit")
+                        .executes(ctx -> executeEdit(false))
+                        .then(literal("rift")
+                                .executes(ctx -> executeEdit(true))))
                 .then(literal("test_storage")
                         .executes(EnhancedStorageCommand::executeTestStorage))
                 .then(literal("debug")
@@ -115,6 +119,13 @@ public class EnhancedStorageCommand {
         Minecraft.getInstance().schedule(() -> Minecraft.getInstance().setScreen(new StorageOverlay()));
 
         ctx.getSource().sendFeedback(Component.literal("§a[EnhancedStorage] Opening test storage overlay..."));
+        return 1;
+    }
+
+
+    private static int executeEdit(boolean rift) {
+        Minecraft client = Minecraft.getInstance();
+        client.schedule(() -> client.setScreen(StorageOverlay.forEditMode(rift, false)));
         return 1;
     }
 
