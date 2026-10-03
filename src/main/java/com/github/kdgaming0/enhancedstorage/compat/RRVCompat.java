@@ -13,13 +13,13 @@ import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 
 public final class RRVCompat {
+    private static final MethodType HIGHLIGHT_TYPE = MethodType.methodType(void.class, ItemViewOverlay.class, Screen.class, GuiGraphicsExtractor.class, int.class, int.class, float.class);
+    private static final MethodHandle RENDER_ITEM_HIGHLIGHTING = bindRenderItemHighlighting();
     private static boolean renderingEarly = false;
     private static boolean renderingHighlightLate = false;
 
-    private static final MethodType HIGHLIGHT_TYPE = MethodType.methodType(void.class, ItemViewOverlay.class, Screen.class, GuiGraphicsExtractor.class, int.class, int.class, float.class);
-    private static final MethodHandle RENDER_ITEM_HIGHLIGHTING = bindRenderItemHighlighting();
-
-    private RRVCompat() {}
+    private RRVCompat() {
+    }
 
     public static boolean isRenderingEarly() {
         return renderingEarly;

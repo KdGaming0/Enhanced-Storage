@@ -2,10 +2,12 @@ package com.github.kdgaming0.enhancedstorage;
 
 import com.github.kdgaming0.enhancedstorage.command.EnhancedStorageCommand;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
-import com.github.kdgaming0.enhancedstorage.gui.CopyHighlight;
+import com.github.kdgaming0.enhancedstorage.gui.highlight.CopyHighlight;
 import com.github.kdgaming0.enhancedstorage.screen.StorageContainerScreen;
-import com.github.kdgaming0.enhancedstorage.storage.*;
+import com.github.kdgaming0.enhancedstorage.storage.StorageEvents;
+import com.github.kdgaming0.enhancedstorage.storage.capture.StorageCaptureHandler;
 import com.github.kdgaming0.enhancedstorage.storage.data.*;
+import com.github.kdgaming0.enhancedstorage.storage.profile.ProfileIdRequester;
 import com.github.kdgaming0.enhancedstorage.storage.profile.ProfileSession;
 import com.github.kdgaming0.enhancedstorage.storage.profile.StorageLifecycle;
 import com.github.kdgaming0.enhancedstorage.util.SkyblockState;

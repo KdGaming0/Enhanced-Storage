@@ -9,7 +9,20 @@ import com.daqem.uilib.gui.component.text.TextComponent;
 import com.daqem.uilib.gui.component.text.TruncatedTextComponent;
 import com.daqem.uilib.gui.widget.EditBoxWidget;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
-import com.github.kdgaming0.enhancedstorage.gui.component.*;
+import com.github.kdgaming0.enhancedstorage.gui.component.common.IconButtonComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.common.ItemButtonComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.navigation.NavigationRowComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.navigation.NavigationTitleComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.page.*;
+import com.github.kdgaming0.enhancedstorage.gui.component.section.RowBreakComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.section.SectionEndComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.section.SectionHeaderComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.section.StackJoinComponent;
+import com.github.kdgaming0.enhancedstorage.gui.highlight.CopyHighlight;
+import com.github.kdgaming0.enhancedstorage.gui.layout.IndexGrid;
+import com.github.kdgaming0.enhancedstorage.gui.layout.PageViewport;
+import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
+import com.github.kdgaming0.enhancedstorage.gui.layout.RowFlow;
 import com.github.kdgaming0.enhancedstorage.storage.data.*;
 import com.github.kdgaming0.enhancedstorage.storage.profile.ProfileSession;
 import com.github.kdgaming0.enhancedstorage.util.ItemModels;
@@ -53,12 +66,13 @@ public class StorageOverlayLayout {
     private static final int OVERVIEW_HEIGHT = 85;
     private static final long WARMUP_BUDGET_MS = 3;
     private static final int EDIT_MODE_TITLE_COLOR = 0xFFFFD24A;
-    private static final List<String> EDIT_MODE_HINTS = List.of(
-            "Click a page title to rename it.",
-            "Drag pages, or sections by the grip.",
-            "Right-click for more options.",
-            "Hover between rows to add a section.",
-            "Drop on a page's edge to stack.");
+    private static final List<Hint> EDIT_MODE_HINTS = List.of(
+            new Hint("Click title", "Rename"),
+            new Hint("Drag page", "Move it"),
+            new Hint("Drag grip", "Move section"),
+            new Hint("Right-click", "More options"),
+            new Hint("Hover gap", "Add section"),
+            new Hint("Drop on edge", "Stack pages"));
     private static final int SECTION_LINE_REACH = 3;
     private static final int SECTION_INSET = 4;
     private static final int NAV_GAP = 2;
@@ -119,7 +133,6 @@ public class StorageOverlayLayout {
     private @Nullable Rect resetButtonBounds;
     private @Nullable Rect inventoryBounds;
     private @Nullable Rect overviewBounds;
-
     public StorageOverlayLayout() {
         this(false, false);
     }
@@ -144,26 +157,6 @@ public class StorageOverlayLayout {
         return PageWidths.getInstance().get(key)
                 .map(width -> Math.clamp(width, PageWidths.MIN_WIDTH, PageWidths.MAX_WIDTH))
                 .orElse(pageWidth());
-    }
-
-    private int slotCount(StorageKey key) {
-        if (key.equals(liveKey)) return (liveRows - 1) * SLOTS_ACROSS;
-        return PageCache.getInstance().get(key).map(page -> page.items().size()).orElse(0);
-    }
-
-    private int slotsAcross(StorageKey key) {
-        int chosen = Math.min(pageWidth(key), maxSlotsAcross);
-        int count = slotCount(key);
-        return count == 0 ? chosen : Math.clamp(count, PageWidths.MIN_WIDTH, chosen);
-    }
-
-    private int cardWidthFor(StorageKey key) {
-        return CARD_BORDER * 2 + slotsAcross(key) * SLOT_SIZE;
-    }
-
-    private int cardHeightFor(StorageKey key) {
-        if (!key.equals(liveKey) && PageCache.getInstance().get(key).isEmpty()) return UNCACHED_CARD_HEIGHT;
-        return CARD_BORDER * 2 + titleAreaHeight + Math.max(1, Math.ceilDiv(slotCount(key), slotsAcross(key))) * SLOT_SIZE;
     }
 
     public static int computeMainBackgroundHeight(int height) {
@@ -250,11 +243,9 @@ public class StorageOverlayLayout {
         return Identifier.fromNamespaceAndPath(MOD_ID, "icons/gear_icon");
     }
 
-
     private static Identifier getEditIcon() {
         return Identifier.fromNamespaceAndPath(MOD_ID, "icons/edit_icon");
     }
-
 
     private static Identifier getResetIcon() {
         return Identifier.fromNamespaceAndPath(MOD_ID, "icons/reset_icon");
@@ -270,6 +261,212 @@ public class StorageOverlayLayout {
         return stack;
     }
 
+    private static int widestRow(List<RowFlow.Box> boxes, int limit) {
+        int widest = 0;
+        int start = 0;
+        while (start < boxes.size()) {
+            RowFlow.Row row = RowFlow.pack(boxes, start, boxes.size(), limit,
+                    EnhancedStorageConfig.cardSpacing, UNCACHED_CARD_HEIGHT);
+            widest = Math.max(widest, row.width());
+            start = row.end();
+        }
+        return widest;
+    }
+
+    private static boolean anySectionOpen(List<LayoutEntry> entries) {
+        return entries.stream().anyMatch(entry -> entry instanceof LayoutEntry.Section section && !section.collapsed());
+    }
+
+    private static List<LayoutEntry> closeSections(List<LayoutEntry> entries) {
+        List<LayoutEntry> result = new ArrayList<>();
+        boolean inSection = false;
+        for (LayoutEntry entry : entries) {
+            switch (entry) {
+                case LayoutEntry.Section section -> {
+                    if (inSection) result.add(new LayoutEntry.SectionEnd());
+                    result.add(section);
+                    inSection = true;
+                }
+                case LayoutEntry.SectionEnd end -> {
+                    if (inSection) result.add(end);
+                    inSection = false;
+                }
+                default -> result.add(entry);
+            }
+        }
+        if (inSection) result.add(new LayoutEntry.SectionEnd());
+        return result;
+    }
+
+    static boolean isLink(List<GridCellComponent> order, int i) {
+        return i > 0 && i + 1 < order.size() && order.get(i) instanceof StackJoinComponent
+                && order.get(i - 1) instanceof PageCardComponent && order.get(i + 1) instanceof PageCardComponent;
+    }
+
+    static int stackStart(List<GridCellComponent> order, int i) {
+        while (isLink(order, i - 1)) i -= 2;
+        return i;
+    }
+
+    static int stackEnd(List<GridCellComponent> order, int i) {
+        while (isLink(order, i + 1)) i += 2;
+        return i + 1;
+    }
+
+    private static List<LayoutEntry> cleanJoins(List<LayoutEntry> entries) {
+        List<LayoutEntry> result = new ArrayList<>();
+        for (int i = 0; i < entries.size(); i++) {
+            LayoutEntry entry = entries.get(i);
+            if (entry instanceof LayoutEntry.StackJoin) {
+                boolean linked = !result.isEmpty() && result.getLast() instanceof LayoutEntry.Page
+                        && i + 1 < entries.size() && entries.get(i + 1) instanceof LayoutEntry.Page;
+                if (!linked) continue;
+            }
+            result.add(entry);
+        }
+        return result;
+    }
+
+    private static boolean canSplitBefore(PlacedRow row, @Nullable PlacedRow above, boolean nextToSectionsOnly) {
+        if (row.first() instanceof SectionHeaderComponent) return true;
+        if (row.section() != null) return false;
+        return above == null || above.section() != null || !nextToSectionsOnly;
+    }
+
+    private static List<StorageKey> pageKeys(List<LayoutEntry> entries) {
+        List<StorageKey> keys = new ArrayList<>();
+        for (LayoutEntry entry : entries) {
+            if (entry instanceof LayoutEntry.Page(StorageKey key)) keys.add(key);
+        }
+        return keys;
+    }
+
+    private static int freeSlots(StorageKey key) {
+        return PageCache.getInstance().get(key).map(PageCache.CachedPage::emptySlots).orElse(0);
+    }
+
+    private static void addPanelTitle(SpriteComponent panel, String text, int color) {
+        addPanelText(panel, 7, 3, text, color);
+    }
+
+    private static void addPanelText(SpriteComponent panel, int x, int y, String text, int color) {
+        TextComponent component = new TextComponent(x, y, Component.literal(text), color);
+        component.updateParentPosition(panel.getTotalX(), panel.getTotalY(), panel.getWidth(), panel.getHeight());
+        component.setDrawShadow(OverlayTheme.titleShadow());
+        panel.addComponent(component);
+    }
+
+    private static Rect placeButton(IScreen screen, AbstractComponent button, int x, int y, int size,
+                                    int screenWidth, int screenHeight) {
+        button.updateParentPosition(0, 0, screenWidth, screenHeight);
+        screen.addComponent(button);
+        return new Rect(x, y, size, size);
+    }
+
+    /**
+     * Headers and the end marker sit alone on their row, so they also end the row before them.
+     */
+    private static int nextBoundary(List<List<GridCellComponent>> groups, int from) {
+        int i = from;
+        while (i < groups.size() && !isBoundary(groups.get(i).getFirst())
+                && !(groups.get(i).getFirst() instanceof RowBreakComponent)) i++;
+        return i;
+    }
+
+    private static boolean endsSectionAt(List<List<GridCellComponent>> groups, int index) {
+        while (index < groups.size() && groups.get(index).getFirst() instanceof RowBreakComponent) index++;
+        return index == groups.size() || isBoundary(groups.get(index).getFirst());
+    }
+
+    /**
+     * Splits cells into flow items: linked pages become one group; joins themselves take no place.
+     */
+    private static List<List<GridCellComponent>> groupStacks(List<GridCellComponent> cells) {
+        List<List<GridCellComponent>> groups = new ArrayList<>();
+        int i = 0;
+        while (i < cells.size()) {
+            // Joins inside a stack are stepped over below; any other join links nothing.
+            if (cells.get(i) instanceof StackJoinComponent) {
+                i++;
+                continue;
+            }
+            int end = stackEnd(cells, i);
+            List<GridCellComponent> group = new ArrayList<>();
+            for (int j = i; j < end; j += 2) group.add(cells.get(j));
+            groups.add(group);
+            i = end;
+        }
+        return groups;
+    }
+
+    private static RowFlow.Box boxOf(List<GridCellComponent> group, int spacing) {
+        GridCellComponent first = group.getFirst();
+        if (!(first instanceof PageCardComponent)) return new RowFlow.Box(first.getWidth(), 0);
+        int width = 0;
+        int height = -spacing;
+        for (GridCellComponent cell : group) {
+            width = Math.max(width, cell.getWidth());
+            height += cell.getHeight() + spacing;
+        }
+        return new RowFlow.Box(width, height);
+    }
+
+    private static boolean isBoundary(GridCellComponent cell) {
+        return cell instanceof SectionHeaderComponent || cell instanceof SectionEndComponent;
+    }
+
+    // While searching, a header with no matching pages under it is only noise.
+    private static void hideEmptySections(List<GridCellComponent> list) {
+        boolean pageBelow = false;
+        for (int i = list.size() - 1; i >= 0; i--) {
+            GridCellComponent cell = list.get(i);
+            if (cell instanceof SectionHeaderComponent) {
+                if (!pageBelow) list.remove(i);
+                pageBelow = false;
+            } else pageBelow = !(cell instanceof SectionEndComponent);
+        }
+    }
+
+    private static boolean nameMatches(String name, String query) {
+        return EnhancedStorageConfig.searchPageAndSectionNames
+                && TextUtils.stripString(name).contains(TextUtils.stripString(query));
+    }
+
+    private static boolean customNameMatches(StorageKey key, String query) {
+        return PageNames.getInstance().get(key).map(name -> nameMatches(name, query)).orElse(false);
+    }
+
+    private static boolean isArrow(int key) {
+        return key == GLFW.GLFW_KEY_UP || key == GLFW.GLFW_KEY_DOWN
+                || key == GLFW.GLFW_KEY_LEFT || key == GLFW.GLFW_KEY_RIGHT;
+    }
+
+    private static String emptySlotsDescription(StorageKey key) {
+        return PageCache.getInstance().get(key).map(page -> {
+            int empty = page.emptySlots();
+            return empty == 0 ? "Full: no empty slots" : empty == 1 ? "1 empty slot" : empty + " empty slots";
+        }).orElse("Not cached yet: open it once to see it here");
+    }
+
+    private int slotCount(StorageKey key) {
+        if (key.equals(liveKey)) return (liveRows - 1) * SLOTS_ACROSS;
+        return PageCache.getInstance().get(key).map(page -> page.items().size()).orElse(0);
+    }
+
+    private int slotsAcross(StorageKey key) {
+        int chosen = Math.min(pageWidth(key), maxSlotsAcross);
+        int count = slotCount(key);
+        return count == 0 ? chosen : Math.clamp(count, PageWidths.MIN_WIDTH, chosen);
+    }
+
+    private int cardWidthFor(StorageKey key) {
+        return CARD_BORDER * 2 + slotsAcross(key) * SLOT_SIZE;
+    }
+
+    private int cardHeightFor(StorageKey key) {
+        if (!key.equals(liveKey) && PageCache.getInstance().get(key).isEmpty()) return UNCACHED_CARD_HEIGHT;
+        return CARD_BORDER * 2 + titleAreaHeight + Math.max(1, Math.ceilDiv(slotCount(key), slotsAcross(key))) * SLOT_SIZE;
+    }
 
     public int getMainBackgroundX() {
         return mainBackgroundX;
@@ -305,7 +502,7 @@ public class StorageOverlayLayout {
 
     public void searchFor(ItemStack stack) {
         if (searchBox == null || stack.isEmpty()) return;
-        String name = TextUtils.normalizeWhitespace(ChatFormatting.stripFormatting(stack.getHoverName().getString()));
+        String name = ItemSearch.searchTermFor(stack);
         searchBox.setValue(name);
         state.setSearchQuery(name);
         searchDirty = true;
@@ -475,18 +672,6 @@ public class StorageOverlayLayout {
         return Math.max(widest, widestRow(segment, limit));
     }
 
-    private static int widestRow(List<RowFlow.Box> boxes, int limit) {
-        int widest = 0;
-        int start = 0;
-        while (start < boxes.size()) {
-            RowFlow.Row row = RowFlow.pack(boxes, start, boxes.size(), limit,
-                    EnhancedStorageConfig.cardSpacing, UNCACHED_CARD_HEIGHT);
-            widest = Math.max(widest, row.width());
-            start = row.end();
-        }
-        return widest;
-    }
-
     private int navigationSpace() {
         return mainBackgroundX - EnhancedStorageConfig.horizontalMargin / 2 - NAV_GAP;
     }
@@ -527,10 +712,6 @@ public class StorageOverlayLayout {
         this.navigationList = list;
     }
 
-    private static boolean anySectionOpen(List<LayoutEntry> entries) {
-        return entries.stream().anyMatch(entry -> entry instanceof LayoutEntry.Section section && !section.collapsed());
-    }
-
     private List<LayoutEntry> collectEntries(@Nullable StorageKey liveKey) {
         List<StorageKey> keys = Stream.concat(
                         Stream.ofNullable(liveKey),
@@ -546,27 +727,6 @@ public class StorageOverlayLayout {
         List<LayoutEntry> entries = PageLayout.getInstance().resolve(PageLayout.Context.of(riftContext), keys)
                 .orElseGet(() -> applyCustomOrder(keys).stream().<LayoutEntry>map(LayoutEntry.Page::new).toList());
         return closeSections(entries);
-    }
-
-    private static List<LayoutEntry> closeSections(List<LayoutEntry> entries) {
-        List<LayoutEntry> result = new ArrayList<>();
-        boolean inSection = false;
-        for (LayoutEntry entry : entries) {
-            switch (entry) {
-                case LayoutEntry.Section section -> {
-                    if (inSection) result.add(new LayoutEntry.SectionEnd());
-                    result.add(section);
-                    inSection = true;
-                }
-                case LayoutEntry.SectionEnd end -> {
-                    if (inSection) result.add(end);
-                    inSection = false;
-                }
-                default -> result.add(entry);
-            }
-        }
-        if (inSection) result.add(new LayoutEntry.SectionEnd());
-        return result;
     }
 
     public void saveOrder(List<LayoutEntry> order) {
@@ -625,42 +785,10 @@ public class StorageOverlayLayout {
         return max + 1;
     }
 
-    static boolean isLink(List<GridCellComponent> order, int i) {
-        return i > 0 && i + 1 < order.size() && order.get(i) instanceof StackJoinComponent
-                && order.get(i - 1) instanceof PageCardComponent && order.get(i + 1) instanceof PageCardComponent;
-    }
-
-    static int stackStart(List<GridCellComponent> order, int i) {
-        while (isLink(order, i - 1)) i -= 2;
-        return i;
-    }
-
-    static int stackEnd(List<GridCellComponent> order, int i) {
-        while (isLink(order, i + 1)) i += 2;
-        return i + 1;
-    }
-
-    private static List<LayoutEntry> cleanJoins(List<LayoutEntry> entries) {
-        List<LayoutEntry> result = new ArrayList<>();
-        for (int i = 0; i < entries.size(); i++) {
-            LayoutEntry entry = entries.get(i);
-            if (entry instanceof LayoutEntry.StackJoin) {
-                boolean linked = !result.isEmpty() && result.getLast() instanceof LayoutEntry.Page
-                        && i + 1 < entries.size() && entries.get(i + 1) instanceof LayoutEntry.Page;
-                if (!linked) continue;
-            }
-            result.add(entry);
-        }
-        return result;
-    }
-
     boolean isPastLastCell(double x, double y) {
         if (rows.isEmpty() || !Rect.contains(getPageOverviewBounds(), x, y)) return false;
         Rect last = rows.getLast().last().bounds();
         return y >= last.bottom() || (y >= last.y() && x >= last.right());
-    }
-
-    record SectionSlot(int index, int x, int lineY, int width) {
     }
 
     @Nullable SectionSlot sectionSlotAt(double x, double y) {
@@ -699,12 +827,6 @@ public class StorageOverlayLayout {
         return null;
     }
 
-    private static boolean canSplitBefore(PlacedRow row, @Nullable PlacedRow above, boolean nextToSectionsOnly) {
-        if (row.first() instanceof SectionHeaderComponent) return true;
-        if (row.section() != null) return false;
-        return above == null || above.section() != null || !nextToSectionsOnly;
-    }
-
     Rect boundaryArea() {
         Rect viewport = Objects.requireNonNull(getPageOverviewBounds());
         return new Rect(viewport.x(), viewport.y() - INNER_PADDING, viewport.width(), viewport.height() + INNER_PADDING * 2);
@@ -736,27 +858,6 @@ public class StorageOverlayLayout {
         return -1;
     }
 
-    record PlacedRow(EmptyComponent component, List<GridCellComponent> cells,
-                     @Nullable SectionHeaderComponent section) {
-        GridCellComponent first() {
-            return cells.getFirst();
-        }
-
-        GridCellComponent last() {
-            return cells.getLast();
-        }
-
-        Rect bounds() {
-            return new Rect(component.getTotalX(), component.getTotalY(), component.getWidth(), component.getHeight());
-        }
-    }
-
-    record RowBreakMark(RowBreakComponent cell, EmptyComponent row, int x, int width, int height) {
-        Rect bounds() {
-            return new Rect(row.getTotalX() + x, row.getTotalY(), width, height);
-        }
-    }
-
     List<RowBreakMark> getRowBreakMarks() {
         return rowBreakMarks;
     }
@@ -781,19 +882,61 @@ public class StorageOverlayLayout {
         return riftContext;
     }
 
-    /**
-     * Restores defaults for the current context only.
-     */
-    public void resetLayout(boolean order, boolean names) {
-        if (order) {
-            PageLayout.getInstance().clear(PageLayout.Context.of(riftContext));
-            for (StorageKey key : List.copyOf(PageOrder.getInstance().all().keySet())) {
-                if (inContext(key)) PageOrder.getInstance().clear(key);
+    public int customCount(ResetPart part) {
+        List<LayoutEntry> entries = currentEntries();
+        return switch (part) {
+            case ORDER -> {
+                List<StorageKey> pages = pageKeys(entries);
+                List<StorageKey> sorted = pages.stream().sorted(StorageKey.DISPLAY_ORDER).toList();
+                int moved = 0;
+                for (int i = 0; i < pages.size(); i++) {
+                    if (!pages.get(i).equals(sorted.get(i))) moved++;
+                }
+                yield moved;
+            }
+            case NAMES -> (int) PageNames.getInstance().all().keySet().stream().filter(this::inContext).count();
+            case WIDTHS -> (int) PageWidths.getInstance().all().keySet().stream().filter(this::inContext).count();
+            case SECTIONS -> (int) entries.stream().filter(LayoutEntry.Section.class::isInstance).count();
+            case SPACERS -> (int) entries.stream()
+                    .filter(e -> e instanceof LayoutEntry.Spacer || e instanceof LayoutEntry.RowBreak).count();
+            case STACKS -> (int) entries.stream().filter(LayoutEntry.StackJoin.class::isInstance).count();
+        };
+    }
+
+    public void resetLayout(Set<ResetPart> parts) {
+        List<LayoutEntry> entries = currentEntries();
+        if (parts.contains(ResetPart.ORDER)) {
+            Iterator<StorageKey> sorted = pageKeys(entries).stream().sorted(StorageKey.DISPLAY_ORDER).iterator();
+            entries.replaceAll(entry -> entry instanceof LayoutEntry.Page ? new LayoutEntry.Page(sorted.next()) : entry);
+        }
+        entries.removeIf(entry -> switch (entry) {
+            case LayoutEntry.Section _, LayoutEntry.SectionEnd _ -> parts.contains(ResetPart.SECTIONS);
+            case LayoutEntry.Spacer _, LayoutEntry.RowBreak _ -> parts.contains(ResetPart.SPACERS);
+            case LayoutEntry.StackJoin _ -> parts.contains(ResetPart.STACKS) || parts.contains(ResetPart.ORDER);
+            case LayoutEntry.Page _ -> false;
+        });
+
+        if (parts.stream().anyMatch(p -> p != ResetPart.NAMES && p != ResetPart.WIDTHS)) {
+            List<StorageKey> pages = pageKeys(entries);
+            boolean onlyDefaultPages = entries.size() == pages.size()
+                    && pages.equals(pages.stream().sorted(StorageKey.DISPLAY_ORDER).toList());
+            if (onlyDefaultPages) {
+                PageLayout.getInstance().clear(PageLayout.Context.of(riftContext));
+                for (StorageKey key : List.copyOf(PageOrder.getInstance().all().keySet())) {
+                    if (inContext(key)) PageOrder.getInstance().clear(key);
+                }
+            } else {
+                saveOrder(entries);
             }
         }
-        if (names) {
+        if (parts.contains(ResetPart.NAMES)) {
             for (StorageKey key : List.copyOf(PageNames.getInstance().all().keySet())) {
                 if (inContext(key)) PageNames.getInstance().clear(key);
+            }
+        }
+        if (parts.contains(ResetPart.WIDTHS)) {
+            for (StorageKey key : List.copyOf(PageWidths.getInstance().all().keySet())) {
+                if (inContext(key)) PageWidths.getInstance().clear(key);
             }
         }
         ProfileSession.getInstance().saveAll();
@@ -832,10 +975,6 @@ public class StorageOverlayLayout {
         // The open page's slots are placed on its card, so its section stays open until another page is opened.
         boolean collapsed = section.collapsed() && !containsLive;
         return new SectionHeaderComponent(frameWidth, section, collapsed, editMode, pages, free);
-    }
-
-    private static int freeSlots(StorageKey key) {
-        return PageCache.getInstance().get(key).map(PageCache.CachedPage::emptySlots).orElse(0);
     }
 
     private PageCardComponent buildPageCard(StorageKey key, @Nullable StorageKey liveKey, int liveRows) {
@@ -883,7 +1022,6 @@ public class StorageOverlayLayout {
         viewport.setScrollAmount(state.getScrollAmount());
     }
 
-
     // A remembered search could hide or dim pages the player is trying to arrange. So we set the search box to empty when entering edit mode and restore it when leaving.
     private String activeQuery() {
         return editMode ? "" : state.getSearchQuery();
@@ -904,8 +1042,9 @@ public class StorageOverlayLayout {
 
         int panelY = mainBackgroundY + mainBackground.getHeight();
 
+        String inventorySprite = editMode ? OverlayTheme.STORAGE_INVENTORY_FILLED : OverlayTheme.STORAGE_INVENTORY;
         SpriteComponent inventory = new SpriteComponent(inventoryX, panelY, INVENTORY_WIDTH, INVENTORY_HEIGHT,
-                OverlayTheme.sprite(OverlayTheme.STORAGE_INVENTORY));
+                OverlayTheme.sprite(inventorySprite));
         screen.addComponent(inventory);
         this.inventoryPanel = inventory;
         this.inventoryBounds = new Rect(inventory.getTotalX(), inventory.getTotalY(),
@@ -946,21 +1085,14 @@ public class StorageOverlayLayout {
         }
     }
 
-    private static void addPanelTitle(SpriteComponent panel, String text, int color) {
-        TextComponent title = new TextComponent(7, 3, Component.literal(text), color);
-        title.updateParentPosition(panel.getTotalX(), panel.getTotalY(), panel.getWidth(), panel.getHeight());
-        title.setDrawShadow(OverlayTheme.titleShadow());
-        panel.addComponent(title);
-    }
-
     // The inventory panel is empty in edit mode, so we reuse it to show hints about how to use edit mode.
     private void addEditModeHints(SpriteComponent panel) {
-        int y = 18;
-        for (String hint : EDIT_MODE_HINTS) {
-            TextComponent text = new TextComponent(7, y, Component.literal(hint), OverlayTheme.titleColor());
-            text.updateParentPosition(panel.getTotalX(), panel.getTotalY(), panel.getWidth(), panel.getHeight());
-            text.setDrawShadow(OverlayTheme.titleShadow());
-            panel.addComponent(text);
+        int actionWidth = EDIT_MODE_HINTS.stream().mapToInt(h -> font.width(h.action())).max().orElse(0);
+        int resultX = 7 + actionWidth + 8;
+        int y = 17;
+        for (Hint hint : EDIT_MODE_HINTS) {
+            addPanelText(panel, 7, y, hint.action(), OverlayTheme.titleColor());
+            addPanelText(panel, resultX, y, hint.result(), OverlayTheme.secondaryTextColor());
             y += font.lineHeight + 2;
         }
     }
@@ -1044,7 +1176,7 @@ public class StorageOverlayLayout {
                     rowStartX, resetY, btnSize, btnSize,
                     getResetIcon(), iconSize,
                     List.of(Component.literal("Reset Layout").withStyle(s -> s.withColor(0x55FF55).withItalic(false)),
-                            Component.literal("Restore default order or names")
+                            Component.literal("Choose what to restore to default")
                                     .withStyle(s -> s.withColor(0xFFAA00).withItalic(false))));
             this.resetButtonBounds = placeButton(screen, reset, rowStartX, resetY, btnSize, width, height);
         }
@@ -1052,13 +1184,6 @@ public class StorageOverlayLayout {
 
     public boolean isOverResetButton(double x, double y) {
         return Rect.contains(resetButtonBounds, x, y);
-    }
-
-    private static Rect placeButton(IScreen screen, AbstractComponent button, int x, int y, int size,
-                                    int screenWidth, int screenHeight) {
-        button.updateParentPosition(0, 0, screenWidth, screenHeight);
-        screen.addComponent(button);
-        return new Rect(x, y, size, size);
     }
 
     private void applySearch(String query) {
@@ -1361,66 +1486,6 @@ public class StorageOverlayLayout {
         pageOverview.setScrollAmount(pageOverview.scrollAmount() + cell.getTotalY() - pageOverview.getY());
     }
 
-    /** Headers and the end marker sit alone on their row, so they also end the row before them. */
-    private static int nextBoundary(List<List<GridCellComponent>> groups, int from) {
-        int i = from;
-        while (i < groups.size() && !isBoundary(groups.get(i).getFirst())
-                && !(groups.get(i).getFirst() instanceof RowBreakComponent)) i++;
-        return i;
-    }
-
-    private static boolean endsSectionAt(List<List<GridCellComponent>> groups, int index) {
-        while (index < groups.size() && groups.get(index).getFirst() instanceof RowBreakComponent) index++;
-        return index == groups.size() || isBoundary(groups.get(index).getFirst());
-    }
-
-    /** Splits cells into flow items: linked pages become one group; joins themselves take no place. */
-    private static List<List<GridCellComponent>> groupStacks(List<GridCellComponent> cells) {
-        List<List<GridCellComponent>> groups = new ArrayList<>();
-        int i = 0;
-        while (i < cells.size()) {
-            // Joins inside a stack are stepped over below; any other join links nothing.
-            if (cells.get(i) instanceof StackJoinComponent) {
-                i++;
-                continue;
-            }
-            int end = stackEnd(cells, i);
-            List<GridCellComponent> group = new ArrayList<>();
-            for (int j = i; j < end; j += 2) group.add(cells.get(j));
-            groups.add(group);
-            i = end;
-        }
-        return groups;
-    }
-
-    private static RowFlow.Box boxOf(List<GridCellComponent> group, int spacing) {
-        GridCellComponent first = group.getFirst();
-        if (!(first instanceof PageCardComponent)) return new RowFlow.Box(first.getWidth(), 0);
-        int width = 0;
-        int height = -spacing;
-        for (GridCellComponent cell : group) {
-            width = Math.max(width, cell.getWidth());
-            height += cell.getHeight() + spacing;
-        }
-        return new RowFlow.Box(width, height);
-    }
-
-    private static boolean isBoundary(GridCellComponent cell) {
-        return cell instanceof SectionHeaderComponent || cell instanceof SectionEndComponent;
-    }
-
-    // While searching, a header with no matching pages under it is only noise.
-    private static void hideEmptySections(List<GridCellComponent> list) {
-        boolean pageBelow = false;
-        for (int i = list.size() - 1; i >= 0; i--) {
-            GridCellComponent cell = list.get(i);
-            if (cell instanceof SectionHeaderComponent) {
-                if (!pageBelow) list.remove(i);
-                pageBelow = false;
-            } else pageBelow = !(cell instanceof SectionEndComponent);
-        }
-    }
-
     // Dim mode keeps every header, so one with no matching page under it is dimmed instead of hidden.
     private void dimEmptySections(List<GridCellComponent> list) {
         boolean hitBelow = false;
@@ -1434,23 +1499,6 @@ public class StorageOverlayLayout {
             } else if (cell instanceof PageCardComponent && !searchMisses.contains(cell)) {
                 hitBelow = true;
             }
-        }
-    }
-
-    private static boolean nameMatches(String name, String query) {
-        return EnhancedStorageConfig.searchPageAndSectionNames
-                && TextUtils.stripString(name).contains(TextUtils.stripString(query));
-    }
-
-    private static boolean customNameMatches(StorageKey key, String query) {
-        return PageNames.getInstance().get(key).map(name -> nameMatches(name, query)).orElse(false);
-    }
-
-    record SectionFrame(SectionHeaderComponent header, EmptyComponent lastRow) {
-        Rect bounds() {
-            int top = header.getTotalY();
-            int bottom = lastRow.getTotalY() + lastRow.getHeight();
-            return new Rect(header.getTotalX(), top, header.getWidth(), bottom - top);
         }
     }
 
@@ -1514,12 +1562,12 @@ public class StorageOverlayLayout {
         if (navigationTitle != null && navigationTitle.isOverToggle(mouseX, mouseY)) {
             boolean collapse = anySectionOpen(currentEntries());
             graphics.setComponentTooltipForNextFrame(font, List.of(
-                    Component.literal(collapse ? "Collapse all sections" : "Expand all sections"),
-                    Component.literal(collapse
-                                    ? "Hides the pages inside every section in the grid."
-                                    : "Shows the pages inside every section in the grid.")
-                            .withStyle(ChatFormatting.GRAY),
-                    Component.literal("This list always shows every page.").withStyle(ChatFormatting.GRAY)),
+                            Component.literal(collapse ? "Collapse all sections" : "Expand all sections"),
+                            Component.literal(collapse
+                                            ? "Hides the pages inside every section in the grid."
+                                            : "Shows the pages inside every section in the grid.")
+                                    .withStyle(ChatFormatting.GRAY),
+                            Component.literal("This list always shows every page.").withStyle(ChatFormatting.GRAY)),
                     mouseX, mouseY);
             return;
         }
@@ -1585,11 +1633,6 @@ public class StorageOverlayLayout {
         // One page switch at a time; a held key would otherwise send a command per repeat.
         if (target != null && !state.isNavigating()) actions.onCardClick().accept(target);
         return true;
-    }
-
-    private static boolean isArrow(int key) {
-        return key == GLFW.GLFW_KEY_UP || key == GLFW.GLFW_KEY_DOWN
-                || key == GLFW.GLFW_KEY_LEFT || key == GLFW.GLFW_KEY_RIGHT;
     }
 
     private @Nullable StorageKey pageByNumber(int number) {
@@ -1666,13 +1709,6 @@ public class StorageOverlayLayout {
                 .orElse(false);
     }
 
-    private static String emptySlotsDescription(StorageKey key) {
-        return PageCache.getInstance().get(key).map(page -> {
-            int empty = page.emptySlots();
-            return empty == 0 ? "Full: no empty slots" : empty == 1 ? "1 empty slot" : empty + " empty slots";
-        }).orElse("Not cached yet: open it once to see it here");
-    }
-
     private EmptyComponent buildEmptyRow(String query) {
         Component message = query.isBlank()
                 ? Component.literal(riftContext
@@ -1738,5 +1774,59 @@ public class StorageOverlayLayout {
             pageOverview.setScrollAmount(liveRowBottom - viewHeight);
         }
         // else: already fully visible do nothing
+    }
+
+    public enum ResetPart {
+        ORDER("Page order"),
+        NAMES("Page names"),
+        WIDTHS("Page widths"),
+        SECTIONS("Sections"),
+        SPACERS("Spacers & row breaks"),
+        STACKS("Stacked pages");
+
+        private final String label;
+
+        ResetPart(String label) {
+            this.label = label;
+        }
+
+        public String label() {
+            return label;
+        }
+    }
+
+    private record Hint(String action, String result) {
+    }
+
+    record SectionSlot(int index, int x, int lineY, int width) {
+    }
+
+    record PlacedRow(EmptyComponent component, List<GridCellComponent> cells,
+                     @Nullable SectionHeaderComponent section) {
+        GridCellComponent first() {
+            return cells.getFirst();
+        }
+
+        GridCellComponent last() {
+            return cells.getLast();
+        }
+
+        Rect bounds() {
+            return new Rect(component.getTotalX(), component.getTotalY(), component.getWidth(), component.getHeight());
+        }
+    }
+
+    record RowBreakMark(RowBreakComponent cell, EmptyComponent row, int x, int width, int height) {
+        Rect bounds() {
+            return new Rect(row.getTotalX() + x, row.getTotalY(), width, height);
+        }
+    }
+
+    record SectionFrame(SectionHeaderComponent header, EmptyComponent lastRow) {
+        Rect bounds() {
+            int top = header.getTotalY();
+            int bottom = lastRow.getTotalY() + lastRow.getHeight();
+            return new Rect(header.getTotalX(), top, header.getWidth(), bottom - top);
+        }
     }
 }

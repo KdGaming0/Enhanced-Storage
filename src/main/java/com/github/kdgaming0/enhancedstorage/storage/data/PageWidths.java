@@ -3,6 +3,7 @@ package com.github.kdgaming0.enhancedstorage.storage.data;
 import com.github.kdgaming0.enhancedstorage.storage.io.ProfileScopedStore;
 import net.minecraft.nbt.CompoundTag;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -41,6 +42,10 @@ public final class PageWidths extends ProfileScopedStore {
 
     public void clear(StorageKey key) {
         if (widths.remove(key) != null) markDirty();
+    }
+
+    public Map<StorageKey, Integer> all() {
+        return Collections.unmodifiableMap(widths);
     }
 
     @Override

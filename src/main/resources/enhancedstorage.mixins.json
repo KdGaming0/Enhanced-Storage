@@ -4,12 +4,12 @@
   "compatibilityLevel": "JAVA_25",
   "plugin": "com.github.kdgaming0.enhancedstorage.mixin.EnhancedStorageMixinPlugin",
   "mixins": [
-    "compat.RRVItemViewOverlayMixin",
-    "compat.RRVOverlayManagerMixin",
-    "compat.RRVSearchBarMixin",
-    "compat.SkyHanniChestValueMixin",
-    "compat.SkyHanniInventoryUtilsMixin",
-    "compat.SkyHanniRenderDataMixin"
+    "compat.rrv.RRVItemViewOverlayMixin",
+    "compat.rrv.RRVOverlayManagerMixin",
+    "compat.rrv.RRVSearchBarMixin",
+    "compat.skyhanni.SkyHanniChestValueMixin",
+    "compat.skyhanni.SkyHanniInventoryUtilsMixin",
+    "compat.skyhanni.SkyHanniRenderDataMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -28,10 +28,6 @@ public final class PageOrder extends ProfileScopedStore {
         return Optional.ofNullable(positions.get(key));
     }
 
-    public boolean has(StorageKey key) {
-        return positions.containsKey(key);
-    }
-
     public void set(StorageKey key, Integer position) {
         if (position == null) {
             clear(key);

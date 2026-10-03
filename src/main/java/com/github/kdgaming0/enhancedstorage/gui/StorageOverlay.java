@@ -6,7 +6,18 @@ import com.daqem.uilib.gui.component.text.TextComponent;
 import com.daqem.uilib.gui.widget.EditBoxWidget;
 import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
-import com.github.kdgaming0.enhancedstorage.gui.component.*;
+import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayLayout.ResetPart;
+import com.github.kdgaming0.enhancedstorage.gui.component.common.PaintLayerComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.common.PopupComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.page.GridCellComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.page.PageCardComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.page.PageWidthSlider;
+import com.github.kdgaming0.enhancedstorage.gui.component.page.SpacerCardComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.section.RowBreakComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.section.SectionEndComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.section.SectionHeaderComponent;
+import com.github.kdgaming0.enhancedstorage.gui.highlight.CopyHighlight;
+import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
 import com.github.kdgaming0.enhancedstorage.storage.data.*;
 import com.github.kdgaming0.enhancedstorage.storage.profile.ProfileSession;
 import com.mojang.blaze3d.platform.cursor.CursorTypes;
@@ -22,10 +33,7 @@ import net.minecraft.world.item.ItemStack;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Consumer;
 
 /**
@@ -34,21 +42,20 @@ import java.util.function.Consumer;
  */
 public class StorageOverlay extends AbstractScreen {
 
-    private final StorageOverlayState state = StorageOverlayState.session();
-    private final StorageOverlayLayout layout;
-    private final OverlayActions actions = OverlayActions.create(this, state, this::onPageCardClicked, this::toggleEditMode, this::rebuildWidgets);
     static final int DRAG_THRESHOLD = 4;
     private static final int SECTION_LINE_COLOR = 0xFFFFD24A;
     private static final int SECTION_LABEL_BACKGROUND = 0xC0000000;
     private static final String ADD_SECTION_TEXT = "+ Add section here";
     private static final String ROW_BREAK_TEXT = "Row break";
     private static final float ROW_BREAK_ALPHA = 0.5f;
+    private final StorageOverlayState state = StorageOverlayState.session();
+    private final StorageOverlayLayout layout;
+    private final OverlayActions actions = OverlayActions.create(this, state, this::onPageCardClicked, this::toggleEditMode, this::rebuildWidgets);
     private final boolean editMode;
     // Sent on exit to reopen the live menu edit mode was entered from; null means just close.
     private final @Nullable String returnCommand;
-    private boolean returnRequested;
-
     private final CardDragController drag;
+    private boolean returnRequested;
     private @Nullable GridCellComponent pressedCard;
     private boolean pressedOnTitle;
     private boolean pressedOnGrip;
@@ -81,6 +88,14 @@ public class StorageOverlay extends AbstractScreen {
     public static StorageOverlay forEditMode(boolean rift, boolean fromLiveStorage) {
         String returnCommand = fromLiveStorage && !rift ? "storage" : null;
         return new StorageOverlay(StorageOverlayLayout.forEditMode(rift), true, returnCommand);
+    }
+
+    private static boolean isOverRenameTarget(GridCellComponent cell, double x, double y) {
+        return switch (cell) {
+            case PageCardComponent card -> card.isOverTitleRow(x, y);
+            case SectionHeaderComponent header -> header.isOverName(x, y);
+            default -> false;
+        };
     }
 
     @Override
@@ -182,7 +197,7 @@ public class StorageOverlay extends AbstractScreen {
         }
 
         if (editMode && event.button() == 0 && layout.isOverResetButton(event.x(), event.y())) {
-            openResetDialog();
+            openResetDialog(EnumSet.noneOf(ResetPart.class));
             return true;
         }
         if (layout.handleButtonClick(event)) return true;
@@ -576,33 +591,44 @@ public class StorageOverlay extends AbstractScreen {
         rebuildWidgets();
     }
 
-    private static boolean isOverRenameTarget(GridCellComponent cell, double x, double y) {
-        return switch (cell) {
-            case PageCardComponent card -> card.isOverTitleRow(x, y);
-            case SectionHeaderComponent header -> header.isOverName(x, y);
-            default -> false;
-        };
-    }
-
-    private void openResetDialog() {
+    private void openResetDialog(Set<ResetPart> selected) {
         String context = layout.isRiftContext() ? "Rift Storage" : "Storage";
-        popup = PopupComponent.confirm(this.width, this.height, this.font,
+        List<PopupComponent.Toggle> toggles = new ArrayList<>();
+        boolean anyCustom = false;
+        for (ResetPart part : ResetPart.values()) {
+            int count = layout.customCount(part);
+            anyCustom |= count > 0;
+            toggles.add(new PopupComponent.Toggle(part.label(), String.valueOf(count),
+                    selected.contains(part), count > 0, () -> {
+                Set<ResetPart> next = EnumSet.noneOf(ResetPart.class);
+                next.addAll(selected);
+                if (!next.remove(part)) next.add(part);
+                openResetDialog(next);
+            }));
+        }
+        List<PopupComponent.Option> actions = List.of(
+                option("Cancel", () -> {
+                }),
+                option("Reset Everything", anyCustom, () -> resetLayout(EnumSet.allOf(ResetPart.class))),
+                option("Reset Selected", !selected.isEmpty(), () -> resetLayout(selected)));
+        popup = PopupComponent.checklist(this.width, this.height, this.font,
                 List.of(Component.literal("Reset " + context + " layout?"),
-                        Component.literal("This can't be undone.").withStyle(ChatFormatting.RED)),
-                List.of(option("Reset Order", () -> resetLayout(true, false)),
-                        option("Reset Names", () -> resetLayout(false, true)),
-                        option("Reset Both", () -> resetLayout(true, true)),
-                        option("Cancel", () -> {
-                        })));
+                        Component.literal("Select what to restore. This can't be undone.")
+                                .withStyle(ChatFormatting.RED)),
+                toggles, actions);
     }
 
-    private void resetLayout(boolean order, boolean names) {
-        layout.resetLayout(order, names);
+    private void resetLayout(Set<ResetPart> parts) {
+        layout.resetLayout(parts);
         rebuildWidgets();
     }
 
     private PopupComponent.Option option(String label, Runnable action) {
-        return new PopupComponent.Option(label, () -> {
+        return option(label, true, action);
+    }
+
+    private PopupComponent.Option option(String label, boolean enabled, Runnable action) {
+        return new PopupComponent.Option(label, enabled, () -> {
             popup = null;
             action.run();
         });

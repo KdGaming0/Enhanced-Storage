@@ -26,26 +26,16 @@ import static com.github.kdgaming0.enhancedstorage.EnhancedStorage.LOGGER;
  */
 public final class ProfileSession {
 
-    public enum State {
-        UNKNOWN,
-        GUESSED,
-        CONFIRMED
-    }
-
     private static final ProfileSession INSTANCE = new ProfileSession();
-
     private static final long SAVE_DELAY_MS = 10_000;
-
     private final List<ProfileScopedStore> stores = new CopyOnWriteArrayList<>();
-
     // Pages captured while the profile was not confirmed yet
     private final Map<StorageKey, List<ItemStack>> staged = new LinkedHashMap<>();
-
     private volatile State state = State.UNKNOWN;
     private volatile String profileId;
     private long saveDueAt = Long.MAX_VALUE;
-
-    private ProfileSession() {}
+    private ProfileSession() {
+    }
 
     public static ProfileSession getInstance() {
         return INSTANCE;
@@ -57,11 +47,6 @@ public final class ProfileSession {
 
     private static Path pointerFile() {
         return rootDir().resolve("last_profile.txt");
-    }
-
-    private Path profileDir() {
-        String folder = profileId != null ? profileId : "default";
-        return rootDir().resolve("profiles").resolve(folder);
     }
 
     private static Optional<String> readPointer() {
@@ -84,7 +69,14 @@ public final class ProfileSession {
         }
     }
 
-    /** Call once at startup with every store that is saved per profile. */
+    private Path profileDir() {
+        String folder = profileId != null ? profileId : "default";
+        return rootDir().resolve("profiles").resolve(folder);
+    }
+
+    /**
+     * Call once at startup with every store that is saved per profile.
+     */
     public void register(ProfileScopedStore... toRegister) {
         stores.addAll(List.of(toRegister));
     }
@@ -109,12 +101,16 @@ public final class ProfileSession {
         return staged.size();
     }
 
-    /** Saves within {@link #SAVE_DELAY_MS}, so a burst of changes becomes a single write. */
+    /**
+     * Saves within {@link #SAVE_DELAY_MS}, so a burst of changes becomes a single write.
+     */
     public synchronized void requestSave() {
         saveDueAt = Math.min(saveDueAt, System.currentTimeMillis() + SAVE_DELAY_MS);
     }
 
-    /** Call once per client tick. */
+    /**
+     * Call once per client tick.
+     */
     public synchronized void tick() {
         if (System.currentTimeMillis() >= saveDueAt) {
             saveAll();
@@ -140,7 +136,9 @@ public final class ProfileSession {
         }
     }
 
-    /** Joined a world: adopt last session's profile as a guess and load its data. */
+    /**
+     * Joined a world: adopt last session's profile as a guess and load its data.
+     */
     public synchronized void onJoin() {
         staged.clear();
         profileId = readPointer().orElse(null);
@@ -153,13 +151,17 @@ public final class ProfileSession {
         saveAll();
     }
 
-    /** The game is closing: save and wait for the files to be written. */
+    /**
+     * The game is closing: save and wait for the files to be written.
+     */
     public synchronized void onStopping() {
         saveAll();
         AtomicFiles.awaitWrites();
     }
 
-    /** A "Profile ID: ..." line was seen in chat. */
+    /**
+     * A "Profile ID: ..." line was seen in chat.
+     */
     public synchronized void onProfileSeen(String id) {
         if (id == null || id.isBlank()) return;
 
@@ -209,5 +211,11 @@ public final class ProfileSession {
         staged.forEach(cache::put);
         LOGGER.info("Replayed {} pages captured before the profile was known", staged.size());
         staged.clear();
+    }
+
+    public enum State {
+        UNKNOWN,
+        GUESSED,
+        CONFIRMED
     }
 }

@@ -45,3 +45,6 @@ replay_*.log
 IMPLEMENTATION_LOG.md
 graphify-out
 .venv-graphify
+# editor backups
+
+*~

@@ -7,10 +7,14 @@ import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
 import com.github.kdgaming0.enhancedstorage.compat.RRVCompat;
 import com.github.kdgaming0.enhancedstorage.gui.*;
+import com.github.kdgaming0.enhancedstorage.gui.highlight.CopyHighlight;
+import com.github.kdgaming0.enhancedstorage.gui.highlight.SearchHighlight;
+import com.github.kdgaming0.enhancedstorage.gui.layout.IndexGrid;
+import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
 import com.github.kdgaming0.enhancedstorage.mixin.AbstractContainerScreenAccessor;
+import com.github.kdgaming0.enhancedstorage.storage.capture.StorageCaptureHandler;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
 import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
-import com.github.kdgaming0.enhancedstorage.storage.StorageCaptureHandler;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -29,10 +33,13 @@ import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> implements IHighlightClipProvider {
 
+    private static final long DEFERRED_CLOSE_MS = 2000;
     private final StorageKey openKey;
     private final StorageOverlayState state = StorageOverlayState.session();
     private final OverlayActions actions = OverlayActions.create(this, state, this::onPageCardClicked, this::enterEditMode, this::rebuildWidgets);
@@ -41,7 +48,6 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     private final LiveSlotSearch liveSearch = new LiveSlotSearch();
     private final boolean rrvLoaded = FabricLoader.getInstance().isModLoaded("rrv");
     private boolean autoScrolledToOpenCard = false;
-    private static final long DEFERRED_CLOSE_MS = 2000;
     private long deferredCloseAt = 0;
 
     public StorageContainerScreen(ChestMenu menu, Inventory inventory, Component title, StorageKey openKey) {
@@ -452,7 +458,9 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         return false;
     }
 
-    /** On the live index page, left-clicking a page item navigates to that page. */
+    /**
+     * On the live index page, left-clicking a page item navigates to that page.
+     */
     private boolean handleIndexSlotClick(MouseButtonEvent event) {
         if (openKey.type() != StorageKey.Type.STORAGE_INDEX || event.button() != 0) return false;
 
@@ -466,7 +474,9 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         return true;
     }
 
-    /** Off the index page, left-clicking the cached overview opens the clicked page, or /storage when no item is hit. */
+    /**
+     * Off the index page, left-clicking the cached overview opens the clicked page, or /storage when no item is hit.
+     */
     private boolean handleOverviewPanelClick(MouseButtonEvent event) {
         if (event.button() != 0
                 || openKey.type() == StorageKey.Type.STORAGE_INDEX

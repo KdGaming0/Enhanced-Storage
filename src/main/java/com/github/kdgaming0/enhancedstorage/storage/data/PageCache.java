@@ -43,13 +43,12 @@ public final class PageCache extends ProfileScopedStore {
         return INSTANCE;
     }
 
-    public record CachedPage(List<ItemStack> items, long capturedAt) {
-        public int emptySlots() {
-            return (int) items.stream().filter(ItemStack::isEmpty).count();
+    private static boolean stacksMatch(List<ItemStack> a, List<ItemStack> b) {
+        if (a.size() != b.size()) return false;
+        for (int i = 0; i < a.size(); i++) {
+            if (!ItemStack.matches(a.get(i), b.get(i))) return false;
         }
-    }
-
-    private record EncodedPage(CachedPage source, ListTag items) {
+        return true;
     }
 
     // Kept after the world unloads, so a save during disconnect can still encode items.
@@ -61,14 +60,6 @@ public final class PageCache extends ProfileScopedStore {
         }
         if (ops == null) throw new IllegalStateException("No registries available to encode items with");
         return ops;
-    }
-
-    private static boolean stacksMatch(List<ItemStack> a, List<ItemStack> b) {
-        if (a.size() != b.size()) return false;
-        for (int i = 0; i < a.size(); i++) {
-            if (!ItemStack.matches(a.get(i), b.get(i))) return false;
-        }
-        return true;
     }
 
     public Optional<CachedPage> get(StorageKey key) {
@@ -93,12 +84,6 @@ public final class PageCache extends ProfileScopedStore {
         }
 
         if (changed) markDirty();
-    }
-
-    @SuppressWarnings("unused")
-    public void clear() {
-        clearMemory();
-        markDirty();
     }
 
     public Set<StorageKey> allKnown() {
@@ -225,5 +210,14 @@ public final class PageCache extends ProfileScopedStore {
         pages.clear();
         knownPages.clear();
         encoded.clear();
+    }
+
+    public record CachedPage(List<ItemStack> items, long capturedAt) {
+        public int emptySlots() {
+            return (int) items.stream().filter(ItemStack::isEmpty).count();
+        }
+    }
+
+    private record EncodedPage(CachedPage source, ListTag items) {
     }
 }

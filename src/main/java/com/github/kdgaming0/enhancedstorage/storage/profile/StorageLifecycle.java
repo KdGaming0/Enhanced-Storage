@@ -1,18 +1,18 @@
 package com.github.kdgaming0.enhancedstorage.storage.profile;
 
-import com.github.kdgaming0.enhancedstorage.storage.ContainerContentTracker;
-import com.github.kdgaming0.enhancedstorage.storage.ProfileIdRequester;
+import com.github.kdgaming0.enhancedstorage.storage.capture.ContainerContentTracker;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 
-/** Connects connection, tick and shutdown events to the profile session. */
+/**
+ * Connects connection, tick and shutdown events to the profile session.
+ */
 public final class StorageLifecycle {
 
     private StorageLifecycle() {
     }
 
-    @SuppressWarnings("unused")
     public static void register() {
         ProfileSession session = ProfileSession.getInstance();
 

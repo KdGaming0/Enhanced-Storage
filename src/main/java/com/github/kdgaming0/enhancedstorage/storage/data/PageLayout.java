@@ -15,21 +15,6 @@ import static com.github.kdgaming0.enhancedstorage.EnhancedStorage.LOGGER;
  */
 public final class PageLayout extends ProfileScopedStore {
 
-    public enum Context {
-        STORAGE("storage"),
-        RIFT("rift");
-
-        private final String id;
-
-        Context(String id) {
-            this.id = id;
-        }
-
-        public static Context of(boolean rift) {
-            return rift ? RIFT : STORAGE;
-        }
-    }
-
     private static final PageLayout INSTANCE = new PageLayout();
     private static final String PAGE_KEY = "page";
     private static final String SPACER_KEY = "spacer";
@@ -39,7 +24,6 @@ public final class PageLayout extends ProfileScopedStore {
     private static final String SECTION_END_KEY = "sections_end";
     private static final String ROW_BREAK_KEY = "row_break";
     private static final String STACK_JOIN_KEY = "stack_join";
-
     private final Map<Context, List<LayoutEntry>> orders = new ConcurrentHashMap<>();
 
     private PageLayout() {
@@ -48,6 +32,18 @@ public final class PageLayout extends ProfileScopedStore {
 
     public static PageLayout getInstance() {
         return INSTANCE;
+    }
+
+    private static int insertionIndex(List<LayoutEntry> result, List<StorageKey> defaultOrder, int defaultIndex) {
+        for (int j = defaultIndex - 1; j >= 0; j--) {
+            int at = result.indexOf(new LayoutEntry.Page(defaultOrder.get(j)));
+            if (at >= 0) return at + 1;
+        }
+        for (int j = defaultIndex + 1; j < defaultOrder.size(); j++) {
+            int at = result.indexOf(new LayoutEntry.Page(defaultOrder.get(j)));
+            if (at >= 0) return at;
+        }
+        return result.size();
     }
 
     /**
@@ -76,18 +72,6 @@ public final class PageLayout extends ProfileScopedStore {
             }
         }
         return Optional.of(result);
-    }
-
-    private static int insertionIndex(List<LayoutEntry> result, List<StorageKey> defaultOrder, int defaultIndex) {
-        for (int j = defaultIndex - 1; j >= 0; j--) {
-            int at = result.indexOf(new LayoutEntry.Page(defaultOrder.get(j)));
-            if (at >= 0) return at + 1;
-        }
-        for (int j = defaultIndex + 1; j < defaultOrder.size(); j++) {
-            int at = result.indexOf(new LayoutEntry.Page(defaultOrder.get(j)));
-            if (at >= 0) return at;
-        }
-        return result.size();
     }
 
     public void setOrder(Context context, List<LayoutEntry> order) {
@@ -152,5 +136,20 @@ public final class PageLayout extends ProfileScopedStore {
     @Override
     protected void clearMemory() {
         orders.clear();
+    }
+
+    public enum Context {
+        STORAGE("storage"),
+        RIFT("rift");
+
+        private final String id;
+
+        Context(String id) {
+            this.id = id;
+        }
+
+        public static Context of(boolean rift) {
+            return rift ? RIFT : STORAGE;
+        }
     }
 }

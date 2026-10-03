@@ -1,6 +1,6 @@
 package com.github.kdgaming0.enhancedstorage.mixin;
 
-import com.github.kdgaming0.enhancedstorage.gui.Rect;
+import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
 import com.github.kdgaming0.enhancedstorage.screen.IHighlightClipProvider;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;

@@ -3,11 +3,11 @@ package com.github.kdgaming0.enhancedstorage.command;
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlay;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayState;
-import com.github.kdgaming0.enhancedstorage.storage.ProfileIdRequester;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageOrder;
 import com.github.kdgaming0.enhancedstorage.storage.io.ProfileScopedStore;
+import com.github.kdgaming0.enhancedstorage.storage.profile.ProfileIdRequester;
 import com.github.kdgaming0.enhancedstorage.storage.profile.ProfileSession;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -103,7 +103,7 @@ public class EnhancedStorageCommand {
             try {
                 //? if >=26.2 {
                 /*client.gui.setScreen(MidnightConfig.getScreen(client.gui.screen(), EnhancedStorage.MOD_ID));
-                *///?} else {
+                 *///?} else {
                 client.setScreen(MidnightConfig.getScreen(client.screen, EnhancedStorage.MOD_ID));
                 //?}
             } catch (Exception e) {

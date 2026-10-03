@@ -1,10 +1,17 @@
 {
   "enhanced_storage.midnightconfig.title": "Enhanced Storage",
   "enhanced_storage.midnightconfig.category.general": "General",
+  "enhanced_storage.midnightconfig.category.interface": "Interface",
+  "enhanced_storage.midnightconfig.category.layout": "Layout",
+  "enhanced_storage.midnightconfig.category.search": "Search",
+  "enhanced_storage.midnightconfig.category.navigation": "Scrolling & Navigation",
+  "enhanced_storage.midnightconfig.category.misc": "Misc",
 
-  "enhanced_storage.midnightconfig.sectionVisibility": "§lOverlay Visibility",
-  "enhanced_storage.midnightconfig.sectionAppearance": "§lAppearance & Layout",
-  "enhanced_storage.midnightconfig.sectionBehavior": "§lBehavior",
+  "enhanced_storage.midnightconfig.sectionEditMode": "§lEdit Mode",
+  "enhanced_storage.midnightconfig.sectionPages": "§lPages",
+  "enhanced_storage.midnightconfig.sectionMargins": "§lMargins",
+  "enhanced_storage.midnightconfig.sectionModCompat": "§lMod Compatibility",
+  "enhanced_storage.midnightconfig.sectionCopies": "§lItem Copies",
   "enhanced_storage.midnightconfig.sectionPerformance": "§lPerformance",
 
   "enhanced_storage.midnightconfig.enableOverlay": "Enable Storage Overlay",
@@ -44,7 +51,7 @@
   "enhanced_storage.midnightconfig.maxPagePerRow.tooltip": "Number of page shown in the scroll panel (1–10). \n\nIf Page Width is different from 9, the number of pages per row is limited by slots so 3 pages per row = 27 slots wide overlay and 4 pages per row = 36 slots wide overlay.",
 
   "enhanced_storage.midnightconfig.pageWidth": "Page Width",
-  "enhanced_storage.midnightconfig.pageWidth.tooltip": "Slots per row on each page (2–9). Narrower pages wrap their slots onto more rows, so more pages fit side by side; raise Pages Per Row to use the extra space.",
+  "enhanced_storage.midnightconfig.pageWidth.tooltip": "Slots per row on each page (2–18). Narrower pages wrap their slots onto more rows, so more pages fit side by side; raise Pages Per Row to use the extra space.",
 
   "enhanced_storage.midnightconfig.cardSpacing": "Card Spacing",
   "enhanced_storage.midnightconfig.cardSpacing.tooltip": "Gap (px) between each page card in the overlay.",
@@ -91,8 +98,8 @@
   "enhanced_storage.midnightconfig.collapseSectionsWhileDragging": "Collapse Sections While Dragging",
   "enhanced_storage.midnightconfig.collapseSectionsWhileDragging.tooltip": "Shows every section as its collapsed bar while you move a section in edit mode.",
 
-  "enhanced_storage.midnightconfig.showItemTooltipsInEditMode": "Show Item Tooltips in Edit Mode",
-  "enhanced_storage.midnightconfig.showItemTooltipsInEditMode.tooltip": "Turn off to stop item tooltips covering pages while you arrange them.",
+  "enhanced_storage.midnightconfig.hideItemTooltipsInEditMode": "Hide Item Tooltips in Edit Mode",
+  "enhanced_storage.midnightconfig.hideItemTooltipsInEditMode.tooltip": "Stops item tooltips covering pages while you arrange them.",
 
   "enhanced_storage.midnightconfig.saveCursorPosition": "Save Cursor Position",
   "enhanced_storage.midnightconfig.saveCursorPosition.tooltip": "Keep the cursor where it was when moving between storage pages.",

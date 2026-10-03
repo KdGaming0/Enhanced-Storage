@@ -26,7 +26,9 @@ public abstract class ProfileScopedStore {
     }
 
     protected abstract void writeTo(CompoundTag root);
+
     protected abstract void readFrom(CompoundTag root, int fileVersion);
+
     protected abstract void clearMemory();
 
     // Subclasses call this whenever their data changes, so the next save actually writes.
@@ -66,7 +68,9 @@ public abstract class ProfileScopedStore {
         loaded = true;
     }
 
-    /** Writes the data to {@code profileDir} if it changed. The file is written in the background. */
+    /**
+     * Writes the data to {@code profileDir} if it changed. The file is written in the background.
+     */
     public void save(Path profileDir) {
         if (!dirty) return;
         if (!loaded) {

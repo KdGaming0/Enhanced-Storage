@@ -13,9 +13,6 @@ import java.util.Map;
  */
 final class LiveSlotSearch {
 
-    private record Entry(ItemStack stack, boolean match) {
-    }
-
     private final Map<Integer, Entry> entries = new HashMap<>();
     private String query = "";
 
@@ -32,5 +29,8 @@ final class LiveSlotSearch {
             entries.put(slot.index, entry);
         }
         return entry.match();
+    }
+
+    private record Entry(ItemStack stack, boolean match) {
     }
 }

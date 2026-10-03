@@ -1,7 +1,7 @@
 package com.github.kdgaming0.enhancedstorage.mixin;
 
 import com.github.kdgaming0.enhancedstorage.screen.StorageContainerScreen;
-import com.github.kdgaming0.enhancedstorage.storage.ContainerContentTracker;
+import com.github.kdgaming0.enhancedstorage.storage.capture.ContainerContentTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ClientPacketListener;
@@ -35,7 +35,7 @@ public abstract class ClientPacketListenerMixin {
         Screen current = minecraft.screen;
         //?} else {
         /*Screen current = minecraft.gui.screen();
-        *///?}
+         *///?}
         if (current instanceof StorageContainerScreen screen
                 && screen.deferCloseForNavigation(packet.getContainerId())) {
             ci.cancel();

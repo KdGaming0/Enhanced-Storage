@@ -39,29 +39,6 @@ public class EnhancedStorageMixinPlugin implements IMixinConfigPlugin {
             "SkyHanniRenderDataMixin", List.of("onBackgroundDraw")
     );
 
-    @Override
-    public void onLoad(String mixinPackage) {
-
-    }
-
-    @Override
-    public String getRefMapperConfig() {
-        return "";
-    }
-
-    @Override
-    public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
-        if (mixinClassName.contains(".compat.RRV")) {
-            return FabricLoader.getInstance().isModLoaded("rrv")
-                    && hasRequiredMethods(targetClassName, mixinClassName);
-        }
-        if (mixinClassName.contains(".compat.SkyHanni")) {
-            return FabricLoader.getInstance().isModLoaded("skyhanni")
-                    && hasRequiredMethods(targetClassName, mixinClassName);
-        }
-        return true;
-    }
-
     /**
      * Reads the target's bytecode (without loading or initialising the class) and confirms every method this
      * mixin injects into is still declared. Acts only on positive evidence: if the target can't be read at
@@ -93,6 +70,29 @@ public class EnhancedStorageMixinPlugin implements IMixinConfigPlugin {
                         + "update Enhanced Storage if the other mod was recently updated.", simpleName, targetClassName, methodName);
                 return false;
             }
+        }
+        return true;
+    }
+
+    @Override
+    public void onLoad(String mixinPackage) {
+
+    }
+
+    @Override
+    public String getRefMapperConfig() {
+        return "";
+    }
+
+    @Override
+    public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
+        if (mixinClassName.contains(".compat.rrv.")) {
+            return FabricLoader.getInstance().isModLoaded("rrv")
+                    && hasRequiredMethods(targetClassName, mixinClassName);
+        }
+        if (mixinClassName.contains(".compat.skyhanni.")) {
+            return FabricLoader.getInstance().isModLoaded("skyhanni")
+                    && hasRequiredMethods(targetClassName, mixinClassName);
         }
         return true;
     }

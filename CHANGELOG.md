@@ -1,34 +1,52 @@
 ## Update 2.0.0
 
-## New Features and Improvements
-- Added a new "Customize Storage" mode, from here you can now edit the storage overlay's appearance and behavior to your liking.
-  - Pages can now be renamed in Customize Storage mode: click a page's title and type a new name. Press Enter or click anywhere outside the title to save, or press Escape to cancel. Clearing the name restores the default.
-  - Pages can now be reordered in Customize Storage mode: click and drag a page to move it. The new order is saved automatically.
-  - Added a "Spacer" page type, which can be used to create empty space between other pages. While in Customize Storage mode, right-click any page to add a "Spacer" to the left or right of it. Spacers are empty spaces where a page would normally be. They can be used to create sections and separate pages, giving you more control over the overlay's layout.
-  - Added a new "Section" feature. Create new sections anywhere in the overlay between two rows while in Customize Storage mode. Sections can be named and collapsed, and they can contain any number of pages. This allows you to group related pages together and hide them when not needed.
-  - Added a new "Navigation" panel. Can be Disabled or Placed LEFT/RIGHT of the overlay. It shows all pages and sections in a list, allowing you to quickly jump to any page or section.
-  - Each page now shows how many free slots it has left in the top right corner of its title bar. Can be disabled in the settings.
-  - Added a new Search mode "DIM". While in Dim mode pages don't get hidden when they have no matching items, instead they are dimmed.
-  - Added the ability to highlight matching items in the storage overlay. By default, while holding Left Alt, all slots containing the same item are highlighted in blue. You can change this in the settings to use a different key or to always highlight matching items when hovering over them. You can also enable a setting to show only pages with matching items while holding Left Alt.
-  - Added keyboard navigation for the storage overlay. You can now use the arrow keys to move between pages, Up selects the page over the current one, Down selects the page under it, Left selects the page to the left, and Right selects the page to the right. Shift + 1–9 opens the 9 first pages.
-  - Added a new keybind option to fill the search bar with the name of the item under your mouse cursor. (The keybind is unbound by default but can be easily configured in the Vanilla Controls settings.)
+### New Features and Improvements
 
-## Custom Page Layouts
+#### Edit Mode
+Edit Mode lets you make the storage overlay your own. Open it with the new **Edit** button beside your inventory (you can hide the button in the settings). From there, you can:
+- **Rename pages:** Click a page's title and type a new name. Press Enter or click outside the title to save, or press Escape to cancel. Clearing the name restores the default name.
+- **Reorder pages:** Click and drag any page to move it.
+- **Create sections:** Click anywhere between two rows of pages to show the new **Add Section** text. Click it to create a section. You can group related pages in sections and hide them when you don't need them.
+  - You can give sections custom names and expand or collapse them. This is useful for pages you don't always need to access quickly. A collapsed section appears as a single bar showing its name and the total number of free slots on its pages.
+- New settings:
+  - **Custom Page Width:** Set how many slots wide pages are by default. Instead of the default 9 slots, you can choose any number from 2 to 18. You can also change the width of individual pages in Edit Mode.
+  - **Hide Item Tooltips in Edit Mode** stops tooltips from covering pages while you arrange them.
+  - **Collapse Sections While Dragging** shows every section as a collapsed bar while you move a section.
 
-### New
-- **Global Page Width setting** in settings you can set how wide a page should display by default 2-18 slots per row.
-- **Custom page widths:** each page can be 2 to 18 slots wide. Right-click a page in edit mode and choose **Page Width...** to set it with a slider, or use **Reset to Default**.
-- **Row breaks:** Right-click a page and choose **Add Row Break After** to start a new row after it. Breaks show as a faint "Row break" area in edit mode. Right-click the area or the page to remove it. Row breaks are different from Spacer pages. Spacer pages add a fixed amount of empty space, while a row break simply starts a new row after the page.
+#### Custom Page Layouts
+A new page layout system gives you more control over how your pages are arranged.
+- **Custom page widths:** Each page can be 2 to 18 slots wide. Right-click a page and choose **Page Width...** to set its width.
+- **Spacers:** Right-click a page and choose **Add Spacer Before** or **Add Spacer After**. A spacer leaves empty space where a page would normally be, making it easy to separate groups of pages.
+- **Row breaks:** Right-click a page and choose **Add Row Break After** to start a new row after it. In Edit Mode, a break appears as a faint "Row break" area. Right-click the area or the page to remove it. Unlike a spacer, which takes up a fixed amount of space, a row break moves the next page to a new row.
+- **Stacked pages:** You can drag a page onto the top or bottom edge of another page to stack them. Drag it away again to unstack it. This is useful if you want one tall, thin page beside two wide, short pages.
+- **The overlay's width now adapts to your pages:**
+  - **Max pages per row** is now measured in pages that are 9 slots wide, so more narrow pages can fit in a row. For example, if you set the maximum to 3, you can fit 6 pages in a row if they are all 4 slots wide. Each page in the setting allows 9 slots of overlay width, and the number of pages that fit depends on their widths.
+  - The overlay shrinks to fit when there are only a few pages, but it won't grow wider than the screen.
 
-#### Changed
-- **Overlay width adapts to your pages:**
-  - **Max pages per row** is now measured in default-width pages, so narrow pages fit more per row.
-  - The overlay shrinks to fit when there are only a few pages.
+#### Navigation Panel
+A new panel on the side of the overlay makes it easier to navigate your pages and sections. The panel:
+- Lists all your pages, grouped by section. Click a page to open it, or click a section to scroll to it.
+- Can be placed on the left or right of the overlay, or turned off in the settings. (This feature is by default off and needs to be enabled in settings.)
+
+#### Highlight Matching Items
+- Hold Left Alt while hovering over an item to highlight every stack of that item across all pages and your inventory.
+  - You can change the key in the controls. In the settings, you can also choose to always highlight matching items when you hover over one.
+- A new **Hide Pages Without Copies** setting has been added. When it's on, holding the highlight key shows only pages containing the item you're hovering over. This gives you a quick view of how many of that item you have and which pages contain it.
+
+#### Search Improvements
+- New **Dim** search mode. Instead of hiding pages without matching items, it keeps every page in place and dims items that don't match.
+  - The old **Hide** mode is still available and remains the default. You can switch to Dim mode in the settings.
+- A new **Search Page and Section Names** setting has been added. When it's on, you can search for pages and sections by their custom names.
+- A new keybind fills the search bar with the name of the item under your mouse cursor. It has no key set by default, but you can set one in the vanilla Controls settings.
+
+#### Smaller Improvements
+- Added keyboard navigation. Use the arrow keys to move to the page above, below, left, or right of the current one. Use Shift + 1–9 to open one of the first nine pages.
+- Each page now shows its number of free slots in the top right corner of its title bar. You can turn this off in the settings.
 
 ### Fixes
-- Fixed Storage Overlay cache not saving for some players between game restarts.
-  - When a player has only one SkyBlock profile, Hypixel does not automatically send the Profile ID chat message. The mod now requests it with `/profileid` after entering SkyBlock, so it can save the cache correctly.
-- Fixed items in an opened storage page briefly appearing in the top row of the overlay before moving to the correct page.
+- Fixed an issue that stopped the storage cache from being saved between game restarts for some players.
+  - Hypixel doesn't automatically send your profile ID when you have only one SkyBlock profile. The mod now requests it with `/profileid` after you join SkyBlock, so the cache can be saved correctly.
+- Fixed items in an open storage page briefly appearing in the top row of the overlay before moving to the correct page.
 - Fixed a brief flash that sometimes appeared when switching between storage pages.
 
 ## Update 1.2.2

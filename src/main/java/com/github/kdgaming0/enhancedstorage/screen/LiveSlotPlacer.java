@@ -2,10 +2,10 @@ package com.github.kdgaming0.enhancedstorage.screen;
 
 import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.daqem.uilib.gui.widget.ScrollContainerWidget;
-import com.github.kdgaming0.enhancedstorage.gui.IndexGrid;
-import com.github.kdgaming0.enhancedstorage.gui.Rect;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayLayout;
-import com.github.kdgaming0.enhancedstorage.gui.component.PageCardComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.page.PageCardComponent;
+import com.github.kdgaming0.enhancedstorage.gui.layout.IndexGrid;
+import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
 import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.Slot;
@@ -15,7 +15,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.github.kdgaming0.enhancedstorage.gui.StorageOverlayLayout.SLOT_SIZE;
-import static com.github.kdgaming0.enhancedstorage.gui.component.StorageSlotComponent.ITEM_INSET;
+import static com.github.kdgaming0.enhancedstorage.gui.component.page.StorageSlotComponent.ITEM_INSET;
 
 /**
  * Moves the real container and inventory slots onto the overlay and records, per page slot,
@@ -48,13 +48,26 @@ final class LiveSlotPlacer {
         return slot.y == PARKED;
     }
 
-    /** Visible part of the slot at these relative coordinates, or null if it isn't clipped. */
+    private static void park(Slot slot) {
+        slot.x = PARKED;
+        slot.y = PARKED;
+    }
+
+    private static long key(int x, int y) {
+        return ((long) x << 32) | (y & 0xFFFFFFFFL);
+    }
+
+    /**
+     * Visible part of the slot at these relative coordinates, or null if it isn't clipped.
+     */
     @Nullable
     Rect clipAt(int slotX, int slotY) {
         return clipRects.get(key(slotX, slotY));
     }
 
-    /** Screen-space page viewport from the last sync, or null on the storage index page. */
+    /**
+     * Screen-space page viewport from the last sync, or null on the storage index page.
+     */
     @Nullable
     Rect viewport() {
         return viewport;
@@ -160,14 +173,5 @@ final class LiveSlotPlacer {
             slot.x = invX + (i % 9) * SLOT_SIZE - offX;
             slot.y = y - offY;
         }
-    }
-
-    private static void park(Slot slot) {
-        slot.x = PARKED;
-        slot.y = PARKED;
-    }
-
-    private static long key(int x, int y) {
-        return ((long) x << 32) | (y & 0xFFFFFFFFL);
     }
 }

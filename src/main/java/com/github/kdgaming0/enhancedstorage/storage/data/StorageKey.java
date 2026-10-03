@@ -15,26 +15,8 @@ import java.util.regex.Pattern;
  */
 public record StorageKey(Type type, int page) {
 
-    public enum Type {
-        STORAGE_INDEX(1),
-        ENDER_CHEST(9),
-        BACKPACK(0),     // 0 = the number of pages varies
-        RIFT(0);
-
-        private final int maxPages;
-
-        Type(int maxPages) {
-            this.maxPages = maxPages;
-        }
-
-        public int maxPages() {
-            return maxPages;
-        }
-    }
-
     public static final Comparator<StorageKey> DISPLAY_ORDER =
             Comparator.comparing(StorageKey::type).thenComparingInt(StorageKey::page);
-
     // Matched against TextUtils.stripString output, so they must be lowercase.
     private static final Pattern ENDER_CHEST_TITLE = Pattern.compile("ender chest \\((\\d+)/\\d+\\)");
     private static final Pattern BACKPACK_TITLE = Pattern.compile(".*backpack.*\\(slot #(\\d+)\\).*");
@@ -98,6 +80,12 @@ public record StorageKey(Type type, int page) {
         }
     }
 
+    private static Optional<StorageKey> match(Pattern pattern, String text, Type type) {
+        Matcher matcher = pattern.matcher(text);
+        if (!matcher.matches()) return Optional.empty();
+        return Optional.of(new StorageKey(type, Integer.parseInt(matcher.group(1))));
+    }
+
     // The save id, like "ender_chest_3"
     public String id() {
         return type.name().toLowerCase(Locale.ROOT) + "_" + page;
@@ -112,9 +100,20 @@ public record StorageKey(Type type, int page) {
         };
     }
 
-    private static Optional<StorageKey> match(Pattern pattern, String text, Type type) {
-        Matcher matcher = pattern.matcher(text);
-        if (!matcher.matches()) return Optional.empty();
-        return Optional.of(new StorageKey(type, Integer.parseInt(matcher.group(1))));
+    public enum Type {
+        STORAGE_INDEX(1),
+        ENDER_CHEST(9),
+        BACKPACK(0),     // 0 = the number of pages varies
+        RIFT(0);
+
+        private final int maxPages;
+
+        Type(int maxPages) {
+            this.maxPages = maxPages;
+        }
+
+        public int maxPages() {
+            return maxPages;
+        }
     }
 }

@@ -34,11 +34,6 @@ public final class PageNames extends ProfileScopedStore {
         return Optional.ofNullable(names.get(key));
     }
 
-    public boolean has(StorageKey key) {
-        String name = names.get(key);
-        return name != null && !name.isBlank();
-    }
-
     /**
      * Sets the custom name. A null or blank name removes it (back to the default).
      * The value is trimmed and capped at {@link #MAX_NAME_LENGTH}.

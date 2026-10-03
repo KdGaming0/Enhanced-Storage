@@ -9,11 +9,7 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
 import java.util.function.Consumer;
 
 import static com.github.kdgaming0.enhancedstorage.EnhancedStorage.LOGGER;
@@ -31,11 +27,7 @@ public final class AtomicFiles {
         return thread;
     });
 
-    private AtomicFiles() {}
-
-    @FunctionalInterface
-    private interface TmpWriter {
-        void write(Path tmp) throws IOException;
+    private AtomicFiles() {
     }
 
     public static void write(Path file, CompoundTag tag) throws IOException {
@@ -46,7 +38,9 @@ public final class AtomicFiles {
         writeAtomically(file, tmp -> Files.writeString(tmp, text));
     }
 
-    /** Writes on the background thread. {@code tag} must not be modified afterwards. */
+    /**
+     * Writes on the background thread. {@code tag} must not be modified afterwards.
+     */
     public static void writeAsync(Path file, CompoundTag tag, Consumer<Exception> onFailure) {
         WRITER.execute(() -> {
             try {
@@ -57,10 +51,13 @@ public final class AtomicFiles {
         });
     }
 
-    /** Blocks until every pending background write has finished. */
+    /**
+     * Blocks until every pending background write has finished.
+     */
     public static void awaitWrites() {
         try {
-            WRITER.submit(() -> {}).get(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            WRITER.submit(() -> {
+            }).get(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (ExecutionException | TimeoutException e) {
@@ -107,5 +104,10 @@ public final class AtomicFiles {
         } catch (IOException e) {
             LOGGER.error("Could not quarantine {}", file, e);
         }
+    }
+
+    @FunctionalInterface
+    private interface TmpWriter {
+        void write(Path tmp) throws IOException;
     }
 }

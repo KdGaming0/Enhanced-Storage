@@ -1,7 +1,14 @@
 package com.github.kdgaming0.enhancedstorage.gui;
 
 import com.daqem.uilib.gui.component.text.TextComponent;
-import com.github.kdgaming0.enhancedstorage.gui.component.*;
+import com.github.kdgaming0.enhancedstorage.gui.component.page.GridCellComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.page.PageCardComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.page.SpacerCardComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.section.SectionEndComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.section.SectionHeaderComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.section.StackJoinComponent;
+import com.github.kdgaming0.enhancedstorage.gui.layout.PageViewport;
+import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
 import com.github.kdgaming0.enhancedstorage.storage.data.LayoutEntry;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -29,7 +36,7 @@ final class CardDragController {
 
     private final StorageOverlayLayout layout;
     private final Consumer<List<LayoutEntry>> onDrop;
-
+    private final List<SectionHeaderComponent> springOpened = new ArrayList<>();
     private @Nullable GridCellComponent dragged;
     private List<GridCellComponent> originalOrder = List.of();
     private @Nullable TextComponent ghostTitle;
@@ -42,7 +49,6 @@ final class CardDragController {
     private long lastFrameMs;
     private @Nullable SectionHeaderComponent springTarget;
     private long springStartMs;
-    private final List<SectionHeaderComponent> springOpened = new ArrayList<>();
     private @Nullable List<GridCellComponent> undoOrder;
     private @Nullable Rect moveZone;
     private @Nullable GridCellComponent dragJoin;
@@ -50,6 +56,61 @@ final class CardDragController {
     CardDragController(StorageOverlayLayout layout, Consumer<List<LayoutEntry>> onDrop) {
         this.layout = layout;
         this.onDrop = onDrop;
+    }
+
+    private static int stackBand(GridCellComponent dragged, GridCellComponent target) {
+        if (!(dragged instanceof PageCardComponent) || !(target instanceof PageCardComponent)) return 0;
+        return Math.min(STACK_BAND, target.getHeight() / 4);
+    }
+
+    /**
+     * The order with the card taken out of its stack and placed beside it, or null if it isn't stacked.
+     * In the middle of a stack, the pages above and below stay linked to each other.
+     */
+    private static @Nullable List<GridCellComponent> detach(List<GridCellComponent> order, GridCellComponent card) {
+        int i = order.indexOf(card);
+        boolean above = StorageOverlayLayout.isLink(order, i - 1);
+        boolean below = StorageOverlayLayout.isLink(order, i + 1);
+        if (!above && !below) return null;
+
+        GridCellComponent neighbour = order.get(above ? i - 2 : i + 2);
+        List<GridCellComponent> result = new ArrayList<>(order);
+        result.remove(below ? i + 1 : i - 1);
+        result.remove(card);
+        int n = result.indexOf(neighbour);
+        result.add(above ? StorageOverlayLayout.stackEnd(result, n) : StorageOverlayLayout.stackStart(result, n), card);
+        return result;
+    }
+
+    /**
+     * The index just past the section starting at {@code headerIndex}, including its end marker.
+     */
+    private static int afterSection(List<GridCellComponent> order, int headerIndex) {
+        int end = nextBoundary(order, headerIndex + 1);
+        return end < order.size() && order.get(end) instanceof SectionEndComponent ? end + 1 : end;
+    }
+
+    private static int nextBoundary(List<GridCellComponent> order, int from) {
+        for (int i = from; i < order.size(); i++) {
+            if (order.get(i) instanceof SectionHeaderComponent || order.get(i) instanceof SectionEndComponent) return i;
+        }
+        return order.size();
+    }
+
+    private static @Nullable SectionHeaderComponent sectionOf(List<GridCellComponent> order, int index) {
+        for (int i = index - 1; i >= 0; i--) {
+            if (order.get(i) instanceof SectionEndComponent) return null;
+            if (order.get(i) instanceof SectionHeaderComponent header) return header;
+        }
+        return null;
+    }
+
+    private static @Nullable GridCellComponent cellUnder(List<GridCellComponent> cells, Rect viewport, double x, double y) {
+        if (!viewport.contains(x, y)) return null;
+        for (GridCellComponent cell : cells) {
+            if (cell.bounds().contains(x, y)) return cell;
+        }
+        return null;
     }
 
     boolean isActive() {
@@ -161,11 +222,6 @@ final class CardDragController {
         layout.previewOrder(order);
     }
 
-    private static int stackBand(GridCellComponent dragged, GridCellComponent target) {
-        if (!(dragged instanceof PageCardComponent) || !(target instanceof PageCardComponent)) return 0;
-        return Math.min(STACK_BAND, target.getHeight() / 4);
-    }
-
     private int withoutDragged(List<GridCellComponent> current, int insertBefore) {
         int index = 0;
         for (int i = 0; i < insertBefore && i < current.size(); i++) {
@@ -173,25 +229,6 @@ final class CardDragController {
             if (c != dragged && c != dragJoin) index++;
         }
         return index;
-    }
-
-    /**
-     * The order with the card taken out of its stack and placed beside it, or null if it isn't stacked.
-     * In the middle of a stack, the pages above and below stay linked to each other.
-     */
-    private static @Nullable List<GridCellComponent> detach(List<GridCellComponent> order, GridCellComponent card) {
-        int i = order.indexOf(card);
-        boolean above = StorageOverlayLayout.isLink(order, i - 1);
-        boolean below = StorageOverlayLayout.isLink(order, i + 1);
-        if (!above && !below) return null;
-
-        GridCellComponent neighbour = order.get(above ? i - 2 : i + 2);
-        List<GridCellComponent> result = new ArrayList<>(order);
-        result.remove(below ? i + 1 : i - 1);
-        result.remove(card);
-        int n = result.indexOf(neighbour);
-        result.add(above ? StorageOverlayLayout.stackEnd(result, n) : StorageOverlayLayout.stackStart(result, n), card);
-        return result;
     }
 
     private int insertionInEmptySpace(List<GridCellComponent> order, double mouseX, double mouseY) {
@@ -242,29 +279,6 @@ final class CardDragController {
         if (!order.equals(layout.getCells())) layout.previewOrder(order);
     }
 
-    /**
-     * The index just past the section starting at {@code headerIndex}, including its end marker.
-     */
-    private static int afterSection(List<GridCellComponent> order, int headerIndex) {
-        int end = nextBoundary(order, headerIndex + 1);
-        return end < order.size() && order.get(end) instanceof SectionEndComponent ? end + 1 : end;
-    }
-
-    private static int nextBoundary(List<GridCellComponent> order, int from) {
-        for (int i = from; i < order.size(); i++) {
-            if (order.get(i) instanceof SectionHeaderComponent || order.get(i) instanceof SectionEndComponent) return i;
-        }
-        return order.size();
-    }
-
-    private static @Nullable SectionHeaderComponent sectionOf(List<GridCellComponent> order, int index) {
-        for (int i = index - 1; i >= 0; i--) {
-            if (order.get(i) instanceof SectionEndComponent) return null;
-            if (order.get(i) instanceof SectionHeaderComponent header) return header;
-        }
-        return null;
-    }
-
     void cancel() {
         if (dragged != null && !layout.getCells().equals(originalOrder)) {
             layout.previewOrder(originalOrder);
@@ -307,6 +321,8 @@ final class CardDragController {
         }
         onDrop.accept(entries);
     }
+
+    // Scrolls the page overview when the cursor is near the top or bottom edge of the viewport.
 
     void paint(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         GridCellComponent cell = dragged;
@@ -360,8 +376,6 @@ final class CardDragController {
         }
     }
 
-    // Scrolls the page overview when the cursor is near the top or bottom edge of the viewport.
-
     /**
      * Time-based, so speed doesn't depend on frame rate. Returns true if the content moved.
      */
@@ -384,13 +398,5 @@ final class CardDragController {
         double before = scroller.scrollAmount();
         scroller.setScrollAmount(before + speed * seconds);
         return scroller.scrollAmount() != before;
-    }
-
-    private static @Nullable GridCellComponent cellUnder(List<GridCellComponent> cells, Rect viewport, double x, double y) {
-        if (!viewport.contains(x, y)) return null;
-        for (GridCellComponent cell : cells) {
-            if (cell.bounds().contains(x, y)) return cell;
-        }
-        return null;
     }
 }
