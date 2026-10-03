@@ -43,6 +43,9 @@
   "enhanced_storage.midnightconfig.maxPagePerRow": "Pages Per Row",
   "enhanced_storage.midnightconfig.maxPagePerRow.tooltip": "Number of page columns shown in the scroll panel (1–5).",
 
+  "enhanced_storage.midnightconfig.pageWidth": "Page Width",
+  "enhanced_storage.midnightconfig.pageWidth.tooltip": "Slots per row on each page (2–9). Narrower pages wrap their slots onto more rows, so more pages fit side by side; raise Pages Per Row to use the extra space.",
+
   "enhanced_storage.midnightconfig.cardSpacing": "Card Spacing",
   "enhanced_storage.midnightconfig.cardSpacing.tooltip": "Gap (px) between each page card in the overlay.",
 

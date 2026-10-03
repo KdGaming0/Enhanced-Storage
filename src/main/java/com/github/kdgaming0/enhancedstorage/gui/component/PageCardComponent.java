@@ -48,6 +48,7 @@ public class PageCardComponent extends GridCellComponent {
 
     private final int slotGridX;
     private final int slotGridY;
+    private final int slotsAcross;
 
     private final boolean cached;
     private final boolean live;
@@ -64,12 +65,13 @@ public class PageCardComponent extends GridCellComponent {
     public PageCardComponent(int x, int y, int width, int height,
                              StorageKey key,
                              StorageOverlayState state,
-                             List<ItemStack> items,
+                             List<ItemStack> items, int slotCount,
                              boolean cached, boolean live, boolean clickable,
                              int cardBorder, int titleAreaHeight,
                              int slotsAcross, int slotSize,
                              Consumer<StorageKey> onClick) {
         super(x, y, width, height);
+        this.slotsAcross = slotsAcross;
         this.slotGridX = cardBorder;
         this.slotGridY = titleAreaHeight + TITLE_GAP;
         this.key = key;
@@ -100,45 +102,41 @@ public class PageCardComponent extends GridCellComponent {
 
         int titleX = 3;
         int titleY = 3;
-        this.pageTitle = new TextComponent(titleX, titleY, Component.literal(displayName), OverlayTheme.titleColor());
+        var font = Minecraft.getInstance().font;
+        // Truncate long titles to fit the card width.
+        String shownTitle = truncate(font, displayName, width - titleX * 2);
+        this.pageTitle = new TextComponent(titleX, titleY, Component.literal(shownTitle), OverlayTheme.titleColor());
         pageTitle.setDrawShadow(OverlayTheme.titleShadow());
         this.addComponent(pageTitle);
 
-        var font = Minecraft.getInstance().font;
-        int textWidth = font.width(displayName);
+        int textWidth = font.width(shownTitle);
         this.titleLocalX = titleX;
         this.titleLocalY = titleY;
         this.titleLocalWidth = Math.min(textWidth, width - titleX * 2);
         this.titleLocalHeight = font.lineHeight;
 
         if (cached) {
-            int totalSlots = live ? ((height - cardBorder * 2 - titleAreaHeight) / slotSize) * slotsAcross : items.size();
-            int pageRows = Math.max(1, Math.ceilDiv(totalSlots, slotsAcross));
+            int fullRows = slotCount / slotsAcross;
+            int remainder = slotCount % slotsAcross;
 
-            // The whole slot grid is one tiled sprite (18x18 tile mcmeta) — one draw call
-            // instead of one per slot.
-            SpriteComponent slotGrid = new SpriteComponent(
-                    slotGridX, slotGridY,
-                    slotsAcross * slotSize, pageRows * slotSize,
-                    OverlayTheme.sprite(OverlayTheme.STORAGE_SLOT));
-            this.addComponent(slotGrid);
+            if (fullRows > 0) addSlotGrid(slotGridX, slotGridY, slotsAcross * slotSize, fullRows * slotSize);
+            if (remainder > 0) addSlotGrid(slotGridX, slotGridY + fullRows * slotSize, remainder * slotSize, slotSize);
 
-            for (int slotRow = 0; slotRow < pageRows; slotRow++) {
-                for (int slotCol = 0; slotCol < slotsAcross; slotCol++) {
-                    int slotIndex = slotRow * slotsAcross + slotCol;
-                    ItemStack stack = (!live && slotIndex < items.size()) ? items.get(slotIndex) : null;
+            for (int slotIndex = 0; slotIndex < slotCount; slotIndex++) {
+                int slotRow = slotIndex / slotsAcross;
+                int slotCol = slotIndex % slotsAcross;
+                ItemStack stack = (!live && slotIndex < items.size()) ? items.get(slotIndex) : null;
 
-                    StorageSlotComponent slotComponent = new StorageSlotComponent(
-                            slotGridX + slotCol * slotSize,
-                            slotGridY + slotRow * slotSize,
-                            slotSize, slotSize,
-                            live ? null : SLOT_HIGHLIGHT_BACK,
-                            live ? null : SLOT_HIGHLIGHT_FRONT,
-                            stack);
-                    if (live) slotComponent.setHoverEnabled(false);
-                    this.slots.add(slotComponent);
-                    this.addComponent(slotComponent);
-                }
+                StorageSlotComponent slotComponent = new StorageSlotComponent(
+                        slotGridX + slotCol * slotSize,
+                        slotGridY + slotRow * slotSize,
+                        slotSize, slotSize,
+                        live ? null : SLOT_HIGHLIGHT_BACK,
+                        live ? null : SLOT_HIGHLIGHT_FRONT,
+                        stack);
+                if (live) slotComponent.setHoverEnabled(false);
+                this.slots.add(slotComponent);
+                this.addComponent(slotComponent);
             }
             applySearch(state.getSearchQuery());
 
@@ -161,6 +159,18 @@ public class PageCardComponent extends GridCellComponent {
             Identifier.fromNamespaceAndPath(MOD_ID, "light/storage_slot_highlight_back");
     private static final Identifier SLOT_HIGHLIGHT_FRONT =
             Identifier.fromNamespaceAndPath(MOD_ID, "light/storage_slot_highlight_front");
+
+    private void addSlotGrid(int x, int y, int width, int height) {
+        this.addComponent(new SpriteComponent(x, y, width, height, OverlayTheme.sprite(OverlayTheme.STORAGE_SLOT)));
+    }
+
+    private static String truncate(Font font, String text, int maxWidth) {
+        if (font.width(text) <= maxWidth) return text;
+        String ellipsis = "...";
+        int end = text.length();
+        while (end > 0 && font.width(text.substring(0, end) + ellipsis) > maxWidth) end--;
+        return text.substring(0, end) + ellipsis;
+    }
 
     @Override
     public LayoutEntry entry() {
@@ -185,6 +195,10 @@ public class PageCardComponent extends GridCellComponent {
 
     public boolean isLive() {
         return live;
+    }
+
+    public int slotsAcross() {
+        return slotsAcross;
     }
 
     public ItemStack stackAt(double x, double y) {

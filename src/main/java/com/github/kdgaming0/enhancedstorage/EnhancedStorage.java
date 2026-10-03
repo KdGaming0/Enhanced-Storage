@@ -5,10 +5,7 @@ import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.gui.CopyHighlight;
 import com.github.kdgaming0.enhancedstorage.screen.StorageContainerScreen;
 import com.github.kdgaming0.enhancedstorage.storage.*;
-import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
-import com.github.kdgaming0.enhancedstorage.storage.data.PageLayout;
-import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
-import com.github.kdgaming0.enhancedstorage.storage.data.PageOrder;
+import com.github.kdgaming0.enhancedstorage.storage.data.*;
 import com.github.kdgaming0.enhancedstorage.storage.profile.ProfileSession;
 import com.github.kdgaming0.enhancedstorage.storage.profile.StorageLifecycle;
 import com.github.kdgaming0.enhancedstorage.util.SkyblockState;
@@ -28,7 +25,8 @@ public class EnhancedStorage implements ClientModInitializer {
         MidnightConfig.init(MOD_ID, EnhancedStorageConfig.class);
 
         ProfileSession session = ProfileSession.getInstance();
-        session.register(PageCache.getInstance(), PageNames.getInstance(), PageOrder.getInstance(), PageLayout.getInstance());
+        session.register(PageCache.getInstance(), PageNames.getInstance(), PageOrder.getInstance(),
+                PageLayout.getInstance(), PageWidths.getInstance());
 
         StorageEvents.PROFILE_CHANGED.subscribe(() -> {
             Minecraft mc = Minecraft.getInstance();

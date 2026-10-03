@@ -24,4 +24,15 @@ public sealed interface LayoutEntry {
     /** Empty slot used to push pages onto the next row. The id only needs to be unique within its context. */
     record Spacer(int id) implements LayoutEntry {
     }
+
+    /** Ends the current row so the next page starts a new one. The id only needs to be unique within its context. */
+    record RowBreak(int id) implements LayoutEntry {
+    }
+
+    /**
+     * Stacks the page after it under the page before it. Only meaningful between two pages.
+     * The id only needs to be unique within its context.
+     */
+    record StackJoin(int id) implements LayoutEntry {
+    }
 }

@@ -13,6 +13,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 
@@ -23,6 +24,11 @@ import java.util.List;
 public class PopupComponent extends AbstractComponent {
 
     public record Option(String label, Runnable action) {
+    }
+
+    @FunctionalInterface
+    public interface WidgetFactory {
+        IWidget create(int x, int y, int width, int height);
     }
 
     private static final int PADDING = 6;
@@ -48,19 +54,31 @@ public class PopupComponent extends AbstractComponent {
         int height = panelHeight(font, lines.size(), options.size());
         return new PopupComponent(screenWidth, screenHeight, font,
                 (screenWidth - CONFIRM_WIDTH) / 2, (screenHeight - height) / 2,
-                CONFIRM_WIDTH, true, lines, options);
+                CONFIRM_WIDTH, true, lines, null, options);
     }
 
     /**
      * A right-click menu opening at the cursor, shifted to stay on screen.
      */
     public static PopupComponent menu(int screenWidth, int screenHeight, Font font, int x, int y, List<Option> options) {
+        return menu(screenWidth, screenHeight, font, x, y, null, 0, options);
+    }
+
+    /**
+     * A right-click menu with an extra full-width widget, such as a slider, above the buttons.
+     */
+    public static PopupComponent menu(int screenWidth, int screenHeight, Font font, int x, int y,
+                                      @Nullable WidgetFactory header, int headerWidth, List<Option> options) {
         int labelWidth = options.stream().mapToInt(o -> font.width(o.label())).max().orElse(0);
-        int width = PADDING * 2 + labelWidth + BUTTON_LABEL_PADDING;
-        int height = panelHeight(font, 0, options.size());
+        int width = PADDING * 2 + Math.max(labelWidth + BUTTON_LABEL_PADDING, headerWidth);
+        int height = panelHeight(font, 0, rowCount(header, options));
         return new PopupComponent(screenWidth, screenHeight, font,
                 Math.min(x, screenWidth - width), Math.min(y, screenHeight - height),
-                width, false, List.of(), options);
+                width, false, List.of(), header, options);
+    }
+
+    private static int rowCount(@Nullable WidgetFactory header, List<Option> options) {
+        return options.size() + (header != null ? 1 : 0);
     }
 
     private static int panelHeight(Font font, int lineCount, int optionCount) {
@@ -72,13 +90,13 @@ public class PopupComponent extends AbstractComponent {
 
     // Spans the whole screen so the scrim covers everything; children use screen coordinates.
     private PopupComponent(int screenWidth, int screenHeight, Font font, int x, int y, int width,
-                           boolean modal, List<Component> lines, List<Option> options) {
+                           boolean modal, List<Component> lines, @Nullable WidgetFactory header, List<Option> options) {
         super(0, 0, screenWidth, screenHeight);
         this.modal = modal;
         this.panelX = Math.max(0, x);
         this.panelY = Math.max(0, y);
         this.panelWidth = width;
-        this.panelHeight = panelHeight(font, lines.size(), options.size());
+        this.panelHeight = panelHeight(font, lines.size(), rowCount(header, options));
 
         int cursorY = panelY + PADDING;
         for (Component line : lines) {
@@ -87,7 +105,12 @@ public class PopupComponent extends AbstractComponent {
             addComponent(text);
             cursorY += font.lineHeight + LINE_GAP;
         }
-        if (!lines.isEmpty() && !options.isEmpty()) cursorY += BUTTON_GAP;
+        if (!lines.isEmpty() && rowCount(header, options) > 0) cursorY += BUTTON_GAP;
+
+        if (header != null) {
+            addWidget(header.create(panelX + PADDING, cursorY, panelWidth - PADDING * 2, BUTTON_HEIGHT));
+            cursorY += BUTTON_HEIGHT + BUTTON_GAP;
+        }
 
         Identifier idle = OverlayTheme.sprite(OverlayTheme.PAGE_CARD_IDLE);
         Identifier active = OverlayTheme.sprite(OverlayTheme.PAGE_CARD_ACTIVE);

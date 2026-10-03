@@ -89,6 +89,7 @@ final class LiveSlotPlacer {
 
         int originX = openCard.slotGridScreenX() + ITEM_INSET;
         int originY = openCard.slotGridScreenY() + ITEM_INSET;
+        int pageWidth = openCard.slotsAcross();
 
         int containerSlots = menu.getRowCount() * 9;
         for (int i = 0; i < containerSlots; i++) {
@@ -101,8 +102,8 @@ final class LiveSlotPlacer {
             }
 
             int visible = i - 9;
-            int absX = originX + (visible % 9) * SLOT_SIZE;
-            int absY = originY + (visible / 9) * SLOT_SIZE;
+            int absX = originX + (visible % pageWidth) * SLOT_SIZE;
+            int absY = originY + (visible / pageWidth) * SLOT_SIZE;
             slot.x = absX - offX;
             slot.y = absY - offY;
 

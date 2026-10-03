@@ -10,6 +10,32 @@
   - Each page now shows how many free slots it has left in the top right corner of its title bar. Can be disabled in the settings.
   - Added a new Search mode "DIM". While in Dim mode pages don't get hidden when they have no matching items, instead they are dimmed.
   - Added the ability to highlight matching items in the storage overlay. By default, while holding Left Alt, all slots containing the same item are highlighted in blue. You can change this in the settings to use a different key or to always highlight matching items when hovering over them. You can also enable a setting to show only pages with matching items while holding Left Alt.
+  - Added keyboard navigation for the storage overlay. You can now use the arrow keys to move between pages, Up selects the page over the current one, Down selects the page under it, Left selects the page to the left, and Right selects the page to the right. Shift + 1–9 opens the 9 first pages.
+
+## Custom Page Layouts
+
+### New
+- **Custom page widths:** each page can be 2 to 18 slots wide. Right-click a page in edit mode and choose **Page Width...** to set it with a slider, or use **Reset to Default**.
+- **Global Page Width setting** now goes up to 18 slots.
+- **Automatic stacking:** when a page is shorter than the row it's in, the pages after it fill the free space beside the tall page in lines, instead of leaving it empty.
+- **Manual stacks:** drag a page onto the top or bottom edge of another page to stack them. A stack moves and flows as a single card. Drag a page out of a stack to unstack it.
+- **Row breaks:** right-click a page and choose **Add Row Break After** to start a new row after it. Breaks show as a faint "Row break" area in edit mode; right-click it or the page to remove it.
+
+#### Changed
+- **Overlay width adapts to your pages:**
+  - **Max pages per row** is now measured in default-width pages, so narrow pages fit more per row.
+  - The overlay shrinks to fit when there are only a few pages.
+  - The navigation panel narrows the overlay only as much as it needs, instead of removing a whole column.
+- **Pages never draw wider than they need:** a page is limited to its own slot count and the available screen width. Your saved width is kept.
+- **Smoother dragging:**
+  - Dropping on the left half of a page places the dragged page before it, and the right half places it after.
+  - Pages no longer flicker back and forth when dragging between cards of different sizes.
+- Spacers and row breaks are placed beside a stack instead of splitting it.
+- While a search is filtering pages, spacers, row breaks and stacks are ignored so results flow freely. They come back when the search is cleared.
+
+#### Notes
+- Existing layouts load unchanged. Layouts with only default-width pages look the same as before, except that the overlay is narrower when a group has fewer pages than "Max pages per row".
+- Some rows with mixed page heights may arrange differently because of automatic stacking. Use manual stacks or row breaks to adjust them.
 
 ### Fixes
 - Fixed Storage Overlay cache not saving for some players between game restarts.

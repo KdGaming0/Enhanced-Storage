@@ -50,6 +50,9 @@ public class EnhancedStorageConfig extends MidnightConfig {
     @Entry(category = CATEGORY_GENERAL, isSlider = true, min = 1, max = 10, precision = 1)
     public static int maxPagePerRow = 3;
 
+    @Entry(category = CATEGORY_GENERAL, isSlider = true, min = 2, max = 18, precision = 1)
+    public static int pageWidth = 9;
+
     @Entry(category = CATEGORY_GENERAL, isSlider = true, min = 0, max = 10, precision = 1)
     public static int cardSpacing = 3;
 

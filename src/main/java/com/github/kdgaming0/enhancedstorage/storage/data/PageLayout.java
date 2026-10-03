@@ -37,6 +37,8 @@ public final class PageLayout extends ProfileScopedStore {
     private static final String NAME_KEY = "name";
     private static final String COLLAPSED_KEY = "collapsed";
     private static final String SECTION_END_KEY = "sections_end";
+    private static final String ROW_BREAK_KEY = "row_break";
+    private static final String STACK_JOIN_KEY = "stack_join";
 
     private final Map<Context, List<LayoutEntry>> orders = new ConcurrentHashMap<>();
 
@@ -112,6 +114,8 @@ public final class PageLayout extends ProfileScopedStore {
                         if (collapsed) tag.putBoolean(COLLAPSED_KEY, true);
                     }
                     case LayoutEntry.SectionEnd() -> tag.putBoolean(SECTION_END_KEY, true);
+                    case LayoutEntry.RowBreak(int id) -> tag.putInt(ROW_BREAK_KEY, id);
+                    case LayoutEntry.StackJoin(int id) -> tag.putInt(STACK_JOIN_KEY, id);
                 }
                 list.add(tag);
             }
@@ -134,6 +138,8 @@ public final class PageLayout extends ProfileScopedStore {
                                     entry.getString(NAME_KEY).orElse(LayoutEntry.Section.DEFAULT_NAME),
                                     entry.getBoolean(COLLAPSED_KEY).orElse(false))))
                             .or(() -> entry.getBoolean(SECTION_END_KEY).map(present -> new LayoutEntry.SectionEnd()))
+                            .or(() -> entry.getInt(ROW_BREAK_KEY).map(LayoutEntry.RowBreak::new))
+                            .or(() -> entry.getInt(STACK_JOIN_KEY).map(LayoutEntry.StackJoin::new))
                             .filter(e -> e instanceof LayoutEntry.SectionEnd || seen.add(e))
                             .ifPresent(entries::add);
                 }

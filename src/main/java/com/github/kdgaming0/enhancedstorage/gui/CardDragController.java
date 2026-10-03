@@ -25,6 +25,7 @@ final class CardDragController {
     private static final int SCROLL_EDGE = 24;
     private static final double MAX_SCROLL_SPEED = 400; // pixels per second
     private static final long SPRING_DELAY_MS = 600;
+    private static final int STACK_BAND = 12;
 
     private final StorageOverlayLayout layout;
     private final Consumer<List<LayoutEntry>> onDrop;
@@ -42,6 +43,9 @@ final class CardDragController {
     private @Nullable SectionHeaderComponent springTarget;
     private long springStartMs;
     private final List<SectionHeaderComponent> springOpened = new ArrayList<>();
+    private @Nullable List<GridCellComponent> undoOrder;
+    private @Nullable Rect moveZone;
+    private @Nullable GridCellComponent dragJoin;
 
     CardDragController(StorageOverlayLayout layout, Consumer<List<LayoutEntry>> onDrop) {
         this.layout = layout;
@@ -82,6 +86,11 @@ final class CardDragController {
             title.updateParentPosition(0, 0, screenWidth, screenHeight);
             this.ghostTitle = title;
         }
+        if (cell instanceof PageCardComponent) {
+            this.dragJoin = new StackJoinComponent(new LayoutEntry.StackJoin(layout.nextStackJoinId()));
+            List<GridCellComponent> detached = detach(layout.getCells(), cell);
+            if (detached != null) layout.previewOrder(detached);
+        }
     }
 
     void update(double mouseX, double mouseY) {
@@ -94,9 +103,8 @@ final class CardDragController {
         }
 
         // The full order, including cells hidden in collapsed sections, so a save never drops them.
-        List<GridCellComponent> order = new ArrayList<>(layout.getCells());
-        int from = order.indexOf(cell);
-        if (from < 0) return;
+        List<GridCellComponent> current = layout.getCells();
+        if (!current.contains(cell)) return;
 
         GridCellComponent hovered = cellUnder(layout.getVisibleCells(), viewport, mouseX, mouseY);
         SectionHeaderComponent spring = hovered instanceof SectionHeaderComponent h && h.isCollapsed() ? h : null;
@@ -105,27 +113,85 @@ final class CardDragController {
             springStartMs = Util.getMillis();
         }
 
-        int to;
+        // Positions are picked in the order without the dragged card and its join, then the card goes back in there.
+        List<GridCellComponent> order = new ArrayList<>(current);
+        order.remove(cell);
+        if (dragJoin != null) order.remove(dragJoin);
+
         if (hovered instanceof SectionHeaderComponent header) {
             // First in that section. A collapsed one opens after a short hover instead (see paint).
             if (header.isCollapsed()) return;
-            to = finalPosition(from, order.indexOf(header) + 1);
+            order.add(order.indexOf(header) + 1, cell);
         } else if (hovered != null) {
-            to = order.indexOf(hovered);
+            if (hovered == cell) return;
+            Rect bounds = hovered.bounds();
+            int at = order.indexOf(hovered);
+            int band = stackBand(cell, hovered);
+            if (mouseY < bounds.y() + band) {
+                order.add(at, dragJoin);
+                order.add(at, cell);
+            } else if (mouseY >= bounds.bottom() - band) {
+                order.add(at + 1, cell);
+                order.add(at + 1, dragJoin);
+            } else {
+                boolean after = mouseX >= bounds.x() + bounds.width() / 2.0;
+                order.add(after ? StorageOverlayLayout.stackEnd(order, at) : StorageOverlayLayout.stackStart(order, at), cell);
+            }
         } else {
-            int insertBefore = insertionInEmptySpace(order, mouseX, mouseY);
+            int insertBefore = insertionInEmptySpace(current, mouseX, mouseY);
             // Other gaps keep the current slot, so the grid doesn't jitter.
             if (insertBefore < 0) return;
-            to = finalPosition(from, insertBefore);
+            order.add(withoutDragged(current, insertBefore), cell);
         }
-        if (from == to) return;
+        if (order.equals(current)) return;
 
-        order.remove(from);
-        order.add(to, cell);
         // A cell moved into a collapsed section would vanish mid-drag.
-        SectionHeaderComponent section = sectionOf(order, to);
+        SectionHeaderComponent section = sectionOf(order, order.indexOf(cell));
         if (section != null && section.isCollapsed()) return;
+
+        if (moveZone != null && !moveZone.contains(mouseX, mouseY)) {
+            undoOrder = null;
+            moveZone = null;
+        }
+
+        if (order.equals(undoOrder)) return;
+        boolean byCard = hovered != null && !(hovered instanceof SectionHeaderComponent);
+        undoOrder = byCard ? List.copyOf(current) : null;
+        moveZone = byCard ? hovered.bounds() : null;
         layout.previewOrder(order);
+    }
+
+    private static int stackBand(GridCellComponent dragged, GridCellComponent target) {
+        if (!(dragged instanceof PageCardComponent) || !(target instanceof PageCardComponent)) return 0;
+        return Math.min(STACK_BAND, target.getHeight() / 4);
+    }
+
+    private int withoutDragged(List<GridCellComponent> current, int insertBefore) {
+        int index = 0;
+        for (int i = 0; i < insertBefore && i < current.size(); i++) {
+            GridCellComponent c = current.get(i);
+            if (c != dragged && c != dragJoin) index++;
+        }
+        return index;
+    }
+
+    /**
+     * The order with the card taken out of its stack and placed beside it, or null if it isn't stacked.
+     * In the middle of a stack, the pages above and below stay linked to each other.
+     */
+    private static @Nullable List<GridCellComponent> detach(List<GridCellComponent> order, GridCellComponent card) {
+        int i = order.indexOf(card);
+        boolean above = StorageOverlayLayout.isLink(order, i - 1);
+        boolean below = StorageOverlayLayout.isLink(order, i + 1);
+        if (!above && !below) return null;
+
+        GridCellComponent neighbour = order.get(above ? i - 2 : i + 2);
+        List<GridCellComponent> result = new ArrayList<>(order);
+        result.remove(below ? i + 1 : i - 1);
+        result.remove(card);
+        int n = result.indexOf(neighbour);
+        result.add(above ? StorageOverlayLayout.stackEnd(result, n) : StorageOverlayLayout.stackStart(result, n), card);
+        return result;
     }
 
     private int insertionInEmptySpace(List<GridCellComponent> order, double mouseX, double mouseY) {
@@ -138,10 +204,6 @@ final class CardDragController {
         StorageOverlayLayout.SectionSlot slot = layout.boundaryAt(mouseX, mouseY, true);
         if (slot != null) return slot.index();
         return layout.isPastLastCell(mouseX, mouseY) ? order.size() : -1;
-    }
-
-    private static int finalPosition(int from, int insertBefore) {
-        return insertBefore > from ? insertBefore - 1 : insertBefore;
     }
 
     private void updateSection(SectionHeaderComponent header, double mouseX, double mouseY) {
@@ -217,6 +279,9 @@ final class CardDragController {
         ghostTitle = null;
         originalOrder = List.of();
         springTarget = null;
+        undoOrder = null;
+        moveZone = null;
+        dragJoin = null;
         springOpened.forEach(SectionHeaderComponent::closeAfterDrag);
         springOpened.clear();
         if (wasSection) {

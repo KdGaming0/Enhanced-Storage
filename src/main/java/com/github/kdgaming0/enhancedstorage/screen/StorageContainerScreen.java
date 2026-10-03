@@ -286,6 +286,11 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         }
     }
 
+    // Opening a page with the arrow keys counts as keyboard input, after which vanilla focuses the first widget: the search box. This prevents that.
+    @Override
+    protected void setInitialFocus() {
+    }
+
     private void onPageCardClicked(StorageKey key) {
         if (key.equals(openKey)) return;
 
@@ -418,6 +423,11 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
     @Override
     public boolean mouseClicked(@NonNull MouseButtonEvent event, boolean doubleClick) {
+        var box = layout.getSearchBox();
+        if (box != null && (box.isFocused() || this.getFocused() == box) && !box.isMouseOver(event.x(), event.y())) {
+            box.setFocused(false);
+            this.setFocused(null);
+        }
         if (layout.handleButtonClick(event)) return true;
 
         boolean coveredByGui = isInsideOverlay(event.x(), event.y());
@@ -500,10 +510,17 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
         var box = layout.getSearchBox();
         // Stops E from closing the overlay when searching
-        if (box != null && box.isFocused() && !event.isEscape()) {
+        if (box != null && (box.isFocused() || this.getFocused() == box)) {
+            // Enter or Esc leaves the search box; a second Esc closes the screen as usual.
+            if (event.isEscape() || event.isConfirmation()) {
+                box.setFocused(false);
+                this.setFocused(null);
+                return true;
+            }
             box.keyPressed(event);
             return true;
         }
+        if (layout.handleNavigationKey(event)) return true;
         return super.keyPressed(event);
     }
 

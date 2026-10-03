@@ -19,6 +19,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.core.component.DataComponents;
@@ -27,6 +28,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import org.jetbrains.annotations.Nullable;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.*;
 import java.util.stream.Stream;
@@ -54,8 +56,9 @@ public class StorageOverlayLayout {
     private static final List<String> EDIT_MODE_HINTS = List.of(
             "Click a page title to rename it.",
             "Drag pages, or sections by the grip.",
-            "Right-click to add or remove spacers.",
-            "Hover between rows to add a section.");
+            "Right-click for more options.",
+            "Hover between rows to add a section.",
+            "Drop on a page's edge to stack.");
     private static final int SECTION_LINE_REACH = 3;
     private static final int SECTION_INSET = 4;
     private static final int NAV_GAP = 2;
@@ -70,6 +73,7 @@ public class StorageOverlayLayout {
     private final List<PageCardComponent> visibleCards = new ArrayList<>();
     private final List<SectionFrame> sectionFrames = new ArrayList<>();
     private final List<PlacedRow> rows = new ArrayList<>();
+    private final List<RowBreakMark> rowBreakMarks = new ArrayList<>();
     private final Map<StorageKey, Boolean> pageMatchCache = new HashMap<>();
     private final Set<GridCellComponent> searchMisses = new HashSet<>();
     private ItemStack copyFilterTarget = ItemStack.EMPTY;
@@ -80,7 +84,9 @@ public class StorageOverlayLayout {
     private int liveRowBottom = -1;
     // Row-flow inputs captured by build() so applySearch() can re-pack rows without re-running build().
     private Font font;
-    private int columns;
+    private int maxSlotsAcross;
+    private @Nullable StorageKey liveKey;
+    private int liveRows;
     private int cardWidth;
     private int rowContentWidth;
     private int titleAreaHeight;
@@ -130,12 +136,34 @@ public class StorageOverlayLayout {
         return new StorageOverlayLayout(true, rift);
     }
 
-    public static int computeColumns(int width) {
-        int cardWidth = CARD_BORDER * 2 + SLOTS_ACROSS * SLOT_SIZE;
-        int maxAvailableWidth = width - EnhancedStorageConfig.horizontalMargin
-                - INNER_PADDING * 2 - SCROLLBAR_WIDTH - SCROLLBAR_GAP;
-        return Math.clamp((maxAvailableWidth + EnhancedStorageConfig.cardSpacing) / (cardWidth + EnhancedStorageConfig.cardSpacing),
-                1, EnhancedStorageConfig.maxPagePerRow);
+    public static int pageWidth() {
+        return EnhancedStorageConfig.pageWidth;
+    }
+
+    public static int pageWidth(StorageKey key) {
+        return PageWidths.getInstance().get(key)
+                .map(width -> Math.clamp(width, PageWidths.MIN_WIDTH, PageWidths.MAX_WIDTH))
+                .orElse(pageWidth());
+    }
+
+    private int slotCount(StorageKey key) {
+        if (key.equals(liveKey)) return (liveRows - 1) * SLOTS_ACROSS;
+        return PageCache.getInstance().get(key).map(page -> page.items().size()).orElse(0);
+    }
+
+    private int slotsAcross(StorageKey key) {
+        int chosen = Math.min(pageWidth(key), maxSlotsAcross);
+        int count = slotCount(key);
+        return count == 0 ? chosen : Math.clamp(count, PageWidths.MIN_WIDTH, chosen);
+    }
+
+    private int cardWidthFor(StorageKey key) {
+        return CARD_BORDER * 2 + slotsAcross(key) * SLOT_SIZE;
+    }
+
+    private int cardHeightFor(StorageKey key) {
+        if (!key.equals(liveKey) && PageCache.getInstance().get(key).isEmpty()) return UNCACHED_CARD_HEIGHT;
+        return CARD_BORDER * 2 + titleAreaHeight + Math.max(1, Math.ceilDiv(slotCount(key), slotsAcross(key))) * SLOT_SIZE;
     }
 
     public static int computeMainBackgroundHeight(int height) {
@@ -166,15 +194,6 @@ public class StorageOverlayLayout {
             margin += EnhancedStorageConfig.extraBottomMarginForRecipeSearchBar;
         }
         return margin;
-    }
-
-    private static int cardHeightFor(StorageKey key, int titleAreaHeight) {
-        return PageCache.getInstance().get(key)
-                .map(page -> {
-                    int rows = Math.max(1, Math.ceilDiv(page.items().size(), StorageOverlayLayout.SLOTS_ACROSS));
-                    return StorageOverlayLayout.CARD_BORDER * 2 + titleAreaHeight + rows * StorageOverlayLayout.SLOT_SIZE;
-                })
-                .orElse(StorageOverlayLayout.UNCACHED_CARD_HEIGHT);
     }
 
     private static boolean isSkyblockerQuickNavEnabled() {
@@ -321,8 +340,10 @@ public class StorageOverlayLayout {
     public void build(IScreen screen, Font font, int width, int height, StorageOverlayState state,
                       @Nullable StorageKey liveKey, int liveRows, OverlayActions actions) {
         resetForBuild(font, state, actions, liveKey);
+        this.liveKey = liveKey;
+        this.liveRows = liveRows;
         List<LayoutEntry> entries = collectEntries(liveKey);
-        computeGeometry(width, entries.stream().anyMatch(LayoutEntry.Section.class::isInstance));
+        computeGeometry(width, entries);
 
         SpriteComponent mainBackground = buildMainPanel(screen, height);
         buildNavigationPanel(screen, mainBackground, entries);
@@ -374,30 +395,88 @@ public class StorageOverlayLayout {
         this.navigationBounds = null;
     }
 
-    private void computeGeometry(int width, boolean framed) {
+    private void computeGeometry(int width, List<LayoutEntry> entries) {
         // Frames need room around the cards, so every row moves in to keep the columns aligned.
+        boolean framed = entries.stream().anyMatch(LayoutEntry.Section.class::isInstance);
         this.contentInset = framed ? SECTION_INSET : 0;
-        this.cardWidth = CARD_BORDER * 2 + SLOTS_ACROSS * SLOT_SIZE;
         this.mainBackgroundY = computeMainBackgroundY();
-        setColumns(width, computeColumns(width - contentInset * 2));
+
+        int available = width - EnhancedStorageConfig.horizontalMargin - INNER_PADDING * 2
+                - SCROLLBAR_WIDTH - SCROLLBAR_GAP - contentInset * 2;
+        this.maxSlotsAcross = Math.max(PageWidths.MIN_WIDTH, (available - CARD_BORDER * 2) / SLOT_SIZE);
+        this.cardWidth = CARD_BORDER * 2 + Math.min(pageWidth(), maxSlotsAcross) * SLOT_SIZE;
+
+        // "Pages per row" is measured in default-width pages, so narrow pages pack more per row.
+        int pages = EnhancedStorageConfig.maxPagePerRow;
+        int budget = pages * cardWidth + (pages - 1) * EnhancedStorageConfig.cardSpacing;
+        setRowWidth(width, entries, Math.min(budget, available));
 
         this.navigationWidth = 0;
         if (EnhancedStorageConfig.navigationPanel == EnhancedStorageConfig.NavigationPanelSide.DISABLED) return;
-        // The panel uses the free space beside the overlay; when there is too little, a column is removed to makes room.
-        while (navigationSpace() < NAV_MIN_WIDTH && columns > 1) {
-            setColumns(width, columns - 1);
+        // The panel uses the free space beside the overlay; when there is too little, the rows narrow by what it needs.
+        // The overlay is centred, so each pixel of missing space costs two pixels of width.
+        while (navigationSpace() < NAV_MIN_WIDTH) {
+            int before = rowContentWidth;
+            setRowWidth(width, entries, before - (NAV_MIN_WIDTH - navigationSpace()) * 2);
+            if (rowContentWidth >= before) break;
         }
         if (navigationSpace() >= NAV_MIN_WIDTH) {
             this.navigationWidth = Math.min(navigationSpace(), NAV_MAX_WIDTH);
         }
     }
 
-    private void setColumns(int width, int columns) {
-        this.columns = columns;
-        this.rowContentWidth = columns * cardWidth + (columns - 1) * EnhancedStorageConfig.cardSpacing;
+    private void setRowWidth(int width, List<LayoutEntry> entries, int limit) {
+        // Shrinks to the widest row so narrow pages don't leave empty overlay; never below one default page.
+        this.rowContentWidth = Math.max(packedWidth(entries, limit), cardWidth);
         this.frameWidth = rowContentWidth + contentInset * 2;
         this.mainBackgroundWidth = frameWidth + INNER_PADDING * 2 + SCROLLBAR_WIDTH + SCROLLBAR_GAP;
         this.mainBackgroundX = (width / 2) - (mainBackgroundWidth / 2);
+    }
+
+    /**
+     * Width of the widest row {@link RowFlow} produces at this limit, so the measured width and the real rows always agree.
+     */
+    private int packedWidth(List<LayoutEntry> entries, int limit) {
+        int spacing = EnhancedStorageConfig.cardSpacing;
+        int widest = 0;
+        List<RowFlow.Box> segment = new ArrayList<>();
+        for (int i = 0; i < entries.size(); i++) {
+            switch (entries.get(i)) {
+                case LayoutEntry.Page(StorageKey key) -> {
+                    int width = cardWidthFor(key);
+                    int height = cardHeightFor(key);
+                    // A linked page joins the stack box above it, exactly as groupStacks() does for the real cells.
+                    boolean linked = i >= 2 && entries.get(i - 1) instanceof LayoutEntry.StackJoin
+                            && entries.get(i - 2) instanceof LayoutEntry.Page;
+                    if (linked) {
+                        RowFlow.Box stack = segment.removeLast();
+                        segment.add(new RowFlow.Box(Math.max(stack.width(), width), stack.height() + spacing + height));
+                    } else {
+                        segment.add(new RowFlow.Box(width, height));
+                    }
+                }
+                case LayoutEntry.Spacer _ -> segment.add(new RowFlow.Box(cardWidth, 0));
+                case LayoutEntry.StackJoin _ -> {
+                }
+                case LayoutEntry.Section _, LayoutEntry.SectionEnd _, LayoutEntry.RowBreak _ -> {
+                    widest = Math.max(widest, widestRow(segment, limit));
+                    segment.clear();
+                }
+            }
+        }
+        return Math.max(widest, widestRow(segment, limit));
+    }
+
+    private static int widestRow(List<RowFlow.Box> boxes, int limit) {
+        int widest = 0;
+        int start = 0;
+        while (start < boxes.size()) {
+            RowFlow.Row row = RowFlow.pack(boxes, start, boxes.size(), limit,
+                    EnhancedStorageConfig.cardSpacing, UNCACHED_CARD_HEIGHT);
+            widest = Math.max(widest, row.width());
+            start = row.end();
+        }
+        return widest;
     }
 
     private int navigationSpace() {
@@ -483,7 +562,7 @@ public class StorageOverlayLayout {
     }
 
     public void saveOrder(List<LayoutEntry> order) {
-        PageLayout.getInstance().setOrder(PageLayout.Context.of(riftContext), closeSections(order));
+        PageLayout.getInstance().setOrder(PageLayout.Context.of(riftContext), closeSections(cleanJoins(order)));
         for (LayoutEntry entry : order) {
             if (entry instanceof LayoutEntry.Page(StorageKey key)) PageOrder.getInstance().clear(key);
         }
@@ -520,6 +599,51 @@ public class StorageOverlayLayout {
             if (cell.entry() instanceof LayoutEntry.Section section) max = Math.max(max, section.id());
         }
         return max + 1;
+    }
+
+    int nextRowBreakId() {
+        int max = 0;
+        for (GridCellComponent cell : cells) {
+            if (cell.entry() instanceof LayoutEntry.RowBreak(int id)) max = Math.max(max, id);
+        }
+        return max + 1;
+    }
+
+    int nextStackJoinId() {
+        int max = 0;
+        for (GridCellComponent cell : cells) {
+            if (cell.entry() instanceof LayoutEntry.StackJoin(int id)) max = Math.max(max, id);
+        }
+        return max + 1;
+    }
+
+    static boolean isLink(List<GridCellComponent> order, int i) {
+        return i > 0 && i + 1 < order.size() && order.get(i) instanceof StackJoinComponent
+                && order.get(i - 1) instanceof PageCardComponent && order.get(i + 1) instanceof PageCardComponent;
+    }
+
+    static int stackStart(List<GridCellComponent> order, int i) {
+        while (isLink(order, i - 1)) i -= 2;
+        return i;
+    }
+
+    static int stackEnd(List<GridCellComponent> order, int i) {
+        while (isLink(order, i + 1)) i += 2;
+        return i + 1;
+    }
+
+    private static List<LayoutEntry> cleanJoins(List<LayoutEntry> entries) {
+        List<LayoutEntry> result = new ArrayList<>();
+        for (int i = 0; i < entries.size(); i++) {
+            LayoutEntry entry = entries.get(i);
+            if (entry instanceof LayoutEntry.StackJoin) {
+                boolean linked = !result.isEmpty() && result.getLast() instanceof LayoutEntry.Page
+                        && i + 1 < entries.size() && entries.get(i + 1) instanceof LayoutEntry.Page;
+                if (!linked) continue;
+            }
+            result.add(entry);
+        }
+        return result;
     }
 
     boolean isPastLastCell(double x, double y) {
@@ -590,18 +714,51 @@ public class StorageOverlayLayout {
         if (!Rect.contains(getPageOverviewBounds(), x, y)) return -1;
         for (PlacedRow row : rows) {
             if (row.first() instanceof SectionHeaderComponent || !row.bounds().contains(x, y)) continue;
-            int count = visibleCells.indexOf(row.last()) - visibleCells.indexOf(row.first()) + 1;
-            boolean besideLast = x >= row.last().bounds().right();
-            return count < columns && besideLast ? cells.indexOf(row.last()) + 1 : -1;
+            GridCellComponent last = null;
+            for (GridCellComponent cell : row.cells()) {
+                Rect b = cell.bounds();
+                if (y >= b.y() && y < b.bottom() && (last == null || b.right() > last.bounds().right())) last = cell;
+            }
+            if (last == null) return -1;
+            boolean besideLast = x >= last.bounds().right();
+            int rowRight = row.component().getTotalX() + contentInset + rowContentWidth;
+            boolean hasRoom = last.bounds().right() + EnhancedStorageConfig.cardSpacing + cardWidth <= rowRight;
+            return hasRoom && besideLast ? stackEnd(cells, cells.indexOf(last)) : -1;
         }
         return -1;
     }
 
-    record PlacedRow(EmptyComponent component, GridCellComponent first, GridCellComponent last,
+    record PlacedRow(EmptyComponent component, List<GridCellComponent> cells,
                      @Nullable SectionHeaderComponent section) {
+        GridCellComponent first() {
+            return cells.getFirst();
+        }
+
+        GridCellComponent last() {
+            return cells.getLast();
+        }
+
         Rect bounds() {
             return new Rect(component.getTotalX(), component.getTotalY(), component.getWidth(), component.getHeight());
         }
+    }
+
+    record RowBreakMark(RowBreakComponent cell, EmptyComponent row, int x, int width, int height) {
+        Rect bounds() {
+            return new Rect(row.getTotalX() + x, row.getTotalY(), width, height);
+        }
+    }
+
+    List<RowBreakMark> getRowBreakMarks() {
+        return rowBreakMarks;
+    }
+
+    @Nullable RowBreakComponent rowBreakAt(double x, double y) {
+        if (!Rect.contains(getPageOverviewBounds(), x, y)) return null;
+        for (RowBreakMark mark : rowBreakMarks) {
+            if (mark.bounds().contains(x, y)) return mark.cell();
+        }
+        return null;
     }
 
     void refresh() {
@@ -645,6 +802,8 @@ public class StorageOverlayLayout {
                 case LayoutEntry.Page(StorageKey key) -> cells.add(buildPageCard(key, liveKey, liveRows));
                 case LayoutEntry.Section section -> cells.add(buildSectionHeader(entries, i, section, liveKey));
                 case LayoutEntry.SectionEnd _ -> cells.add(new SectionEndComponent(frameWidth, 0));
+                case LayoutEntry.RowBreak rowBreak -> cells.add(new RowBreakComponent(rowBreak));
+                case LayoutEntry.StackJoin join -> cells.add(new StackJoinComponent(join));
             }
         }
     }
@@ -680,19 +839,19 @@ public class StorageOverlayLayout {
                 : PageCache.getInstance().get(key)
                 .map(PageCache.CachedPage::items).orElse(List.of());
 
-        int cardHeight = isLive
-                ? CARD_BORDER * 2 + titleAreaHeight + (liveRows - 1) * SLOT_SIZE
-                : cardHeightFor(key, titleAreaHeight);
+        int slotCount = slotCount(key);
+        int slotsAcross = slotsAcross(key);
+        int cardHeight = cardHeightFor(key);
 
         PageCardComponent pageCard = new PageCardComponent(
                 0, 0,
-                cardWidth, cardHeight,
+                cardWidthFor(key), cardHeight,
                 key, state,
-                items,
+                items, slotCount,
                 isLive || cached,
                 isLive,
                 !editMode,
-                CARD_BORDER, titleAreaHeight, SLOTS_ACROSS, SLOT_SIZE,
+                CARD_BORDER, titleAreaHeight, slotsAcross, SLOT_SIZE,
                 actions.onCardClick()
         );
         if (isLive) this.openCard = pageCard;
@@ -949,7 +1108,7 @@ public class StorageOverlayLayout {
     }
 
     /**
-     * Packs the visible cells into rows of {@link #columns}, replacing whatever the scroll container held
+     * Packs the visible cells into rows no wider than {@code rowContentWidth}, replacing whatever the scroll container held
      * before. Cell instances are reused; only the lightweight row wrappers are allocated.
      */
     private void reflowRows(String query) {
@@ -1006,6 +1165,7 @@ public class StorageOverlayLayout {
         pageOverview.clearComponents();
         sectionFrames.clear();
         rows.clear();
+        rowBreakMarks.clear();
         liveRowTop = -1;
         liveRowBottom = -1;
 
@@ -1014,53 +1174,76 @@ public class StorageOverlayLayout {
         }
 
         int spacing = EnhancedStorageConfig.cardSpacing;
+        List<List<GridCellComponent>> groups = groupStacks(visibleCells);
+        List<RowFlow.Box> boxes = new ArrayList<>(groups.size());
+        for (List<GridCellComponent> group : groups) boxes.add(boxOf(group, spacing));
+
         int contentY = 0;
         int start = 0;
         SectionHeaderComponent section = null;
-        while (start < visibleCells.size()) {
-            int end = rowEnd(start);
-            List<GridCellComponent> rowCells = visibleCells.subList(start, end);
-            boolean endsSection = end == visibleCells.size() || isBoundary(visibleCells.get(end));
-
-            if (rowCells.getFirst() instanceof SectionEndComponent) {
+        while (start < groups.size()) {
+            GridCellComponent first = groups.get(start).getFirst();
+            if (first instanceof SectionEndComponent) {
                 section = null;
-                start = end;
+                start++;
                 continue;
             }
 
-            int slotHeight;
+            if (first instanceof RowBreakComponent) {
+                start++;
+                continue;
+            }
+
+            RowFlow.Row flow = first instanceof SectionHeaderComponent ? null
+                    : RowFlow.pack(boxes, start, nextBoundary(groups, start), rowContentWidth, spacing, UNCACHED_CARD_HEIGHT);
+            int end = flow == null ? start + 1 : flow.end();
+            boolean endsSection = endsSectionAt(groups, end);
+
             int rowHeight;
-            if (rowCells.getFirst() instanceof SectionHeaderComponent header) {
+            if (first instanceof SectionHeaderComponent header) {
                 section = header;
                 header.setOpen(!endsSection);
-                slotHeight = endsSection ? SectionHeaderComponent.CLOSED_HEIGHT : SectionHeaderComponent.OPEN_HEIGHT;
-                rowHeight = slotHeight;
+                rowHeight = endsSection ? SectionHeaderComponent.CLOSED_HEIGHT : SectionHeaderComponent.OPEN_HEIGHT;
             } else {
-                // Row height = tallest page in the row; spacers stretch to fit instead of setting it.
-                slotHeight = rowCells.stream()
-                        .filter(PageCardComponent.class::isInstance)
-                        .mapToInt(GridCellComponent::getHeight)
-                        .max()
-                        .orElse(UNCACHED_CARD_HEIGHT);
                 // A section's last row also holds the frame's bottom padding.
-                rowHeight = section != null && endsSection ? slotHeight + SECTION_INSET : slotHeight;
+                rowHeight = section != null && endsSection ? flow.height() + SECTION_INSET : flow.height();
             }
 
+            List<GridCellComponent> rowCells = new ArrayList<>();
             EmptyComponent row = new EmptyComponent(0, 0, frameWidth, rowHeight);
-            for (int col = 0; col < rowCells.size(); col++) {
-                GridCellComponent cell = rowCells.get(col);
-                cell.setX(cell instanceof SectionHeaderComponent ? 0 : contentInset + col * (cardWidth + spacing));
-                if (cell instanceof SpacerCardComponent spacer) spacer.setSlotHeight(slotHeight);
+            for (int g = start; g < end; g++) {
+                RowFlow.Spot spot = flow == null ? null : flow.spots().get(g - start);
+                int cellY = spot == null ? 0 : spot.y();
+                for (GridCellComponent cell : groups.get(g)) {
+                    if (spot == null) {
+                        cell.setX(0);
+                    } else {
+                        cell.setX(contentInset + spot.x());
+                        if (cell instanceof SpacerCardComponent spacer) spacer.setSlotHeight(spot.lineHeight());
+                    }
+                    // Cells are reused between reflows and stacked ones sit lower, so y is reset every time.
+                    // UI Lib propagates setY through the whole subtree, so it's skipped when unchanged.
+                    if (cell.getY() != cellY) cell.setY(cellY);
+                    cellY += cell.getHeight() + spacing;
 
-                // Remember the live page's row so it can be scrolled into view.
-                if (cell instanceof PageCardComponent card && card.isLive()) {
-                    liveRowTop = contentY;
-                    liveRowBottom = contentY + rowHeight;
+                    // Remember the live page's row so it can be scrolled into view.
+                    if (cell instanceof PageCardComponent card && card.isLive()) {
+                        liveRowTop = contentY;
+                        liveRowBottom = contentY + rowHeight;
+                    }
+                    row.addComponent(cell);
+                    rowCells.add(cell);
                 }
-                row.addComponent(cell);
             }
             pageOverview.addComponent(row);
-            rows.add(new PlacedRow(row, rowCells.getFirst(), rowCells.getLast(), section));
+            rows.add(new PlacedRow(row, List.copyOf(rowCells), section));
+            if (flow != null && end < groups.size() && groups.get(end).getFirst() instanceof RowBreakComponent rowBreak) {
+                int left = contentInset + flow.width() + spacing;
+                int right = contentInset + rowContentWidth;
+                if (right - left >= SLOT_SIZE) {
+                    rowBreakMarks.add(new RowBreakMark(rowBreak, row, left, right - left, flow.height()));
+                }
+            }
             if (section != null && endsSection) sectionFrames.add(new SectionFrame(section, row));
             contentY += rowHeight + spacing;
             start = end;
@@ -1169,13 +1352,47 @@ public class StorageOverlayLayout {
     }
 
     /** Headers and the end marker sit alone on their row, so they also end the row before them. */
-    private int rowEnd(int start) {
-        if (isBoundary(visibleCells.get(start))) return start + 1;
-        int end = start + 1;
-        while (end < visibleCells.size() && end - start < columns && !isBoundary(visibleCells.get(end))) {
-            end++;
+    private static int nextBoundary(List<List<GridCellComponent>> groups, int from) {
+        int i = from;
+        while (i < groups.size() && !isBoundary(groups.get(i).getFirst())
+                && !(groups.get(i).getFirst() instanceof RowBreakComponent)) i++;
+        return i;
+    }
+
+    private static boolean endsSectionAt(List<List<GridCellComponent>> groups, int index) {
+        while (index < groups.size() && groups.get(index).getFirst() instanceof RowBreakComponent) index++;
+        return index == groups.size() || isBoundary(groups.get(index).getFirst());
+    }
+
+    /** Splits cells into flow items: linked pages become one group; joins themselves take no place. */
+    private static List<List<GridCellComponent>> groupStacks(List<GridCellComponent> cells) {
+        List<List<GridCellComponent>> groups = new ArrayList<>();
+        int i = 0;
+        while (i < cells.size()) {
+            // Joins inside a stack are stepped over below; any other join links nothing.
+            if (cells.get(i) instanceof StackJoinComponent) {
+                i++;
+                continue;
+            }
+            int end = stackEnd(cells, i);
+            List<GridCellComponent> group = new ArrayList<>();
+            for (int j = i; j < end; j += 2) group.add(cells.get(j));
+            groups.add(group);
+            i = end;
         }
-        return end;
+        return groups;
+    }
+
+    private static RowFlow.Box boxOf(List<GridCellComponent> group, int spacing) {
+        GridCellComponent first = group.getFirst();
+        if (!(first instanceof PageCardComponent)) return new RowFlow.Box(first.getWidth(), 0);
+        int width = 0;
+        int height = -spacing;
+        for (GridCellComponent cell : group) {
+            width = Math.max(width, cell.getWidth());
+            height += cell.getHeight() + spacing;
+        }
+        return new RowFlow.Box(width, height);
     }
 
     private static boolean isBoundary(GridCellComponent cell) {
@@ -1334,6 +1551,82 @@ public class StorageOverlayLayout {
             if (card.bounds().contains(x, y)) return card.stackAt(x, y);
         }
         return ItemStack.EMPTY;
+    }
+
+    /**
+     * Arrow keys open the neighbouring page as shown; Shift+1–9 opens that page in layout order.
+     * Returns true when the key is a navigation key, even if there was nothing to open.
+     */
+    public boolean handleNavigationKey(KeyEvent event) {
+        if (editMode) return false;
+        int mods = event.modifiers()
+                & (GLFW.GLFW_MOD_SHIFT | GLFW.GLFW_MOD_CONTROL | GLFW.GLFW_MOD_ALT | GLFW.GLFW_MOD_SUPER);
+        int key = event.key();
+        StorageKey target;
+        if (mods == GLFW.GLFW_MOD_SHIFT && key >= GLFW.GLFW_KEY_1 && key <= GLFW.GLFW_KEY_9) {
+            // Consumed even without a page, so vanilla doesn't also swap the hovered slot with the hotbar.
+            target = pageByNumber(key - GLFW.GLFW_KEY_1 + 1);
+        } else if ((mods & ~GLFW.GLFW_MOD_ALT) == 0 && isArrow(key)) {
+            // Alt is allowed, so arrows also step through pages filtered by a held item.
+            target = pageInDirection(key);
+        } else {
+            return false;
+        }
+        // One page switch at a time; a held key would otherwise send a command per repeat.
+        if (target != null && !state.isNavigating()) actions.onCardClick().accept(target);
+        return true;
+    }
+
+    private static boolean isArrow(int key) {
+        return key == GLFW.GLFW_KEY_UP || key == GLFW.GLFW_KEY_DOWN
+                || key == GLFW.GLFW_KEY_LEFT || key == GLFW.GLFW_KEY_RIGHT;
+    }
+
+    private @Nullable StorageKey pageByNumber(int number) {
+        int count = 0;
+        for (GridCellComponent cell : cells) {
+            if (cell instanceof PageCardComponent card && ++count == number) return card.getKey();
+        }
+        return null;
+    }
+
+    private @Nullable StorageKey pageInDirection(int key) {
+        if (visibleCards.isEmpty()) return null;
+        PageCardComponent current = currentCard();
+        if (current == null) return visibleCards.getFirst().getKey();
+        int index = visibleCards.indexOf(current);
+        return switch (key) {
+            case GLFW.GLFW_KEY_LEFT -> index > 0 ? visibleCards.get(index - 1).getKey() : null;
+            case GLFW.GLFW_KEY_RIGHT -> index < visibleCards.size() - 1 ? visibleCards.get(index + 1).getKey() : null;
+            default -> verticalNeighbour(current, key == GLFW.GLFW_KEY_UP);
+        };
+    }
+
+    private @Nullable PageCardComponent currentCard() {
+        for (PageCardComponent card : visibleCards) {
+            if (card.isLive() || state.isOpen(card.getKey())) return card;
+        }
+        return null;
+    }
+
+    // Rows can hold fewer cards or sit in other sections, so take the nearest row, then the closest centre in it.
+    private @Nullable StorageKey verticalNeighbour(PageCardComponent current, boolean up) {
+        int currentY = current.getTotalY();
+        int centerX = current.getTotalX() + current.getWidth() / 2;
+        PageCardComponent best = null;
+        int bestRowDistance = Integer.MAX_VALUE;
+        int bestXDistance = Integer.MAX_VALUE;
+        for (PageCardComponent card : visibleCards) {
+            int rowDistance = up ? currentY - card.getTotalY() : card.getTotalY() - currentY;
+            if (rowDistance <= 0) continue;
+            int xDistance = Math.abs(card.getTotalX() + card.getWidth() / 2 - centerX);
+            if (rowDistance < bestRowDistance || (rowDistance == bestRowDistance && xDistance < bestXDistance)) {
+                best = card;
+                bestRowDistance = rowDistance;
+                bestXDistance = xDistance;
+            }
+        }
+        return best == null ? null : best.getKey();
     }
 
     public void updateCopyFilter() {

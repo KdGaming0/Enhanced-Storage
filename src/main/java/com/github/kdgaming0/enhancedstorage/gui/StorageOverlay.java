@@ -7,10 +7,7 @@ import com.daqem.uilib.gui.widget.EditBoxWidget;
 import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
 import com.github.kdgaming0.enhancedstorage.gui.component.*;
-import com.github.kdgaming0.enhancedstorage.storage.data.LayoutEntry;
-import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
-import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
-import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
+import com.github.kdgaming0.enhancedstorage.storage.data.*;
 import com.github.kdgaming0.enhancedstorage.storage.profile.ProfileSession;
 import com.mojang.blaze3d.platform.cursor.CursorTypes;
 import net.minecraft.ChatFormatting;
@@ -20,12 +17,15 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.ARGB;
 import net.minecraft.world.item.ItemStack;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 /**
@@ -41,6 +41,8 @@ public class StorageOverlay extends AbstractScreen {
     private static final int SECTION_LINE_COLOR = 0xFFFFD24A;
     private static final int SECTION_LABEL_BACKGROUND = 0xC0000000;
     private static final String ADD_SECTION_TEXT = "+ Add section here";
+    private static final String ROW_BREAK_TEXT = "Row break";
+    private static final float ROW_BREAK_ALPHA = 0.5f;
     private final boolean editMode;
     // Sent on exit to reopen the live menu edit mode was entered from; null means just close.
     private final @Nullable String returnCommand;
@@ -56,6 +58,7 @@ public class StorageOverlay extends AbstractScreen {
     private @Nullable TextComponent sectionLabel;
     private @Nullable EditBoxWidget renameBox;
     private @Nullable PopupComponent popup;
+    private @Nullable IWidget popupPressed;
     private int realMouseX;
     private int realMouseY;
 
@@ -93,6 +96,7 @@ public class StorageOverlay extends AbstractScreen {
         renameCommit = null;
         renameBox = null;
         popup = null;
+        popupPressed = null;
 
         layout.build(this, this.font, this.width, this.height, state, null, 0, actions);
 
@@ -152,11 +156,20 @@ public class StorageOverlay extends AbstractScreen {
     public boolean mouseClicked(@NonNull MouseButtonEvent event, boolean doubleClick) {
         if (popup != null) {
             for (IWidget widget : popup.getWidgets()) {
-                if (widget.mouseClicked(event, doubleClick)) return true;
+                if (widget.mouseClicked(event, doubleClick)) {
+                    // Drags and the release go to this widget only, so a slider keeps tracking outside its bounds.
+                    if (popup != null && popup.getWidgets().contains(widget)) popupPressed = widget;
+                    return true;
+                }
             }
             // Clicking outside the panel dismisses it.
             if (!popup.isOverPanel(event.x(), event.y())) popup = null;
             return true;
+        }
+        EditBoxWidget search = layout.getSearchBox();
+        if (search != null && (search.isFocused() || getFocused() == search) && !search.isMouseOver(event.x(), event.y())) {
+            search.setFocused(false);
+            setFocused(null);
         }
         if (renameBox != null) {
             if (renameBox.isMouseOver(event.x(), event.y())) {
@@ -226,6 +239,12 @@ public class StorageOverlay extends AbstractScreen {
 
     @Override
     public boolean mouseReleased(@NonNull MouseButtonEvent event) {
+        if (popupPressed != null) {
+            IWidget pressed = popupPressed;
+            popupPressed = null;
+            pressed.mouseReleased(event);
+            return true;
+        }
         if (event.button() == 0 && drag.isActive()) {
             drag.drop();
             return true;
@@ -245,6 +264,10 @@ public class StorageOverlay extends AbstractScreen {
 
     @Override
     public boolean mouseDragged(@NonNull MouseButtonEvent event, double dragX, double dragY) {
+        if (popup != null) {
+            if (popupPressed != null) popupPressed.mouseDragged(event, dragX, dragY);
+            return true;
+        }
         if (event.button() == 0 && pressedCard != null && !drag.isActive()
                 && (pressedOnGrip || !(pressedCard instanceof SectionHeaderComponent))
                 && movedPastThreshold(event.x(), event.y())) {
@@ -278,18 +301,49 @@ public class StorageOverlay extends AbstractScreen {
         List<PopupComponent.Option> options;
         if (cell instanceof SpacerCardComponent) {
             options = List.of(option("Remove Spacer", () -> removeSpacer(cell)));
-        } else if (cell instanceof PageCardComponent) {
+        } else if (cell instanceof PageCardComponent card) {
             int index = cells.indexOf(cell);
+            // A stack is one cell in the flow, so spacers and breaks go beside the whole stack, never inside it.
+            int before = StorageOverlayLayout.stackStart(cells, index);
+            int after = StorageOverlayLayout.stackEnd(cells, index);
+            GridCellComponent next = after < cells.size() ? cells.get(after) : null;
             options = List.of(
-                    option("Add Spacer Before", () -> insertSpacer(index)),
-                    option("Add Spacer After", () -> insertSpacer(index + 1)));
+                    option("Add Spacer Before", () -> insertSpacer(before)),
+                    option("Add Spacer After", () -> insertSpacer(after)),
+                    next instanceof RowBreakComponent
+                            ? option("Remove Row Break", () -> removeRowBreak(next))
+                            : option("Add Row Break After", () -> insertRowBreak(after)),
+                    option("Page Width...", () -> openWidthMenu(card.getKey(), (int) x, (int) y)));
         } else {
             int index = layout.spacerSlotAt(x, y);
-            if (index < 0) return false;
-            options = List.of(option("Add Spacer", () -> insertSpacer(index)));
+            RowBreakComponent rowBreak = layout.rowBreakAt(x, y);
+            if (index < 0 && rowBreak == null) return false;
+            options = new ArrayList<>();
+            if (index >= 0) options.add(option("Add Spacer", () -> insertSpacer(index)));
+            if (rowBreak != null) options.add(option("Remove Row Break", () -> removeRowBreak(rowBreak)));
         }
         popup = PopupComponent.menu(this.width, this.height, this.font, (int) x, (int) y, options);
         return true;
+    }
+
+    private void openWidthMenu(StorageKey key, int x, int y) {
+        boolean usingDefault = PageWidths.getInstance().get(key).isEmpty();
+        int current = StorageOverlayLayout.pageWidth(key);
+        PopupComponent.WidgetFactory slider = (sx, sy, sw, sh) -> new PageWidthSlider(sx, sy, sw, sh,
+                current, usingDefault, slots -> setPageWidth(key, slots, x, y));
+        List<PopupComponent.Option> options = usingDefault
+                ? List.of()
+                : List.of(option("Reset to Default", () -> setPageWidth(key, null, x, y)));
+        popup = PopupComponent.menu(this.width, this.height, this.font, x, y,
+                slider, PageWidthSlider.preferredWidth(this.font), options);
+    }
+
+    private void setPageWidth(StorageKey key, @Nullable Integer slots, int menuX, int menuY) {
+        if (slots == null) PageWidths.getInstance().clear(key);
+        else PageWidths.getInstance().set(key, slots);
+        ProfileSession.getInstance().saveAll();
+        rebuildWidgets();
+        openWidthMenu(key, menuX, menuY);
     }
 
     private void insertSpacer(int index) {
@@ -301,6 +355,18 @@ public class StorageOverlay extends AbstractScreen {
     private void removeSpacer(GridCellComponent spacer) {
         List<LayoutEntry> entries = layout.currentEntries();
         entries.remove(spacer.entry());
+        applyOrder(entries);
+    }
+
+    private void insertRowBreak(int index) {
+        List<LayoutEntry> entries = layout.currentEntries();
+        entries.add(index, new LayoutEntry.RowBreak(layout.nextRowBreakId()));
+        applyOrder(entries);
+    }
+
+    private void removeRowBreak(GridCellComponent rowBreak) {
+        List<LayoutEntry> entries = layout.currentEntries();
+        entries.remove(rowBreak.entry());
         applyOrder(entries);
     }
 
@@ -375,6 +441,18 @@ public class StorageOverlay extends AbstractScreen {
                         r.x(), r.y(), r.width(), r.height());
             }
         }
+
+        int textWidth = this.font.width(ROW_BREAK_TEXT);
+        for (StorageOverlayLayout.RowBreakMark mark : layout.getRowBreakMarks()) {
+            Rect r = mark.bounds();
+            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(OverlayTheme.PAGE_SPACER),
+                    r.x(), r.y(), r.width(), r.height(), ARGB.white(ROW_BREAK_ALPHA));
+            if (textWidth + 8 <= r.width()) {
+                graphics.text(this.font, Component.literal(ROW_BREAK_TEXT),
+                        r.x() + (r.width() - textWidth) / 2, r.y() + (r.height() - this.font.lineHeight) / 2 + 1,
+                        OverlayTheme.secondaryTextColor(), OverlayTheme.titleShadow());
+            }
+        }
         graphics.disableScissor();
     }
 
@@ -446,6 +524,14 @@ public class StorageOverlay extends AbstractScreen {
             }
             return true;
         }
+        EditBoxWidget search = layout.getSearchBox();
+        boolean typing = search != null && (search.isFocused() || getFocused() == search);
+        if (typing && (event.isEscape() || event.isConfirmation())) {
+            search.setFocused(false);
+            setFocused(null);
+            return true;
+        }
+        if (!typing && layout.handleNavigationKey(event)) return true;
         return super.keyPressed(event);
     }
 
