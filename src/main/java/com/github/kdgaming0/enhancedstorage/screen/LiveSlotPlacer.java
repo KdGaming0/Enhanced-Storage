@@ -142,7 +142,7 @@ final class LiveSlotPlacer {
         }
 
         int panelX = overview.getTotalX();
-        int panelY = overview.getTotalY();
+        int panelY = overview.getTotalY() + layout.getPanelContentTop();
         for (int i = 0; i < containerSlots; i++) {
             Slot slot = menu.slots.get(i);
 
@@ -163,7 +163,7 @@ final class LiveSlotPlacer {
 
         // Offsets follow the vanilla inventory texture: 3 main rows, then a gap, then the hotbar.
         int invX = inventory.getTotalX() + 8;
-        int mainY = inventory.getTotalY() + 15;
+        int mainY = inventory.getTotalY() + layout.getPanelContentTop() + 15;
         int hotbarY = mainY + 3 * SLOT_SIZE + 4;
 
         int base = menu.slots.size() - 36;

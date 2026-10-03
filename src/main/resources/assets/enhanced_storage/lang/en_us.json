@@ -38,6 +38,12 @@
   "enhanced_storage.midnightconfig.navigationPanel": "Navigation Panel",
   "enhanced_storage.midnightconfig.navigationPanel.tooltip": "Show a list of every page, grouped by section, beside the overlay. Click a page to open it, or a section to scroll to it.",
 
+  "enhanced_storage.midnightconfig.inventoryPosition": "Inventory Position",
+  "enhanced_storage.midnightconfig.inventoryPosition.tooltip": "Where the inventory and Storage Overview panels sit. Left or Right moves them into a column beside the page grid so the grid can use nearly the full screen height; pages per row shrinks if needed to make room. A navigation panel on the same side stacks above the inventory. If the screen is too small even then, they go back to the bottom.",
+
+  "enhanced_storage.midnightconfig.overlayCentering": "Overlay Centering",
+  "enhanced_storage.midnightconfig.overlayCentering.tooltip": "What is centered on screen. Whole Overlay centers the page grid together with the navigation panel and a side inventory. Storage Only centers just the page grid and places the rest around it. Whole When Inventory On Side uses Whole Overlay only when the inventory is on the left or right.",
+
   "enhanced_storage.midnightconfig.showEmptySlotCount": "Show Empty Slot Count",
   "enhanced_storage.midnightconfig.showEmptySlotCount.tooltip": "Show how many slots without items each page has, for example \"6 empty\", next to the page title. Section headers and the navigation panel tooltip always show the count.",
 
@@ -124,6 +130,14 @@
   "enhanced_storage.midnightconfig.enum.NavigationPanelSide.LEFT": "Left",
   "enhanced_storage.midnightconfig.enum.NavigationPanelSide.RIGHT": "Right",
   "enhanced_storage.midnightconfig.enum.NavigationPanelSide.DISABLED": "Disabled",
+
+  "enhanced_storage.midnightconfig.enum.InventoryPosition.BOTTOM": "Bottom",
+  "enhanced_storage.midnightconfig.enum.InventoryPosition.LEFT": "Left",
+  "enhanced_storage.midnightconfig.enum.InventoryPosition.RIGHT": "Right",
+
+  "enhanced_storage.midnightconfig.enum.OverlayCentering.WHOLE_OVERLAY": "Whole Overlay",
+  "enhanced_storage.midnightconfig.enum.OverlayCentering.STORAGE_ONLY": "Storage Only",
+  "enhanced_storage.midnightconfig.enum.OverlayCentering.WHOLE_WHEN_SIDE": "Whole When Inventory On Side",
 
   "enhanced_storage.midnightconfig.enum.SearchMode.FILTER": "Filter",
   "enhanced_storage.midnightconfig.enum.SearchMode.DIM": "Dim",

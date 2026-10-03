@@ -25,6 +25,9 @@ public final class OverlayTheme {
     public static final String STORAGE_INVENTORY = "panel/storage_inventory";
     public static final String STORAGE_INVENTORY_FILLED = "panel/storage_inventory_filled";
     public static final String STORAGE_OVERVIEW = "panel/storage_overview";
+    public static final String STORAGE_INVENTORY_TOP = "panel/storage_inventory_top";
+    public static final String STORAGE_INVENTORY_FILLED_TOP = "panel/storage_inventory_filled_top";
+    public static final String STORAGE_OVERVIEW_TOP = "panel/storage_overview_top";
     public static final String NAV_PAGE = "nav/nav_page";
     public static final String NAV_SECTION_EXPANDED = "nav/nav_section_expanded";
     public static final String NAV_SECTION_COLLAPSED = "nav/nav_section_collapsed";
@@ -32,6 +35,7 @@ public final class OverlayTheme {
     public static final String NAV_ROW_ACTIVE = "nav/nav_row_active";
     public static final String NAV_SECTION = "nav/nav_section";
     public static final String NAV_GUIDE = "nav/nav_guide";
+    public static final String SLIDER_BUTTON = "nav/slider_button";
 
     private static final int LIGHT_TITLE_COLOR = 0xFF000000;
     private static final int DEFAULT_TITLE_COLOR = 0xFFAAAAAA;

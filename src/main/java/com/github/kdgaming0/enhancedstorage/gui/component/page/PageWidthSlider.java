@@ -71,7 +71,7 @@ public class PageWidthSlider extends AbstractSliderButton implements IWidget {
     @Override
     public void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         int color = ARGB.white(this.alpha);
-        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(OverlayTheme.PAGE_CARD_IDLE),
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(OverlayTheme.SLIDER_BUTTON),
                 getX(), getY(), getWidth(), getHeight(), color);
         int handleX = getX() + (int) (value * (getWidth() - HANDLE_WIDTH));
         graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(OverlayTheme.PAGE_CARD_ACTIVE),

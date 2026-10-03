@@ -110,7 +110,8 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
         int bottomLeft = (overview != null) ? Math.min(overview.getTotalX(), invLeft) : invLeft;
         int bottomRight = (overview != null) ? Math.max(overview.getTotalX() + overview.getWidth(), invRight) : invRight;
-        int boxBottom = (overview != null) ? Math.max(overview.getTotalY() + overview.getHeight(), invBottom) : invBottom;
+        int panelsBottom = (overview != null) ? Math.max(overview.getTotalY() + overview.getHeight(), invBottom) : invBottom;
+        int boxBottom = Math.max(panelsBottom, boxTop + layout.getMainBackgroundHeight());
 
         int boxLeft = Math.min(storageLeft, bottomLeft);
         int boxRight = Math.max(storageRight, bottomRight);
@@ -327,7 +328,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         Rect bounds = layout.getOverviewBounds();
         if (bounds == null) return Optional.empty();
 
-        int idx = IndexGrid.cellAt((int) (mx - bounds.x()), (int) (my - bounds.y()));
+        int idx = IndexGrid.cellAt((int) (mx - bounds.x()), (int) (my - bounds.y() - layout.getPanelContentTop()));
         if (idx < 0) return Optional.empty();
 
         return PageCache.getInstance().get(new StorageKey(StorageKey.Type.STORAGE_INDEX, 0))

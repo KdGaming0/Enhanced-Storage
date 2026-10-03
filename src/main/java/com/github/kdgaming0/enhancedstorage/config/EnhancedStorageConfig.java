@@ -45,6 +45,12 @@ public class EnhancedStorageConfig extends MidnightConfig {
     public static NavigationPanelSide navigationPanel = NavigationPanelSide.DISABLED;
 
     @Entry(category = CATEGORY_INTERFACE)
+    public static InventoryPosition inventoryPosition = InventoryPosition.BOTTOM;
+
+    @Entry(category = CATEGORY_INTERFACE)
+    public static OverlayCentering overlayCentering = OverlayCentering.WHOLE_WHEN_SIDE;
+
+    @Entry(category = CATEGORY_INTERFACE)
     public static boolean showEmptySlotCount = true;
 
     @Comment(category = CATEGORY_INTERFACE)
@@ -165,6 +171,14 @@ public class EnhancedStorageConfig extends MidnightConfig {
 
     public enum NavigationPanelSide {
         LEFT, RIGHT, DISABLED
+    }
+
+    public enum InventoryPosition {
+        BOTTOM, LEFT, RIGHT
+    }
+
+    public enum OverlayCentering {
+        WHOLE_OVERLAY, STORAGE_ONLY, WHOLE_WHEN_SIDE
     }
 
     public enum SearchMode {

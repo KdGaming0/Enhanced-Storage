@@ -64,6 +64,8 @@ public class StorageOverlayLayout {
     private static final int INVENTORY_HEIGHT = 96;
     private static final int OVERVIEW_WIDTH = 176;
     private static final int OVERVIEW_HEIGHT = 85;
+    private static final int PANEL_TOP = 3;
+    private static final int COLUMN_GAP = 2;
     private static final long WARMUP_BUDGET_MS = 3;
     private static final int EDIT_MODE_TITLE_COLOR = 0xFFFFD24A;
     private static final List<Hint> EDIT_MODE_HINTS = List.of(
@@ -80,6 +82,9 @@ public class StorageOverlayLayout {
     private static final int NAV_GROUP_GAP = 4;
     private static final int NAV_MIN_WIDTH = 70;
     private static final int NAV_MAX_WIDTH = 120;
+    private static final int NAV_MIN_HEIGHT = 75;
+    private static final int BUTTON_SIZE = 24;
+    private static final int BUTTON_GAP = 2;
     private final boolean editMode;
     private final boolean editRiftContext;
     private final List<GridCellComponent> cells = new ArrayList<>();
@@ -110,6 +115,7 @@ public class StorageOverlayLayout {
     private int mainBackgroundX;
     private int mainBackgroundY;
     private int mainBackgroundWidth;
+    private int mainBackgroundHeight;
     private PageCardComponent openCard;
     private SpriteComponent inventoryPanel;
     private SpriteComponent overviewPanel;
@@ -120,6 +126,10 @@ public class StorageOverlayLayout {
     private @Nullable Deque<ItemStack> warmupQueue;
     private @Nullable SectionHeaderComponent draggedSection;
     private int navigationWidth;
+    private EnhancedStorageConfig.InventoryPosition inventoryPosition = EnhancedStorageConfig.InventoryPosition.BOTTOM;
+    private boolean navigationStacked;
+    private int columnX;
+    private int panelTop;
     private int navigationParentX;
     private int navigationParentY;
     private @Nullable PageViewport navigationList;
@@ -159,8 +169,8 @@ public class StorageOverlayLayout {
                 .orElse(pageWidth());
     }
 
-    public static int computeMainBackgroundHeight(int height) {
-        return height - computeTopMargin() - computeBottomMargin();
+    private static int computeMainBackgroundHeight(int height, boolean inventoryBelow) {
+        return height - computeTopMargin() - computeBottomMargin(inventoryBelow);
     }
 
     public static int computeMainBackgroundY() {
@@ -175,9 +185,9 @@ public class StorageOverlayLayout {
         return EnhancedStorageConfig.overviewTopMargin;
     }
 
-    private static int computeBottomMargin() {
-        // Reserve room for the inventory panel, which sits directly below the page overview.
-        int margin = EnhancedStorageConfig.overviewBottomMargin + INVENTORY_HEIGHT;
+    private static int computeBottomMargin(boolean inventoryBelow) {
+        // Reserve room for the inventory panel when it sits directly below the page overview.
+        int margin = EnhancedStorageConfig.overviewBottomMargin + (inventoryBelow ? INVENTORY_HEIGHT : 0);
 
         // Quick Nav buttons sit in a row just above and below the container, so add more margin to make space for them.
         if (SKYBLOCKER_LOADED && isSkyblockerQuickNavEnabled()) {
@@ -345,12 +355,12 @@ public class StorageOverlayLayout {
         return PageCache.getInstance().get(key).map(PageCache.CachedPage::emptySlots).orElse(0);
     }
 
-    private static void addPanelTitle(SpriteComponent panel, String text, int color) {
+    private void addPanelTitle(SpriteComponent panel, String text, int color) {
         addPanelText(panel, 7, 3, text, color);
     }
 
-    private static void addPanelText(SpriteComponent panel, int x, int y, String text, int color) {
-        TextComponent component = new TextComponent(x, y, Component.literal(text), color);
+    private void addPanelText(SpriteComponent panel, int x, int y, String text, int color) {
+        TextComponent component = new TextComponent(x, y + panelTop, Component.literal(text), color);
         component.updateParentPosition(panel.getTotalX(), panel.getTotalY(), panel.getWidth(), panel.getHeight());
         component.setDrawShadow(OverlayTheme.titleShadow());
         panel.addComponent(component);
@@ -480,6 +490,10 @@ public class StorageOverlayLayout {
         return mainBackgroundWidth;
     }
 
+    public int getMainBackgroundHeight() {
+        return mainBackgroundHeight;
+    }
+
     public @Nullable PageCardComponent getOpenCard() {
         return openCard != null && visibleCards.contains(openCard) ? openCard : null;
     }
@@ -506,6 +520,10 @@ public class StorageOverlayLayout {
         searchBox.setValue(name);
         state.setSearchQuery(name);
         searchDirty = true;
+    }
+
+    public int getPanelContentTop() {
+        return panelTop;
     }
 
     public @Nullable Rect getInventoryBounds() {
@@ -548,9 +566,9 @@ public class StorageOverlayLayout {
         this.liveKey = liveKey;
         this.liveRows = liveRows;
         List<LayoutEntry> entries = collectEntries(liveKey);
-        computeGeometry(width, entries);
+        computeGeometry(width, height, entries);
 
-        SpriteComponent mainBackground = buildMainPanel(screen, height);
+        SpriteComponent mainBackground = buildMainPanel(screen);
         buildNavigationPanel(screen, mainBackground, entries);
         buildCells(entries, liveKey, liveRows);
         buildPageViewport(mainBackground);
@@ -600,7 +618,7 @@ public class StorageOverlayLayout {
         this.navigationBounds = null;
     }
 
-    private void computeGeometry(int width, List<LayoutEntry> entries) {
+    private void computeGeometry(int width, int height, List<LayoutEntry> entries) {
         // Frames need room around the cards, so every row moves in to keep the columns aligned.
         boolean framed = entries.stream().anyMatch(LayoutEntry.Section.class::isInstance);
         this.contentInset = framed ? SECTION_INSET : 0;
@@ -614,20 +632,26 @@ public class StorageOverlayLayout {
         // "Pages per row" is measured in default-width pages, so narrow pages pack more per row.
         int pages = EnhancedStorageConfig.maxPagePerRow;
         int budget = pages * cardWidth + (pages - 1) * EnhancedStorageConfig.cardSpacing;
-        setRowWidth(width, entries, Math.min(budget, available));
+        int limit = Math.min(budget, available);
+        setRowWidth(width, entries, limit);
 
         this.navigationWidth = 0;
-        if (EnhancedStorageConfig.navigationPanel == EnhancedStorageConfig.NavigationPanelSide.DISABLED) return;
-        // The panel uses the free space beside the overlay; when there is too little, the rows narrow by what it needs.
-        // The overlay is centred, so each pixel of missing space costs two pixels of width.
-        while (navigationSpace() < NAV_MIN_WIDTH) {
-            int before = rowContentWidth;
-            setRowWidth(width, entries, before - (NAV_MIN_WIDTH - navigationSpace()) * 2);
-            if (rowContentWidth >= before) break;
+        this.navigationStacked = false;
+        this.inventoryPosition = EnhancedStorageConfig.inventoryPosition;
+        if (inventoryPosition != EnhancedStorageConfig.InventoryPosition.BOTTOM && !placeSideColumn(width, height, entries)) {
+            this.inventoryPosition = EnhancedStorageConfig.InventoryPosition.BOTTOM;
+            this.navigationWidth = 0;
+            this.navigationStacked = false;
+            setRowWidth(width, entries, limit);
         }
-        if (navigationSpace() >= NAV_MIN_WIDTH) {
-            this.navigationWidth = Math.min(navigationSpace(), NAV_MAX_WIDTH);
+        boolean bottom = inventoryPosition == EnhancedStorageConfig.InventoryPosition.BOTTOM;
+        if (bottom && EnhancedStorageConfig.navigationPanel != EnhancedStorageConfig.NavigationPanelSide.DISABLED
+                && !fitBeside(width, entries, 0, 0)) {
+            this.navigationWidth = 0;
+            setRowWidth(width, entries, limit);
         }
+        this.mainBackgroundHeight = computeMainBackgroundHeight(height, bottom);
+        this.panelTop = bottom ? 0 : PANEL_TOP;
     }
 
     private void setRowWidth(int width, List<LayoutEntry> entries, int limit) {
@@ -672,13 +696,89 @@ public class StorageOverlayLayout {
         return Math.max(widest, widestRow(segment, limit));
     }
 
-    private int navigationSpace() {
-        return mainBackgroundX - EnhancedStorageConfig.horizontalMargin / 2 - NAV_GAP;
+    private boolean placeSideColumn(int width, int height, List<LayoutEntry> entries) {
+        int mainHeight = computeMainBackgroundHeight(height, false);
+        if (sideStackHeight() > mainHeight) return false;
+
+        boolean sameSide = navigationSharesSide(inventoryPosition);
+        // Too short to stack above the inventory, it becomes its own panel between the grid and the column.
+        this.navigationStacked = sameSide && mainHeight - sideStackHeight() - COLUMN_GAP >= NAV_MIN_HEIGHT;
+
+        int column = NAV_GAP + INVENTORY_WIDTH;
+        boolean left = inventoryPosition == EnhancedStorageConfig.InventoryPosition.LEFT;
+        if (!fitBeside(width, entries, left ? column : 0, left ? 0 : column)) return false;
+
+        int besideNav = sameSide && !navigationStacked ? navigationWidth + NAV_GAP : 0;
+        this.columnX = left
+                ? mainBackgroundX - besideNav - column
+                : mainBackgroundX + mainBackgroundWidth + besideNav + NAV_GAP;
+        if (navigationStacked) this.navigationWidth = INVENTORY_WIDTH;
+        return true;
     }
 
-    private SpriteComponent buildMainPanel(IScreen screen, int height) {
+    /**
+     * Narrows the rows until everything beside the main panel fits, sizes a separate navigation panel and places the
+     * main panel for the centring mode. {@code fixedLeft} and {@code fixedRight} are the panel column's share of each
+     * side. Returns false when even the narrowest rows leave too little room.
+     */
+    private boolean fitBeside(int width, List<LayoutEntry> entries, int fixedLeft, int fixedRight) {
+        EnhancedStorageConfig.NavigationPanelSide nav = EnhancedStorageConfig.navigationPanel;
+        boolean separateNav = nav != EnhancedStorageConfig.NavigationPanelSide.DISABLED && !navigationStacked;
+        boolean navLeft = nav == EnhancedStorageConfig.NavigationPanelSide.LEFT;
+        int navMin = separateNav ? NAV_GAP + NAV_MIN_WIDTH : 0;
+        int left = fixedLeft + (navLeft ? navMin : 0);
+        int right = fixedRight + (navLeft ? 0 : navMin);
+        boolean whole = centersWholeOverlay();
+
+        int free;
+        while (true) {
+            free = width - EnhancedStorageConfig.horizontalMargin - mainBackgroundWidth;
+            int missing = whole ? left + right - free : Math.max(left, right) - free / 2;
+            if (missing <= 0) break;
+            int before = rowContentWidth;
+            setRowWidth(width, entries, before - missing * (whole ? 1 : 2));
+            if (rowContentWidth >= before) return false;
+        }
+
+        if (separateNav) {
+            int spare = whole ? free - left - right : free / 2 - (navLeft ? left : right);
+            this.navigationWidth = Math.min(NAV_MIN_WIDTH + spare, NAV_MAX_WIDTH);
+            if (navLeft) left += navigationWidth - NAV_MIN_WIDTH;
+            else right += navigationWidth - NAV_MIN_WIDTH;
+        }
+        if (whole) this.mainBackgroundX = (width - left - mainBackgroundWidth - right) / 2 + left;
+        return true;
+    }
+
+    private boolean centersWholeOverlay() {
+        return switch (EnhancedStorageConfig.overlayCentering) {
+            case WHOLE_OVERLAY -> true;
+            case STORAGE_ONLY -> false;
+            case WHOLE_WHEN_SIDE -> inventoryPosition != EnhancedStorageConfig.InventoryPosition.BOTTOM;
+        };
+    }
+
+    private static boolean navigationSharesSide(EnhancedStorageConfig.InventoryPosition position) {
+        return switch (EnhancedStorageConfig.navigationPanel) {
+            case LEFT -> position == EnhancedStorageConfig.InventoryPosition.LEFT;
+            case RIGHT -> position == EnhancedStorageConfig.InventoryPosition.RIGHT;
+            case DISABLED -> false;
+        };
+    }
+
+    private boolean showOverview() {
+        return EnhancedStorageConfig.showStorageOverviewCard && !riftContext;
+    }
+
+    private int sideStackHeight() {
+        int panels = INVENTORY_HEIGHT + PANEL_TOP;
+        if (showOverview()) panels += COLUMN_GAP + OVERVIEW_HEIGHT + PANEL_TOP;
+        return panels + BUTTON_GAP + BUTTON_SIZE;
+    }
+
+    private SpriteComponent buildMainPanel(IScreen screen) {
         SpriteComponent mainBackground = new SpriteComponent(mainBackgroundX, mainBackgroundY,
-                mainBackgroundWidth, computeMainBackgroundHeight(height),
+                mainBackgroundWidth, mainBackgroundHeight,
                 OverlayTheme.sprite(OverlayTheme.MAIN_PANEL));
         screen.addComponent(mainBackground);
         return mainBackground;
@@ -689,6 +789,10 @@ public class StorageOverlayLayout {
         boolean left = EnhancedStorageConfig.navigationPanel == EnhancedStorageConfig.NavigationPanelSide.LEFT;
         int x = left ? mainBackgroundX - NAV_GAP - navigationWidth : mainBackgroundX + mainBackgroundWidth + NAV_GAP;
         int height = mainBackground.getHeight();
+        if (navigationStacked) {
+            x = columnX;
+            height -= sideStackHeight() + COLUMN_GAP;
+        }
 
         SpriteComponent panel = new SpriteComponent(x, mainBackgroundY, navigationWidth, height,
                 OverlayTheme.sprite(OverlayTheme.PAGE_CARD_IDLE));
@@ -1028,22 +1132,36 @@ public class StorageOverlayLayout {
     }
 
     private void buildBottomPanels(IScreen screen, int width, SpriteComponent mainBackground) {
-        boolean showOverview = EnhancedStorageConfig.showStorageOverviewCard && !riftContext;
+        boolean showOverview = showOverview();
 
-        int inventoryX = (width / 2) - (INVENTORY_WIDTH / 2);
-        int overviewX = inventoryX - OVERVIEW_WIDTH;
+        int inventoryX;
+        int inventoryY;
+        int overviewX;
+        int overviewY;
+        if (inventoryPosition == EnhancedStorageConfig.InventoryPosition.BOTTOM) {
+            inventoryX = (width / 2) - (INVENTORY_WIDTH / 2);
+            overviewX = inventoryX - OVERVIEW_WIDTH;
 
-        // On narrow screens, center the inventory + overview block under the main panel instead of the screen.
-        if (showOverview && overviewX < mainBackgroundX) {
-            int mainCenterX = mainBackgroundX + mainBackgroundWidth / 2;
-            overviewX = mainCenterX - (INVENTORY_WIDTH + OVERVIEW_WIDTH) / 2;
-            inventoryX = overviewX + OVERVIEW_WIDTH;
+            // On narrow screens, center the inventory + overview block under the main panel instead of the screen.
+            if (showOverview && overviewX < mainBackgroundX) {
+                int mainCenterX = mainBackgroundX + mainBackgroundWidth / 2;
+                overviewX = mainCenterX - (INVENTORY_WIDTH + OVERVIEW_WIDTH) / 2;
+                inventoryX = overviewX + OVERVIEW_WIDTH;
+            }
+            inventoryY = mainBackgroundY + mainBackground.getHeight();
+            overviewY = inventoryY;
+        } else {
+            inventoryX = columnX;
+            inventoryY = mainBackgroundY + mainBackground.getHeight() - sideStackHeight();
+            overviewX = inventoryX;
+            overviewY = inventoryY + INVENTORY_HEIGHT + PANEL_TOP + COLUMN_GAP;
         }
 
-        int panelY = mainBackgroundY + mainBackground.getHeight();
-
-        String inventorySprite = editMode ? OverlayTheme.STORAGE_INVENTORY_FILLED : OverlayTheme.STORAGE_INVENTORY;
-        SpriteComponent inventory = new SpriteComponent(inventoryX, panelY, INVENTORY_WIDTH, INVENTORY_HEIGHT,
+        boolean withTop = panelTop > 0;
+        String inventorySprite = editMode
+                ? (withTop ? OverlayTheme.STORAGE_INVENTORY_FILLED_TOP : OverlayTheme.STORAGE_INVENTORY_FILLED)
+                : (withTop ? OverlayTheme.STORAGE_INVENTORY_TOP : OverlayTheme.STORAGE_INVENTORY);
+        SpriteComponent inventory = new SpriteComponent(inventoryX, inventoryY, INVENTORY_WIDTH, INVENTORY_HEIGHT + panelTop,
                 OverlayTheme.sprite(inventorySprite));
         screen.addComponent(inventory);
         this.inventoryPanel = inventory;
@@ -1052,8 +1170,8 @@ public class StorageOverlayLayout {
 
         SpriteComponent overview = null;
         if (showOverview) {
-            overview = new SpriteComponent(overviewX, panelY, OVERVIEW_WIDTH, OVERVIEW_HEIGHT,
-                    OverlayTheme.sprite(OverlayTheme.STORAGE_OVERVIEW));
+            overview = new SpriteComponent(overviewX, overviewY, OVERVIEW_WIDTH, OVERVIEW_HEIGHT + panelTop,
+                    OverlayTheme.sprite(withTop ? OverlayTheme.STORAGE_OVERVIEW_TOP : OverlayTheme.STORAGE_OVERVIEW));
             screen.addComponent(overview);
         }
         this.overviewPanel = overview;
@@ -1075,7 +1193,7 @@ public class StorageOverlayLayout {
             if (stack == null || stack.isEmpty()) continue;
 
             int x = IndexGrid.cellX(idx % IndexGrid.COLUMNS) + StorageSlotComponent.ITEM_INSET;
-            int y = IndexGrid.rowY(idx / IndexGrid.COLUMNS) + StorageSlotComponent.ITEM_INSET;
+            int y = IndexGrid.rowY(idx / IndexGrid.COLUMNS) + StorageSlotComponent.ITEM_INSET + panelTop;
             TooltipItemComponent item = new TooltipItemComponent(x, y, ItemModels.withResolvableModel(stack), true);
             item.setTooltipEnabled(EnhancedStorageConfig.showItemTooltipsOnCachedItems
                     && (!editMode || !EnhancedStorageConfig.hideItemTooltipsInEditMode));
@@ -1117,19 +1235,24 @@ public class StorageOverlayLayout {
             });
             this.searchBox = box;
         }
-        this.searchBox.uilib$updateParentPosition(inventoryPanel.getTotalX(), inventoryPanel.getTotalY());
+        this.searchBox.uilib$updateParentPosition(inventoryPanel.getTotalX(), inventoryPanel.getTotalY() + panelTop);
         screen.addWidget(this.searchBox);
     }
 
     /**
-     * Buttons sit in a row to the right of the player inventory panel.
+     * Buttons sit in a row to the right of the player inventory panel, or at the bottom of the panel column when it is beside the grid.
      */
     private void buildButtons(IScreen screen, int width, int height) {
-        final int btnSize = 24;
-        final int btnGap = 2;
+        final int btnSize = BUTTON_SIZE;
+        final int btnGap = BUTTON_GAP;
         final int iconSize = 16;
-        final int btnY = inventoryPanel.getTotalY() + 2;
-        final int rowStartX = inventoryPanel.getTotalX() + INVENTORY_WIDTH + 2;
+        boolean beside = inventoryPosition != EnhancedStorageConfig.InventoryPosition.BOTTOM;
+        final int btnY = beside
+                ? mainBackgroundY + mainBackgroundHeight - btnSize
+                : inventoryPanel.getTotalY() + 2;
+        final int rowStartX = beside
+                ? columnX
+                : inventoryPanel.getTotalX() + INVENTORY_WIDTH + 2;
         int btnX = rowStartX;
 
         if (EnhancedStorageConfig.showToolkitButton && !riftContext && !editMode) {
@@ -1168,17 +1291,20 @@ public class StorageOverlayLayout {
                     List.of(Component.literal(editMode ? "Exit Edit Mode" : "Edit Layout")
                             .withStyle(s -> s.withColor(0x55FF55).withItalic(false))));
             this.editButtonBounds = placeButton(screen, edit, btnX, btnY, btnSize, width, height);
+            btnX += btnSize + btnGap;
         }
 
         if (editMode) {
-            int resetY = btnY + btnSize + btnGap;
+            // The column has one button row, so Reset joins it instead of going below.
+            int resetX = beside ? btnX : rowStartX;
+            int resetY = beside ? btnY : btnY + btnSize + btnGap;
             IconButtonComponent reset = new IconButtonComponent(
-                    rowStartX, resetY, btnSize, btnSize,
+                    resetX, resetY, btnSize, btnSize,
                     getResetIcon(), iconSize,
                     List.of(Component.literal("Reset Layout").withStyle(s -> s.withColor(0x55FF55).withItalic(false)),
                             Component.literal("Choose what to restore to default")
                                     .withStyle(s -> s.withColor(0xFFAA00).withItalic(false))));
-            this.resetButtonBounds = placeButton(screen, reset, rowStartX, resetY, btnSize, width, height);
+            this.resetButtonBounds = placeButton(screen, reset, resetX, resetY, btnSize, width, height);
         }
     }
 

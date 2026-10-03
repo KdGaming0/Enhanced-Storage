@@ -42,6 +42,8 @@ A new panel on the side of the overlay makes it easier to navigate your pages an
 #### Smaller Improvements
 - Added keyboard navigation. Use the arrow keys to move to the page above, below, left, or right of the current one. Use Shift + 1–9 to open one of the first nine pages.
 - Each page now shows its number of free slots in the top right corner of its title bar. You can turn this off in the settings.
+- Added the ability to move the Inventory to the left or right of the overlay. 
+  - This also comes with the new config option to center the whole overlay on the screen instead of just the storage part. Useful when the inventory is on the side, so the overlay utilizes the whole screen better.
 
 ### Fixes
 - Fixed an issue that stopped the storage cache from being saved between game restarts for some players.
