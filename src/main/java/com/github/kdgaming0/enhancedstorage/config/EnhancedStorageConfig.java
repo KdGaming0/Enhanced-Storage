@@ -107,6 +107,9 @@ public class EnhancedStorageConfig extends MidnightConfig {
     public static boolean collapseSectionsWhileDragging = true;
 
     @Entry(category = CATEGORY_GENERAL)
+    public static boolean hideItemTooltipsInEditMode = true;
+
+    @Entry(category = CATEGORY_GENERAL)
     public static boolean saveCursorPosition = true;
 
     @Entry(category = CATEGORY_GENERAL, isSlider = true, min = 0.01, max = 5, precision = 1000)

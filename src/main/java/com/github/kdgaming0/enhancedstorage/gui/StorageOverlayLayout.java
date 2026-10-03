@@ -303,6 +303,14 @@ public class StorageOverlayLayout {
         return searchBox;
     }
 
+    public void searchFor(ItemStack stack) {
+        if (searchBox == null || stack.isEmpty()) return;
+        String name = TextUtils.normalizeWhitespace(ChatFormatting.stripFormatting(stack.getHoverName().getString()));
+        searchBox.setValue(name);
+        state.setSearchQuery(name);
+        searchDirty = true;
+    }
+
     public @Nullable Rect getInventoryBounds() {
         return inventoryBounds;
     }
@@ -855,6 +863,7 @@ public class StorageOverlayLayout {
                 actions.onCardClick()
         );
         if (isLive) this.openCard = pageCard;
+        if (editMode && EnhancedStorageConfig.hideItemTooltipsInEditMode) pageCard.disableItemTooltips();
         return pageCard;
     }
 
@@ -929,7 +938,8 @@ public class StorageOverlayLayout {
             int x = IndexGrid.cellX(idx % IndexGrid.COLUMNS) + StorageSlotComponent.ITEM_INSET;
             int y = IndexGrid.rowY(idx / IndexGrid.COLUMNS) + StorageSlotComponent.ITEM_INSET;
             TooltipItemComponent item = new TooltipItemComponent(x, y, ItemModels.withResolvableModel(stack), true);
-            item.setTooltipEnabled(EnhancedStorageConfig.showItemTooltipsOnCachedItems);
+            item.setTooltipEnabled(EnhancedStorageConfig.showItemTooltipsOnCachedItems
+                    && (!editMode || !EnhancedStorageConfig.hideItemTooltipsInEditMode));
             item.updateParentPosition(overview.getTotalX(), overview.getTotalY(),
                     overview.getWidth(), overview.getHeight());
             overview.addComponent(item);

@@ -531,6 +531,10 @@ public class StorageOverlay extends AbstractScreen {
             setFocused(null);
             return true;
         }
+        if (!typing && CopyHighlight.isSearchKey(event)) {
+            layout.searchFor(CopyHighlight.hovered());
+            return true;
+        }
         if (!typing && layout.handleNavigationKey(event)) return true;
         return super.keyPressed(event);
     }

@@ -520,6 +520,10 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
             box.keyPressed(event);
             return true;
         }
+        if (CopyHighlight.isSearchKey(event)) {
+            layout.searchFor(CopyHighlight.hovered());
+            return true;
+        }
         if (layout.handleNavigationKey(event)) return true;
         return super.keyPressed(event);
     }

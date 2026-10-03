@@ -8,8 +8,10 @@ import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 import org.jetbrains.annotations.Nullable;
@@ -17,6 +19,8 @@ import org.lwjgl.glfw.GLFW;
 
 import java.util.Map;
 import java.util.WeakHashMap;
+
+import static com.github.kdgaming0.enhancedstorage.EnhancedStorage.MOD_ID;
 
 /**
  * Highlights every other stack of the hovered item, across cached pages, the live page and the inventory.
@@ -29,6 +33,8 @@ public final class CopyHighlight {
     private static final Map<ItemStack, Identity> IDENTITIES = new WeakHashMap<>();
 
     private static KeyMapping key;
+    private static KeyMapping searchKey;
+    private static ItemStack hovered = ItemStack.EMPTY;
     private static ItemStack target = ItemStack.EMPTY;
     private static boolean locked;
     private static boolean tooltipsHidden;
@@ -39,12 +45,18 @@ public final class CopyHighlight {
     private record Identity(String id, @Nullable Object variant) {
     }
 
+    private static final KeyMapping.Category CATEGORY =
+            KeyMapping.Category.register(Identifier.fromNamespaceAndPath(MOD_ID, "main"));
+
     public static void register() {
         key = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.enhanced_storage.highlight_copies",
-                InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_ALT, KeyMapping.Category.INVENTORY));
+                InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_ALT, CATEGORY));
+        searchKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.enhanced_storage.search_hovered",
+                InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, CATEGORY));
     }
 
     public static void setTarget(ItemStack hovered) {
+        CopyHighlight.hovered = hovered;
         boolean holdKey = EnhancedStorageConfig.highlightCopies == EnhancedStorageConfig.HighlightCopiesMode.HOLD_KEY;
         boolean active = switch (EnhancedStorageConfig.highlightCopies) {
             case OFF -> false;
@@ -70,6 +82,10 @@ public final class CopyHighlight {
         return tooltipsHidden;
     }
 
+    public static ItemStack hovered() {
+        return hovered;
+    }
+
     public static boolean isCopy(ItemStack stack) {
         return !target.isEmpty() && !stack.isEmpty() && stack != target && sameItem(target, stack);
     }
@@ -89,6 +105,11 @@ public final class CopyHighlight {
         InputConstants.Key bound = KeyMappingHelper.getBoundKeyOf(key);
         return bound.getType() == InputConstants.Type.KEYSYM
                 && InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), bound.getValue());
+    }
+
+    public static boolean isSearchKey(KeyEvent event) {
+        InputConstants.Key bound = KeyMappingHelper.getBoundKeyOf(searchKey);
+        return bound.getType() == InputConstants.Type.KEYSYM && bound.getValue() == event.key();
     }
 
     private static Identity identity(ItemStack stack) {

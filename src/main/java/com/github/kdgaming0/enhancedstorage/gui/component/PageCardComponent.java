@@ -208,6 +208,12 @@ public class PageCardComponent extends GridCellComponent {
         return ItemStack.EMPTY;
     }
 
+    public void disableItemTooltips() {
+        for (StorageSlotComponent slot : slots) {
+            if (slot.getItem() != null) slot.getItem().setTooltipEnabled(false);
+        }
+    }
+
     // Apply the slot tint when searching
     public void applySearch(String query) {
         if (live || slots.isEmpty()) return;
