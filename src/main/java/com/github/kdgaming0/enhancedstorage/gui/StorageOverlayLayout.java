@@ -460,14 +460,14 @@ public class StorageOverlayLayout {
     }
 
     private int cardWidthFor(StorageKey key) {
-        return CARD_BORDER * 2 + slotsAcross(key) * SLOT_SIZE;
+        return CARD_BORDER * 2 + slotsAcross(key) * LayoutSpacing.slotSize();
     }
 
     private int cardHeightFor(StorageKey key) {
         if (!key.equals(liveKey) && PageCache.getInstance().get(key).isEmpty()) return UNCACHED_CARD_HEIGHT;
         int rows = Math.max(1, Math.ceilDiv(slotCount(key), slotsAcross(key)));
         int bottom = titleStyle() == EnhancedStorageConfig.PageTitleStyle.COMPACT ? CARD_BORDER : CARD_BOTTOM;
-        return PageCardComponent.slotGridTop(titleStyle(), CARD_BORDER, font.lineHeight) + rows * SLOT_SIZE + bottom;
+        return PageCardComponent.slotGridTop(titleStyle(), CARD_BORDER, font.lineHeight) + rows * LayoutSpacing.slotSize() + bottom;
     }
 
     private EnhancedStorageConfig.PageTitleStyle titleStyle() {
@@ -498,8 +498,9 @@ public class StorageOverlayLayout {
         return openCard != null && visibleCards.contains(openCard) ? openCard : null;
     }
 
-    public int quickNavRowCenterX(boolean topRow) {
-        if (!topRow && inventoryPosition == EnhancedStorageConfig.InventoryPosition.BOTTOM) {
+    // Both rows share one centre: Skyblocker puts every tab on the same 7-column grid, so the top tabs line up with the bottom ones.
+    public int quickNavRowCenterX() {
+        if (inventoryPosition == EnhancedStorageConfig.InventoryPosition.BOTTOM) {
             return inventoryPanel.getTotalX() + inventoryPanel.getWidth() / 2;
         }
         return mainBackgroundX + mainBackgroundWidth / 2;
@@ -633,8 +634,9 @@ public class StorageOverlayLayout {
 
         int available = width - LayoutSpacing.horizontalMargin() - LayoutSpacing.innerPadding() * 2
                 - SCROLLBAR_WIDTH - LayoutSpacing.scrollbarGap() - contentInset * 2;
-        this.maxSlotsAcross = Math.max(PageWidths.MIN_WIDTH, (available - CARD_BORDER * 2) / SLOT_SIZE);
-        this.cardWidth = CARD_BORDER * 2 + Math.min(pageWidth(), maxSlotsAcross) * SLOT_SIZE;
+        int slotSize = LayoutSpacing.slotSize();
+        this.maxSlotsAcross = Math.max(PageWidths.MIN_WIDTH, (available - CARD_BORDER * 2) / slotSize);
+        this.cardWidth = CARD_BORDER * 2 + Math.min(pageWidth(), maxSlotsAcross) * slotSize;
 
         // "Pages per row" is measured in default-width pages, so narrow pages pack more per row.
         int pages = EnhancedStorageConfig.maxPagePerRow;
@@ -1112,7 +1114,7 @@ public class StorageOverlayLayout {
                 isLive || cached,
                 isLive,
                 !editMode,
-                CARD_BORDER, titleStyle(), slotsAcross, SLOT_SIZE,
+                CARD_BORDER, titleStyle(), slotsAcross, LayoutSpacing.slotSize(),
                 actions.onCardClick()
         );
         if (isLive) this.openCard = pageCard;
@@ -1514,7 +1516,7 @@ public class StorageOverlayLayout {
             if (flow != null && end < groups.size() && groups.get(end).getFirst() instanceof RowBreakComponent rowBreak) {
                 int left = contentInset + flow.width() + spacing;
                 int right = contentInset + rowContentWidth;
-                if (right - left >= SLOT_SIZE) {
+                if (right - left >= LayoutSpacing.slotSize()) {
                     rowBreakMarks.add(new RowBreakMark(rowBreak, row, left, right - left, flow.height()));
                 }
             }

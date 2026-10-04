@@ -7,6 +7,7 @@ import com.daqem.uilib.gui.component.text.TextComponent;
 import com.daqem.uilib.gui.widget.EditBoxWidget;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.gui.OverlayTheme;
+import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayLayout;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayState;
 import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
 import com.github.kdgaming0.enhancedstorage.storage.data.LayoutEntry;
@@ -52,6 +53,7 @@ public class PageCardComponent extends GridCellComponent {
     private final int slotGridX;
     private final int slotGridY;
     private final int slotsAcross;
+    private final int slotSize;
     private final boolean cached;
     private final boolean live;
     private final List<ItemStack> items;
@@ -72,6 +74,7 @@ public class PageCardComponent extends GridCellComponent {
                              Consumer<StorageKey> onClick) {
         super(x, y, width, height);
         this.slotsAcross = slotsAcross;
+        this.slotSize = slotSize;
         this.slotGridX = cardBorder;
         this.slotGridY = slotGridTop(titleStyle, cardBorder, Minecraft.getInstance().font.lineHeight);
         this.key = key;
@@ -178,7 +181,8 @@ public class PageCardComponent extends GridCellComponent {
     }
 
     private void addSlotGrid(int x, int y, int width, int height) {
-        this.addComponent(new SpriteComponent(x, y, width, height, OverlayTheme.sprite(OverlayTheme.STORAGE_SLOT)));
+        String sprite = slotSize == StorageOverlayLayout.SLOT_SIZE ? OverlayTheme.STORAGE_SLOT : OverlayTheme.STORAGE_SLOT_SMALL;
+        this.addComponent(new SpriteComponent(x, y, width, height, OverlayTheme.sprite(sprite)));
     }
 
     @Override
@@ -210,8 +214,8 @@ public class PageCardComponent extends GridCellComponent {
         return slotsAcross;
     }
 
-    public int titleOffsetY() {
-        return titleLocalY;
+    public int slotSize() {
+        return slotSize;
     }
 
     public int slotIndexAt(double x, double y) {

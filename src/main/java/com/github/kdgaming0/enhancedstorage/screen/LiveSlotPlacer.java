@@ -4,6 +4,7 @@ import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayLayout;
 import com.github.kdgaming0.enhancedstorage.gui.component.page.PageCardComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.page.StorageSlotComponent;
 import com.github.kdgaming0.enhancedstorage.gui.layout.IndexGrid;
 import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
 import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
@@ -100,8 +101,10 @@ final class LiveSlotPlacer {
             return;
         }
 
-        int originX = openCard.slotGridScreenX() + ITEM_INSET;
-        int originY = openCard.slotGridScreenY() + ITEM_INSET;
+        int slotSize = openCard.slotSize();
+        int inset = StorageSlotComponent.itemInset(slotSize);
+        int originX = openCard.slotGridScreenX() + inset;
+        int originY = openCard.slotGridScreenY() + inset;
         int pageWidth = openCard.slotsAcross();
 
         int containerSlots = menu.getRowCount() * 9;
@@ -115,8 +118,8 @@ final class LiveSlotPlacer {
             }
 
             int visible = i - 9;
-            int absX = originX + (visible % pageWidth) * SLOT_SIZE;
-            int absY = originY + (visible / pageWidth) * SLOT_SIZE;
+            int absX = originX + (visible % pageWidth) * slotSize;
+            int absY = originY + (visible / pageWidth) * slotSize;
             slot.x = absX - offX;
             slot.y = absY - offY;
 

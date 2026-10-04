@@ -46,6 +46,8 @@
 
   "enhanced_storage.midnightconfig.pageTitleStyle": "Page Titles",
   "enhanced_storage.midnightconfig.pageTitleStyle.tooltip": "Normal shows the page name above the slots. \nCompact draws it over the card's top border so pages take less height. \nHidden removes it; hover a page to see its name and empty slot count. \n\nEdit mode uses Compact instead of Hidden so pages can be told apart and renamed. \n\nPicking a Layout Density preset sets this to the preset's style; you can change it again afterwards.",
+  "enhanced_storage.midnightconfig.slotSize": "Slot Size",
+  "enhanced_storage.midnightconfig.slotSize.tooltip": "Normal uses the standard 18 pixel slots. \nCompact uses 16 pixel slots with no gap between items, so pages are narrower and shorter and more fit on screen. \n\nThe Storage Overview and your inventory keep normal slots. \n\nPicking a Layout Density preset sets this to the preset's size; you can change it again afterwards.",
 
   "enhanced_storage.midnightconfig.showEmptySlotCount": "Show Empty Slot Count",
   "enhanced_storage.midnightconfig.showEmptySlotCount.tooltip": "Show how many slots without items each page has, for example \"6 empty\", next to the page title. Section headers and the navigation panel tooltip always show the count.",
@@ -166,6 +168,9 @@
   "enhanced_storage.midnightconfig.enum.PageTitleStyle.NORMAL": "Normal",
   "enhanced_storage.midnightconfig.enum.PageTitleStyle.COMPACT": "Compact",
   "enhanced_storage.midnightconfig.enum.PageTitleStyle.HIDDEN": "Hidden",
+
+  "enhanced_storage.midnightconfig.enum.SlotSize.NORMAL": "Normal",
+  "enhanced_storage.midnightconfig.enum.SlotSize.COMPACT": "Compact",
 
   "enhanced_storage.midnightconfig.enum.LayoutDensity.CUSTOM": "Custom",
   "enhanced_storage.midnightconfig.enum.LayoutDensity.COMFORTABLE": "Normal",

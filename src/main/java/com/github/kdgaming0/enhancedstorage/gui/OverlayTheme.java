@@ -21,6 +21,7 @@ public final class OverlayTheme {
     public static final String SECTION_GRIP = "section/section_grip";
     public static final String SECTION_GRIP_HOVER = "section/section_grip_hover";
     public static final String STORAGE_SLOT = "page/storage_slot";
+    public static final String STORAGE_SLOT_SMALL = "page/storage_slot_small";
     public static final String MAIN_PANEL = "panel/main_panel";
     public static final String STORAGE_INVENTORY = "panel/storage_inventory";
     public static final String STORAGE_INVENTORY_FILLED = "panel/storage_inventory_filled";

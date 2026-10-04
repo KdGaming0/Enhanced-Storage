@@ -62,6 +62,14 @@ public class EnhancedStorageConfig extends MidnightConfig {
     public static PageTitleStyle customPageTitleStyle = PageTitleStyle.NORMAL;
 
     @Entry(category = CATEGORY_INTERFACE)
+    public static SlotSize slotSize = SlotSize.NORMAL;
+
+    // The Slot Size choice made while Layout Density was Custom, kept the same way as customPageTitleStyle.
+    @Hidden
+    @Entry(category = CATEGORY_INTERFACE)
+    public static SlotSize customSlotSize = SlotSize.NORMAL;
+
+    @Entry(category = CATEGORY_INTERFACE)
     public static boolean showEmptySlotCount = true;
 
     @Comment(category = CATEGORY_INTERFACE)
@@ -230,6 +238,16 @@ public class EnhancedStorageConfig extends MidnightConfig {
         }
     }
 
+    /** Sets Slot Size from code while the config screen may be open, like {@link #setPageTitleStyleFromPreset}. */
+    static void setSlotSizeFromPreset(SlotSize size) {
+        slotSize = size;
+        EntryInfo info = entries.get(EnhancedStorage.MOD_ID + ":slotSize");
+        if (info != null) info.setValue(size);
+        if (configInstances.get(EnhancedStorage.MOD_ID) instanceof EnhancedStorageConfig config) {
+            config.reloadScreen = true;
+        }
+    }
+
     /** Sets the hidden panelsBesidePages helper while the config screen may be open, so conditions see it right away. */
     static void setPanelsBesidePages(boolean beside) {
         if (panelsBesidePages == beside) return;
@@ -262,6 +280,10 @@ public class EnhancedStorageConfig extends MidnightConfig {
 
     public enum PageTitleStyle {
         NORMAL, COMPACT, HIDDEN
+    }
+
+    public enum SlotSize {
+        NORMAL, COMPACT
     }
 
     public enum LayoutDensity {

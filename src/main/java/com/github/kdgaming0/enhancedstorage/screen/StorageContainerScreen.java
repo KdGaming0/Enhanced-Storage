@@ -393,7 +393,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         boolean topRow = y < this.topPos;
         if (!topRow && toggled) bottomTabSelectedThisFrame = true;
         int skyblockerCenter = this.leftPos + this.imageWidth / 2;
-        return x - skyblockerCenter + layout.quickNavRowCenterX(topRow);
+        return x - skyblockerCenter + layout.quickNavRowCenterX();
     }
 
     // Call to reset the Storage Overlay if the cache changes while it open

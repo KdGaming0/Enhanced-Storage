@@ -13,10 +13,12 @@ import org.jetbrains.annotations.Nullable;
 public class StorageSlotComponent extends AbstractComponent {
 
     public static final int ITEM_INSET = 1;
+    private static final int ITEM_SIZE = 16;
     private final @Nullable SpriteComponent highlightBack;
     private final @Nullable SpriteComponent highlightFront;
     private final @Nullable TooltipItemComponent item;
     private final ItemStack stack;
+    private final int itemInset;
     private boolean hoverEnabled = true;
     private SearchState searchState = SearchState.NONE;
 
@@ -26,22 +28,29 @@ public class StorageSlotComponent extends AbstractComponent {
                                 @Nullable ItemStack stack) {
         super(x, y, width, height);
         this.stack = stack == null ? ItemStack.EMPTY : stack;
+        this.itemInset = itemInset(width);
 
+        int highlightOffset = itemInset - ITEM_INSET;
+        int highlightSize = ITEM_SIZE + ITEM_INSET * 2;
         this.highlightBack = highlightBackTexture == null ? null
-                : new SpriteComponent(0, 0, width, height, highlightBackTexture);
+                : new SpriteComponent(highlightOffset, highlightOffset, highlightSize, highlightSize, highlightBackTexture);
         if (this.highlightBack != null) this.addComponent(this.highlightBack);
 
         this.highlightFront = highlightFrontTexture == null ? null
-                : new SpriteComponent(0, 0, width, height, highlightFrontTexture);
+                : new SpriteComponent(highlightOffset, highlightOffset, highlightSize, highlightSize, highlightFrontTexture);
         if (this.highlightFront != null) this.addComponent(this.highlightFront);
 
         if (stack != null && !stack.isEmpty()) {
-            this.item = new TooltipItemComponent(ITEM_INSET, ITEM_INSET, stack, true);
+            this.item = new TooltipItemComponent(itemInset, itemInset, stack, true);
             this.item.setTooltipEnabled(EnhancedStorageConfig.showItemTooltipsOnCachedItems);
             this.addComponent(this.item);
         } else {
             this.item = null;
         }
+    }
+
+    public static int itemInset(int slotSize) {
+        return (slotSize - ITEM_SIZE) / 2;
     }
 
     public void setSearchState(SearchState searchState) {
@@ -85,8 +94,8 @@ public class StorageSlotComponent extends AbstractComponent {
 
         boolean hovered = isHovered(guiGraphics, mouseX, mouseY);
 
-        int itemX = totalX + ITEM_INSET;
-        int itemY = totalY + ITEM_INSET;
+        int itemX = totalX + itemInset;
+        int itemY = totalY + itemInset;
 
         if (searchState == SearchState.MATCH) {
             SearchHighlight.drawMatch(guiGraphics, itemX, itemY);
