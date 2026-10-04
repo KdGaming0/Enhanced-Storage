@@ -2,6 +2,7 @@ package com.github.kdgaming0.enhancedstorage;
 
 import com.github.kdgaming0.enhancedstorage.command.EnhancedStorageCommand;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
+import com.github.kdgaming0.enhancedstorage.config.LayoutSpacing;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.CopyHighlight;
 import com.github.kdgaming0.enhancedstorage.screen.StorageContainerScreen;
 import com.github.kdgaming0.enhancedstorage.storage.StorageEvents;
@@ -25,6 +26,7 @@ public class EnhancedStorage implements ClientModInitializer {
     public void onInitializeClient() {
 
         MidnightConfig.init(MOD_ID, EnhancedStorageConfig.class);
+        LayoutSpacing.register();
 
         ProfileSession session = ProfileSession.getInstance();
         session.register(PageCache.getInstance(), PageNames.getInstance(), PageOrder.getInstance(),

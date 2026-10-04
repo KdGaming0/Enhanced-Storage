@@ -9,7 +9,7 @@
 
   "enhanced_storage.midnightconfig.sectionEditMode": "§lEdit Mode",
   "enhanced_storage.midnightconfig.sectionPages": "§lPages",
-  "enhanced_storage.midnightconfig.sectionMargins": "§lMargins",
+  "enhanced_storage.midnightconfig.sectionCustomSpacing": "§lCustom Spacing",
   "enhanced_storage.midnightconfig.sectionModCompat": "§lMod Compatibility",
   "enhanced_storage.midnightconfig.sectionCopies": "§lItem Copies",
   "enhanced_storage.midnightconfig.sectionPerformance": "§lPerformance",
@@ -44,6 +44,9 @@
   "enhanced_storage.midnightconfig.overlayCentering": "Overlay Centering",
   "enhanced_storage.midnightconfig.overlayCentering.tooltip": "What is centered on screen. Whole Overlay centers the page grid together with the navigation panel and a side inventory. Storage Only centers just the page grid and places the rest around it. Whole When Inventory On Side uses Whole Overlay only when the inventory is on the left or right.",
 
+  "enhanced_storage.midnightconfig.pageTitleStyle": "Page Titles",
+  "enhanced_storage.midnightconfig.pageTitleStyle.tooltip": "Normal shows the page name above the slots. \nCompact draws it over the card's top border so pages take less height. \nHidden removes it; hover a page to see its name and empty slot count. \n\nEdit mode uses Compact instead of Hidden so pages can be told apart and renamed. \n\nPicking a Layout Density preset sets this to the preset's style; you can change it again afterwards.",
+
   "enhanced_storage.midnightconfig.showEmptySlotCount": "Show Empty Slot Count",
   "enhanced_storage.midnightconfig.showEmptySlotCount.tooltip": "Show how many slots without items each page has, for example \"6 empty\", next to the page title. Section headers and the navigation panel tooltip always show the count.",
 
@@ -53,23 +56,29 @@
   "enhanced_storage.midnightconfig.overlayGuiScale": "Overlay GUI Scale (0 = Same as Game)",
   "enhanced_storage.midnightconfig.overlayGuiScale.tooltip": "Use a Custom GUI scale for the Storage Overlay, so you can fit more pages on screen without shrinking the rest of the game. Leave at 0 to just use your game's GUI Scale setting. A scale too large for your window is reduced to the biggest one that fits.",
 
+  "enhanced_storage.midnightconfig.layoutDensity": "Layout Density",
+  "enhanced_storage.midnightconfig.layoutDensity.tooltip": "Controls how tightly the overlay is packed. \n\nComfortable is the default look; Compact and Dense shrink the margins and gaps so more pages fit on screen. \n\nCustom let's you use the sliders below to fine tune each gap yourself.",
+
   "enhanced_storage.midnightconfig.maxPagePerRow": "Pages Per Row",
-  "enhanced_storage.midnightconfig.maxPagePerRow.tooltip": "Number of page shown in the scroll panel (1–10). \n\nIf Page Width is different from 9, the number of pages per row is limited by slots so 3 pages per row = 27 slots wide overlay and 4 pages per row = 36 slots wide overlay.",
+  "enhanced_storage.midnightconfig.maxPagePerRow.tooltip": "Number of pages shown per row in the scroll panel (1–10). Set to 0 for Auto: as many pages as fit on screen. \n\nIf Page Width is different from 9, the number of pages per row is limited by slots so 3 pages per row = 27 slots wide overlay and 4 pages per row = 36 slots wide overlay.",
 
   "enhanced_storage.midnightconfig.pageWidth": "Page Width",
   "enhanced_storage.midnightconfig.pageWidth.tooltip": "Slots per row on each page (2–18). Narrower pages wrap their slots onto more rows, so more pages fit side by side; raise Pages Per Row to use the extra space.",
 
   "enhanced_storage.midnightconfig.cardSpacing": "Card Spacing",
-  "enhanced_storage.midnightconfig.cardSpacing.tooltip": "Gap (px) between each page card in the overlay.",
+  "enhanced_storage.midnightconfig.cardSpacing.tooltip": "Gap (px) between page cards.",
 
   "enhanced_storage.midnightconfig.horizontalMargin": "Horizontal Margin",
-  "enhanced_storage.midnightconfig.horizontalMargin.tooltip": "Gap (px) on the left and right of the overlay.",
+  "enhanced_storage.midnightconfig.horizontalMargin.tooltip": "Gap (px) on the left and right of the overlay. Only taken in to account if the overlay is wide enough to fill the whole screen width; otherwise the overlay is centered.",
 
-  "enhanced_storage.midnightconfig.overviewTopMargin": "Overview Top Margin",
+  "enhanced_storage.midnightconfig.overviewTopMargin": "Top Margin",
   "enhanced_storage.midnightconfig.overviewTopMargin.tooltip": "Gap (px) above the overlay. Lower = taller overlay with more page rows.",
 
-  "enhanced_storage.midnightconfig.overviewBottomMargin": "Overview Bottom Margin",
+  "enhanced_storage.midnightconfig.overviewBottomMargin": "Bottom Margin",
   "enhanced_storage.midnightconfig.overviewBottomMargin.tooltip": "Gap (px) below the overlay. Lower = taller overlay with more page rows.",
+
+  "enhanced_storage.midnightconfig.innerPadding": "Inner Padding",
+  "enhanced_storage.midnightconfig.innerPadding.tooltip": "Gap (px) between the overlay's inner edge and the pages inside it.",
 
   "enhanced_storage.midnightconfig.extraTopAndBottomMarginForQuickNav": "Extra Margin for Quick Nav",
   "enhanced_storage.midnightconfig.extraTopAndBottomMarginForQuickNav.tooltip": "Extra top/bottom margin (px) to leave room for Skyblocker quick-nav buttons.",
@@ -138,6 +147,15 @@
   "enhanced_storage.midnightconfig.enum.OverlayCentering.WHOLE_OVERLAY": "Whole Overlay",
   "enhanced_storage.midnightconfig.enum.OverlayCentering.STORAGE_ONLY": "Storage Only",
   "enhanced_storage.midnightconfig.enum.OverlayCentering.WHOLE_WHEN_SIDE": "Whole When Inventory On Side",
+
+  "enhanced_storage.midnightconfig.enum.PageTitleStyle.NORMAL": "Normal",
+  "enhanced_storage.midnightconfig.enum.PageTitleStyle.COMPACT": "Compact",
+  "enhanced_storage.midnightconfig.enum.PageTitleStyle.HIDDEN": "Hidden",
+
+  "enhanced_storage.midnightconfig.enum.LayoutDensity.CUSTOM": "Custom",
+  "enhanced_storage.midnightconfig.enum.LayoutDensity.COMFORTABLE": "Comfortable",
+  "enhanced_storage.midnightconfig.enum.LayoutDensity.COMPACT": "Compact",
+  "enhanced_storage.midnightconfig.enum.LayoutDensity.DENSE": "Dense",
 
   "enhanced_storage.midnightconfig.enum.SearchMode.FILTER": "Filter",
   "enhanced_storage.midnightconfig.enum.SearchMode.DIM": "Dim",

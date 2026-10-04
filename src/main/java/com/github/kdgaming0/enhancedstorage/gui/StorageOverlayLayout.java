@@ -9,6 +9,7 @@ import com.daqem.uilib.gui.component.text.TextComponent;
 import com.daqem.uilib.gui.component.text.TruncatedTextComponent;
 import com.daqem.uilib.gui.widget.EditBoxWidget;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
+import com.github.kdgaming0.enhancedstorage.config.LayoutSpacing;
 import com.github.kdgaming0.enhancedstorage.gui.component.common.IconButtonComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.common.ItemButtonComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.navigation.NavigationRowComponent;
@@ -56,10 +57,10 @@ public class StorageOverlayLayout {
     public static final int SLOTS_ACROSS = 9;
     public static final int SLOT_SIZE = 18;
     public static final int CARD_BORDER = 3;
-    public static final int INNER_PADDING = 6;
     public static final int SCROLLBAR_WIDTH = 6;
     public static final int SCROLLBAR_GAP = 4;
     public static final int UNCACHED_CARD_HEIGHT = 50;
+    private static final int CARD_BOTTOM = CARD_BORDER + 1;
     private static final int INVENTORY_WIDTH = 176;
     private static final int INVENTORY_HEIGHT = 96;
     private static final int OVERVIEW_WIDTH = 176;
@@ -180,14 +181,14 @@ public class StorageOverlayLayout {
     private static int computeTopMargin() {
         // Quick Nav buttons sit in a row just above and below the container, so add more margin to make space for them.
         if (SKYBLOCKER_LOADED && isSkyblockerQuickNavEnabled()) {
-            return EnhancedStorageConfig.overviewTopMargin + EnhancedStorageConfig.extraTopAndBottomMarginForQuickNav;
+            return LayoutSpacing.topMargin() + EnhancedStorageConfig.extraTopAndBottomMarginForQuickNav;
         }
-        return EnhancedStorageConfig.overviewTopMargin;
+        return LayoutSpacing.topMargin();
     }
 
     private static int computeBottomMargin(boolean inventoryBelow) {
         // Reserve room for the inventory panel when it sits directly below the page overview.
-        int margin = EnhancedStorageConfig.overviewBottomMargin + (inventoryBelow ? INVENTORY_HEIGHT : 0);
+        int margin = LayoutSpacing.bottomMargin() + (inventoryBelow ? INVENTORY_HEIGHT : 0);
 
         // Quick Nav buttons sit in a row just above and below the container, so add more margin to make space for them.
         if (SKYBLOCKER_LOADED && isSkyblockerQuickNavEnabled()) {
@@ -276,7 +277,7 @@ public class StorageOverlayLayout {
         int start = 0;
         while (start < boxes.size()) {
             RowFlow.Row row = RowFlow.pack(boxes, start, boxes.size(), limit,
-                    EnhancedStorageConfig.cardSpacing, UNCACHED_CARD_HEIGHT);
+                    LayoutSpacing.cardSpacing(), UNCACHED_CARD_HEIGHT);
             widest = Math.max(widest, row.width());
             start = row.end();
         }
@@ -475,7 +476,17 @@ public class StorageOverlayLayout {
 
     private int cardHeightFor(StorageKey key) {
         if (!key.equals(liveKey) && PageCache.getInstance().get(key).isEmpty()) return UNCACHED_CARD_HEIGHT;
-        return CARD_BORDER * 2 + titleAreaHeight + Math.max(1, Math.ceilDiv(slotCount(key), slotsAcross(key))) * SLOT_SIZE;
+        int rows = Math.max(1, Math.ceilDiv(slotCount(key), slotsAcross(key)));
+        int bottom = titleStyle() == EnhancedStorageConfig.PageTitleStyle.COMPACT ? CARD_BORDER : CARD_BOTTOM;
+        return PageCardComponent.slotGridTop(titleStyle(), CARD_BORDER, font.lineHeight) + rows * SLOT_SIZE + bottom;
+    }
+
+    private EnhancedStorageConfig.PageTitleStyle titleStyle() {
+        // Edit mode keeps a title so pages stay can be renamed.
+        EnhancedStorageConfig.PageTitleStyle style = LayoutSpacing.pageTitleStyle();
+        return editMode && style == EnhancedStorageConfig.PageTitleStyle.HIDDEN
+                ? EnhancedStorageConfig.PageTitleStyle.COMPACT
+                : style;
     }
 
     public int getMainBackgroundX() {
@@ -624,15 +635,16 @@ public class StorageOverlayLayout {
         this.contentInset = framed ? SECTION_INSET : 0;
         this.mainBackgroundY = computeMainBackgroundY();
 
-        int available = width - EnhancedStorageConfig.horizontalMargin - INNER_PADDING * 2
+        int available = width - LayoutSpacing.horizontalMargin() - LayoutSpacing.innerPadding() * 2
                 - SCROLLBAR_WIDTH - SCROLLBAR_GAP - contentInset * 2;
         this.maxSlotsAcross = Math.max(PageWidths.MIN_WIDTH, (available - CARD_BORDER * 2) / SLOT_SIZE);
         this.cardWidth = CARD_BORDER * 2 + Math.min(pageWidth(), maxSlotsAcross) * SLOT_SIZE;
 
         // "Pages per row" is measured in default-width pages, so narrow pages pack more per row.
         int pages = EnhancedStorageConfig.maxPagePerRow;
-        int budget = pages * cardWidth + (pages - 1) * EnhancedStorageConfig.cardSpacing;
-        int limit = Math.min(budget, available);
+        int budget = pages * cardWidth + (pages - 1) * LayoutSpacing.cardSpacing();
+        // 0 = Auto: rows may use the full-screen width
+        int limit = pages == 0 ? available : Math.min(budget, available);
         setRowWidth(width, entries, limit);
 
         this.navigationWidth = 0;
@@ -658,7 +670,7 @@ public class StorageOverlayLayout {
         // Shrinks to the widest row so narrow pages don't leave empty overlay; never below one default page.
         this.rowContentWidth = Math.max(packedWidth(entries, limit), cardWidth);
         this.frameWidth = rowContentWidth + contentInset * 2;
-        this.mainBackgroundWidth = frameWidth + INNER_PADDING * 2 + SCROLLBAR_WIDTH + SCROLLBAR_GAP;
+        this.mainBackgroundWidth = frameWidth + LayoutSpacing.innerPadding() * 2 + SCROLLBAR_WIDTH + SCROLLBAR_GAP;
         this.mainBackgroundX = (width / 2) - (mainBackgroundWidth / 2);
     }
 
@@ -666,7 +678,7 @@ public class StorageOverlayLayout {
      * Width of the widest row {@link RowFlow} produces at this limit, so the measured width and the real rows always agree.
      */
     private int packedWidth(List<LayoutEntry> entries, int limit) {
-        int spacing = EnhancedStorageConfig.cardSpacing;
+        int spacing = LayoutSpacing.cardSpacing();
         int widest = 0;
         List<RowFlow.Box> segment = new ArrayList<>();
         for (int i = 0; i < entries.size(); i++) {
@@ -732,7 +744,7 @@ public class StorageOverlayLayout {
 
         int free;
         while (true) {
-            free = width - EnhancedStorageConfig.horizontalMargin - mainBackgroundWidth;
+            free = width - LayoutSpacing.horizontalMargin() - mainBackgroundWidth;
             int missing = whole ? left + right - free : Math.max(left, right) - free / 2;
             if (missing <= 0) break;
             int before = rowContentWidth;
@@ -910,7 +922,7 @@ public class StorageOverlayLayout {
         Rect area = boundaryArea();
         if (!area.contains(x, y) || x >= area.x() + frameWidth) return null;
 
-        int spacing = EnhancedStorageConfig.cardSpacing;
+        int spacing = LayoutSpacing.cardSpacing();
         for (int i = 0; i < rows.size(); i++) {
             PlacedRow row = rows.get(i);
             PlacedRow above = i == 0 ? null : rows.get(i - 1);
@@ -933,7 +945,8 @@ public class StorageOverlayLayout {
 
     Rect boundaryArea() {
         Rect viewport = Objects.requireNonNull(getPageOverviewBounds());
-        return new Rect(viewport.x(), viewport.y() - INNER_PADDING, viewport.width(), viewport.height() + INNER_PADDING * 2);
+        int padding = LayoutSpacing.innerPadding();
+        return new Rect(viewport.x(), viewport.y() - padding, viewport.width(), viewport.height() + padding * 2);
     }
 
     @Nullable PlacedRow ungroupedRowAt(double x, double y) {
@@ -956,7 +969,7 @@ public class StorageOverlayLayout {
             if (last == null) return -1;
             boolean besideLast = x >= last.bounds().right();
             int rowRight = row.component().getTotalX() + contentInset + rowContentWidth;
-            boolean hasRoom = last.bounds().right() + EnhancedStorageConfig.cardSpacing + cardWidth <= rowRight;
+            boolean hasRoom = last.bounds().right() + LayoutSpacing.cardSpacing() + cardWidth <= rowRight;
             return hasRoom && besideLast ? stackEnd(cells, cells.indexOf(last)) : -1;
         }
         return -1;
@@ -1102,7 +1115,7 @@ public class StorageOverlayLayout {
                 isLive || cached,
                 isLive,
                 !editMode,
-                CARD_BORDER, titleAreaHeight, slotsAcross, SLOT_SIZE,
+                CARD_BORDER, titleStyle(), slotsAcross, SLOT_SIZE,
                 actions.onCardClick()
         );
         if (isLive) this.openCard = pageCard;
@@ -1111,13 +1124,14 @@ public class StorageOverlayLayout {
     }
 
     private void buildPageViewport(SpriteComponent mainBackground) {
+        int padding = LayoutSpacing.innerPadding();
         PageViewport viewport = new PageViewport(
-                mainBackgroundWidth - INNER_PADDING * 2,
-                mainBackground.getHeight() - INNER_PADDING * 2,
-                EnhancedStorageConfig.cardSpacing, state::setScrollAmount);
+                mainBackgroundWidth - padding * 2,
+                mainBackground.getHeight() - padding * 2,
+                LayoutSpacing.cardSpacing(), state::setScrollAmount);
 
-        this.pageOverviewParentX = mainBackground.getTotalX() + INNER_PADDING;
-        this.pageOverviewParentY = mainBackground.getTotalY() + INNER_PADDING;
+        this.pageOverviewParentX = mainBackground.getTotalX() + padding;
+        this.pageOverviewParentY = mainBackground.getTotalY() + padding;
         mainBackground.addWidget(viewport);
         viewport.setBackgroundPainter(this::paintSectionFrames);
         this.pageOverview = viewport;
@@ -1434,7 +1448,7 @@ public class StorageOverlayLayout {
             pageOverview.addComponent(buildEmptyRow(query));
         }
 
-        int spacing = EnhancedStorageConfig.cardSpacing;
+        int spacing = LayoutSpacing.cardSpacing();
         List<List<GridCellComponent>> groups = groupStacks(visibleCells);
         List<RowFlow.Box> boxes = new ArrayList<>(groups.size());
         for (List<GridCellComponent> group : groups) boxes.add(boxOf(group, spacing));
@@ -1711,6 +1725,18 @@ public class StorageOverlayLayout {
         }
 
         if (!Rect.contains(getPageOverviewBounds(), mouseX, mouseY)) return;
+        if (titleStyle() == EnhancedStorageConfig.PageTitleStyle.HIDDEN) {
+            for (PageCardComponent card : visibleCards) {
+                if (!card.bounds().contains(mouseX, mouseY)) continue;
+                if (!pageItemAt(card, mouseX, mouseY).isEmpty()) return;
+                String name = PageNames.getInstance().get(card.getKey()).orElse(card.getKey().displayName());
+                graphics.setComponentTooltipForNextFrame(font, List.of(
+                                Component.literal(name),
+                                Component.literal(emptySlotsDescription(card.getKey())).withStyle(ChatFormatting.GRAY)),
+                        mouseX, mouseY);
+                return;
+            }
+        }
         for (GridCellComponent cell : visibleCells) {
             if (!(cell instanceof SectionHeaderComponent header) || !header.bounds().contains(mouseX, mouseY)) continue;
             if (!header.isCollapsed() || !copyFilterTarget.isEmpty() || header.isOverArrow(mouseX, mouseY)
@@ -1727,6 +1753,16 @@ public class StorageOverlayLayout {
             if (lines.size() > 1) graphics.setComponentTooltipForNextFrame(font, lines, mouseX, mouseY);
             return;
         }
+    }
+
+    private static ItemStack pageItemAt(PageCardComponent card, double x, double y) {
+        int index = card.slotIndexAt(x, y);
+        if (index < 0) return ItemStack.EMPTY;
+        return PageCache.getInstance().get(card.getKey())
+                .map(PageCache.CachedPage::items)
+                .filter(items -> index < items.size())
+                .map(items -> items.get(index))
+                .orElse(ItemStack.EMPTY);
     }
 
     public ItemStack hoveredCachedStack(double x, double y) {

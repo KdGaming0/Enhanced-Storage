@@ -44,6 +44,8 @@ A new panel on the side of the overlay makes it easier to navigate your pages an
 - Each page now shows its number of free slots in the top right corner of its title bar. You can turn this off in the settings.
 - Added the ability to move the Inventory to the left or right of the overlay. 
   - This also comes with the new config option to center the whole overlay on the screen instead of just the storage part. Useful when the inventory is on the side, so the overlay utilizes the whole screen better.
+- Added a new setting to make page titles compact or hide them. When set to compact, the title bar is only tall enough to show the title. When hidden, the title bar is gone.
+- Added a new setting to quickly change how compact the overlay is. The new **Layout Density** setting has four options: **Custom**, **Comfortable**, **Compact**, and **Dense**. It changes the spacing between pages and setting it to compact or dense can let you see more pages at once. Custom lets you use the existing sliders to fine-tune the values your self."
 
 ### Fixes
 - Fixed an issue that stopped the storage cache from being saved between game restarts for some players.

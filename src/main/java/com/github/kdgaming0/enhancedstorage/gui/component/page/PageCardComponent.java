@@ -37,6 +37,7 @@ import static com.github.kdgaming0.enhancedstorage.EnhancedStorage.MOD_ID;
 public class PageCardComponent extends GridCellComponent {
 
     private static final int TITLE_GAP = 2;
+    private static final int COMPACT_TITLE_Y = 1;
     private static final int EMPTY_LABEL_GAP = 6;
     private static final String FULL_TEXT = "Full";
     private static final Identifier SLOT_HIGHLIGHT_BACK =
@@ -66,13 +67,13 @@ public class PageCardComponent extends GridCellComponent {
                              StorageOverlayState state,
                              List<ItemStack> items, int slotCount,
                              boolean cached, boolean live, boolean clickable,
-                             int cardBorder, int titleAreaHeight,
+                             int cardBorder, EnhancedStorageConfig.PageTitleStyle titleStyle,
                              int slotsAcross, int slotSize,
                              Consumer<StorageKey> onClick) {
         super(x, y, width, height);
         this.slotsAcross = slotsAcross;
         this.slotGridX = cardBorder;
-        this.slotGridY = titleAreaHeight + TITLE_GAP;
+        this.slotGridY = slotGridTop(titleStyle, cardBorder, Minecraft.getInstance().font.lineHeight);
         this.key = key;
         this.cached = cached;
         this.live = live;
@@ -99,20 +100,20 @@ public class PageCardComponent extends GridCellComponent {
         // Show the custom name if the user set one, otherwise the default.
         String displayName = PageNames.getInstance().get(key).orElse(key.displayName());
 
+        boolean showTitle = titleStyle != EnhancedStorageConfig.PageTitleStyle.HIDDEN;
         int titleX = 3;
-        int titleY = 3;
+        int titleY = titleStyle == EnhancedStorageConfig.PageTitleStyle.COMPACT ? COMPACT_TITLE_Y : 3;
         var font = Minecraft.getInstance().font;
         // Truncate long titles to fit the card width.
-        String shownTitle = truncate(font, displayName, width - titleX * 2);
+        String shownTitle = showTitle ? truncate(font, displayName, width - titleX * 2) : "";
         this.pageTitle = new TextComponent(titleX, titleY, Component.literal(shownTitle), OverlayTheme.titleColor());
         pageTitle.setDrawShadow(OverlayTheme.titleShadow());
-        this.addComponent(pageTitle);
 
         int textWidth = font.width(shownTitle);
         this.titleLocalX = titleX;
         this.titleLocalY = titleY;
         this.titleLocalWidth = Math.min(textWidth, width - titleX * 2);
-        this.titleLocalHeight = font.lineHeight;
+        this.titleLocalHeight = showTitle ? font.lineHeight : 0;
 
         if (cached) {
             int fullRows = slotCount / slotsAcross;
@@ -139,7 +140,7 @@ public class PageCardComponent extends GridCellComponent {
             }
             applySearch(state.getSearchQuery());
 
-            if (EnhancedStorageConfig.showEmptySlotCount) {
+            if (EnhancedStorageConfig.showEmptySlotCount && showTitle) {
                 this.emptyLabel = new TextComponent(width - titleX, titleY, Component.empty(), OverlayTheme.secondaryTextColor());
                 emptyLabel.setDrawShadow(OverlayTheme.titleShadow());
                 this.addComponent(emptyLabel);
@@ -152,6 +153,16 @@ public class PageCardComponent extends GridCellComponent {
             pageInfo.setDrawShadow(OverlayTheme.titleShadow());
             this.addComponent(pageInfo);
         }
+
+        if (showTitle) this.addComponent(pageTitle);
+    }
+
+    public static int slotGridTop(EnhancedStorageConfig.PageTitleStyle style, int cardBorder, int lineHeight) {
+        return switch (style) {
+            case NORMAL -> lineHeight + 2 + TITLE_GAP;
+            case COMPACT -> COMPACT_TITLE_Y + lineHeight - 1;
+            case HIDDEN -> cardBorder;
+        };
     }
 
     private static String truncate(Font font, String text, int maxWidth) {
@@ -197,6 +208,17 @@ public class PageCardComponent extends GridCellComponent {
 
     public int slotsAcross() {
         return slotsAcross;
+    }
+
+    public int titleOffsetY() {
+        return titleLocalY;
+    }
+
+    public int slotIndexAt(double x, double y) {
+        for (int i = 0; i < slots.size(); i++) {
+            if (slots.get(i).contains(x, y)) return i;
+        }
+        return -1;
     }
 
     public ItemStack stackAt(double x, double y) {

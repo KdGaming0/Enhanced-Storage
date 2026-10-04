@@ -1,5 +1,7 @@
 package com.github.kdgaming0.enhancedstorage.config;
 
+import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
+import eu.midnightdust.lib.config.EntryInfo;
 import eu.midnightdust.lib.config.MidnightConfig;
 
 public class EnhancedStorageConfig extends MidnightConfig {
@@ -51,6 +53,9 @@ public class EnhancedStorageConfig extends MidnightConfig {
     public static OverlayCentering overlayCentering = OverlayCentering.WHOLE_WHEN_SIDE;
 
     @Entry(category = CATEGORY_INTERFACE)
+    public static PageTitleStyle pageTitleStyle = PageTitleStyle.NORMAL;
+
+    @Entry(category = CATEGORY_INTERFACE)
     public static boolean showEmptySlotCount = true;
 
     @Comment(category = CATEGORY_INTERFACE)
@@ -67,32 +72,47 @@ public class EnhancedStorageConfig extends MidnightConfig {
 
     // --- Layout ---
 
+    @Entry(category = CATEGORY_LAYOUT)
+    public static LayoutDensity layoutDensity = LayoutDensity.CUSTOM;
+
     @Comment(category = CATEGORY_LAYOUT, centered = true)
     public static Comment sectionPages;
 
-    @Entry(category = CATEGORY_LAYOUT, isSlider = true, min = 1, max = 10, precision = 1)
+    @Entry(category = CATEGORY_LAYOUT, isSlider = true, min = 0, max = 10, precision = 1)
     public static int maxPagePerRow = 3;
 
     @Entry(category = CATEGORY_LAYOUT, isSlider = true, min = 2, max = 18, precision = 1)
     public static int pageWidth = 9;
 
+    // Custom spacing: only shown while Layout Density is Custom; the presets supply these values otherwise (see LayoutSpacing).
+
+    @Condition(requiredOption = "layoutDensity", requiredValue = "CUSTOM")
+    @Comment(category = CATEGORY_LAYOUT)
+    public static Comment spacerCustomSpacing;
+
+    @Condition(requiredOption = "layoutDensity", requiredValue = "CUSTOM")
+    @Comment(category = CATEGORY_LAYOUT, centered = true)
+    public static Comment sectionCustomSpacing;
+
+    @Condition(requiredOption = "layoutDensity", requiredValue = "CUSTOM")
     @Entry(category = CATEGORY_LAYOUT, isSlider = true, min = 0, max = 10, precision = 1)
     public static int cardSpacing = 3;
 
-    @Comment(category = CATEGORY_LAYOUT)
-    public static Comment spacerMargins;
-
-    @Comment(category = CATEGORY_LAYOUT, centered = true)
-    public static Comment sectionMargins;
-
+    @Condition(requiredOption = "layoutDensity", requiredValue = "CUSTOM")
     @Entry(category = CATEGORY_LAYOUT, isSlider = true, min = 0, max = 50, precision = 1)
     public static int horizontalMargin = 15;
 
+    @Condition(requiredOption = "layoutDensity", requiredValue = "CUSTOM")
     @Entry(category = CATEGORY_LAYOUT, isSlider = true, min = 0, max = 50, precision = 1)
     public static int overviewTopMargin = 15;
 
+    @Condition(requiredOption = "layoutDensity", requiredValue = "CUSTOM")
     @Entry(category = CATEGORY_LAYOUT, isSlider = true, min = 0, max = 50, precision = 1)
     public static int overviewBottomMargin = 25;
+
+    @Condition(requiredOption = "layoutDensity", requiredValue = "CUSTOM")
+    @Entry(category = CATEGORY_LAYOUT, isSlider = true, min = 2, max = 12, precision = 1)
+    public static int innerPadding = 6;
 
     @Comment(category = CATEGORY_LAYOUT)
     public static Comment spacerModCompat;
@@ -159,6 +179,19 @@ public class EnhancedStorageConfig extends MidnightConfig {
     @Entry(category = CATEGORY_MISC)
     public static boolean fastCachedItemDecorations = true;
 
+    /**
+     * Sets Page Titles from code while the config screen may be open: updates the screen's pending value too (the
+     * screen writes it back to the field every tick) and rebuilds the list so the button shows the new style.
+     */
+    static void setPageTitleStyleFromPreset(PageTitleStyle style) {
+        pageTitleStyle = style;
+        EntryInfo info = entries.get(EnhancedStorage.MOD_ID + ":pageTitleStyle");
+        if (info != null) info.setValue(style);
+        if (configInstances.get(EnhancedStorage.MOD_ID) instanceof EnhancedStorageConfig config) {
+            config.reloadScreen = true;
+        }
+    }
+
     public enum BackgroundType {
         LIGHT, DARK, TRANSPARENT
     }
@@ -179,6 +212,14 @@ public class EnhancedStorageConfig extends MidnightConfig {
 
     public enum OverlayCentering {
         WHOLE_OVERLAY, STORAGE_ONLY, WHOLE_WHEN_SIDE
+    }
+
+    public enum PageTitleStyle {
+        NORMAL, COMPACT, HIDDEN
+    }
+
+    public enum LayoutDensity {
+        CUSTOM, COMFORTABLE, COMPACT, DENSE
     }
 
     public enum SearchMode {
