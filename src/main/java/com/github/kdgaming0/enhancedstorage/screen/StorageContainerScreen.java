@@ -9,6 +9,7 @@ import com.github.kdgaming0.enhancedstorage.compat.RRVCompat;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.gui.*;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.CopyHighlight;
+import com.github.kdgaming0.enhancedstorage.gui.highlight.ItemTotals;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.SearchHighlight;
 import com.github.kdgaming0.enhancedstorage.gui.layout.IndexGrid;
 import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
@@ -177,13 +178,25 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     @Override
     public void extractRenderState(@NonNull GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         CopyHighlight.setTarget(hoveredStack(mouseX, mouseY));
+        ItemTotals.update(layout.isRiftContext(), openKey, liveStacks());
         layout.updateCopyFilter();
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        if (this.menu.getCarried().isEmpty()) ItemTotals.extractBox(graphics, this.font, mouseX, mouseY);
         layout.setQuickNavBottomTabSelected(bottomTabSelectedThisFrame);
         if (refocusRrvSearchBar) {
             refocusRrvSearchBar = false;
             RRVCompat.focusSearchBar(this);
         }
+    }
+
+    private List<ItemStack> liveStacks() {
+        int containerSlots = this.menu.getRowCount() * 9;
+        boolean countContainer = openKey.type() != StorageKey.Type.STORAGE_INDEX;
+        List<ItemStack> stacks = new ArrayList<>(this.menu.slots.size());
+        for (Slot slot : this.menu.slots) {
+            if (countContainer || slot.index >= containerSlots) stacks.add(slot.getItem());
+        }
+        return stacks;
     }
 
     private ItemStack hoveredStack(int mouseX, int mouseY) {

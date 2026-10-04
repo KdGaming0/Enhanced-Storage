@@ -18,6 +18,7 @@ import com.github.kdgaming0.enhancedstorage.gui.component.section.RowBreakCompon
 import com.github.kdgaming0.enhancedstorage.gui.component.section.SectionEndComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.section.SectionHeaderComponent;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.CopyHighlight;
+import com.github.kdgaming0.enhancedstorage.gui.highlight.ItemTotals;
 import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
 import com.github.kdgaming0.enhancedstorage.storage.data.*;
 import com.github.kdgaming0.enhancedstorage.storage.profile.ProfileSession;
@@ -244,12 +245,19 @@ public class StorageOverlay extends AbstractScreen {
         realMouseY = mouseY;
         boolean blocked = popup != null || drag.isActive();
         CopyHighlight.setTarget(blocked ? ItemStack.EMPTY : layout.hoveredCachedStack(mouseX, mouseY));
+        var player = Minecraft.getInstance().player;
+        if (editMode || blocked || player == null) {
+            ItemTotals.clear();
+        } else {
+            ItemTotals.update(layout.isRiftContext(), null, player.getInventory().getNonEquipmentItems());
+        }
         layout.updateCopyFilter();
         if (popup != null) {
             super.extractRenderState(graphics, -9999, -9999, partialTick);
         } else {
             super.extractRenderState(graphics, mouseX, mouseY, partialTick);
             if (!drag.isActive() && renameBox == null) layout.extractOverlayTooltip(graphics, mouseX, mouseY);
+            ItemTotals.extractBox(graphics, this.font, mouseX, mouseY);
         }
     }
 

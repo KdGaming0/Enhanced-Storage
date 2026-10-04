@@ -209,6 +209,9 @@ public class EnhancedStorageConfig extends MidnightConfig {
     @Entry(category = CATEGORY_SEARCH)
     public static boolean hidePagesWithoutCopies = false;
 
+    @Entry(category = CATEGORY_SEARCH)
+    public static boolean showItemTotals = true;
+
     @Entry(category = CATEGORY_SEARCH, isColor = true, width = 7, min = 7)
     public static String copyHighlightColor = "#33ccff";
 

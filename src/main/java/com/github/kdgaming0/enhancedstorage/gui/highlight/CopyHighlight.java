@@ -22,7 +22,7 @@ import java.util.WeakHashMap;
 import static com.github.kdgaming0.enhancedstorage.EnhancedStorage.MOD_ID;
 
 /**
- * Highlights every other stack of the hovered item, across cached pages, the live page and the inventory.
+ * Highlights every stack of the hovered item, including the hovered one, across cached pages, the live page and the inventory.
  */
 public final class CopyHighlight {
 
@@ -76,12 +76,16 @@ public final class CopyHighlight {
         return tooltipsHidden;
     }
 
+    public static ItemStack target() {
+        return target;
+    }
+
     public static ItemStack hovered() {
         return hovered;
     }
 
     public static boolean isCopy(ItemStack stack) {
-        return !target.isEmpty() && !stack.isEmpty() && stack != target && sameItem(target, stack);
+        return !target.isEmpty() && !stack.isEmpty() && sameItem(target, stack);
     }
 
     public static void draw(GuiGraphicsExtractor graphics, int itemX, int itemY) {

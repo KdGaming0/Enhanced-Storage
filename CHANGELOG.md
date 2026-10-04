@@ -5,7 +5,7 @@
 #### Edit Mode
 Edit Mode lets you make the storage overlay your own. Open it with the new **Edit** button beside your inventory (you can hide the button in the settings). From there, you can:
 - **Rename pages:** Click a page's title and type a new name. Press Enter or click outside the title to save, or press Escape to cancel. Clearing the name restores the default name.
-  - Page and section names can be colored with `&` color codes, like Minecraft's chat codes. For example, `&cWeapons` shows "Weapons" in red and `&l` makes text bold. `&r` goes back to the normal color.
+  - Page and section names can be colored with `&` color codes, like Minecraft's chat codes. For example, `&cWeapons` shows "Weapons" in red and `&l` makes text bold. You can find all the color codes here: https://minecraft.wiki/w/Formatting_codes.
 - **Reorder pages:** Click and drag any page to move it.
 - **Create sections:** Click anywhere between two rows of pages to show the new **Add Section** text. Click it to create a section. You can group related pages in sections and hide them when you don't need them.
   - You can give sections custom names and expand or collapse them. This is useful for pages you don't always need to access quickly. A collapsed section appears as a single bar showing its name and the total number of free slots on its pages.
@@ -33,6 +33,7 @@ A new panel on the side of the overlay makes it easier to navigate your pages an
 - Hold Left Alt while hovering over an item to highlight every stack of that item across all pages and your inventory.
   - You can change the key in the controls. In the settings, you can also choose to always highlight matching items when you hover over one.
 - A new **Hide Pages Without Copies** setting has been added. When it's on, holding the highlight key shows only pages containing the item you're hovering over. This gives you a quick view of how many of that item you have and which pages contain it.
+- A new **Show Item Totals** setting (on by default) shows how many of the highlighted item you have across your pages and inventory, like `46×`. It appears as a small tooltip next to your cursor.
 
 #### Search Improvements
 - New **Dim** search mode. Instead of hiding pages without matching items, it keeps every page in place and dims items that don't match.
