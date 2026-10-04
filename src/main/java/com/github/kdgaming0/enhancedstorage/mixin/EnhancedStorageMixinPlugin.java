@@ -33,7 +33,9 @@ public class EnhancedStorageMixinPlugin implements IMixinConfigPlugin {
     private static final Map<String, List<String>> REQUIRED_TARGET_METHODS = Map.of(
             "RRVItemViewOverlayMixin", List.of("renderItemHighlighting"),
             "RRVOverlayManagerMixin", List.of("renderAll"),
+            "RRVOverlayManagerBackgroundMixin", List.of("renderAllBackground"),
             "RRVSearchBarMixin", List.of("mouseClicked"),
+            "SkyblockerQuickNavButtonMixin", List.of("updateCoordinates"),
             "SkyHanniChestValueMixin", List.of("isValidStorage"),
             "SkyHanniInventoryUtilsMixin", List.of("getItemsInOpenChestWithNull", "inInventory"),
             "SkyHanniRenderDataMixin", List.of("onBackgroundDraw")
@@ -88,6 +90,10 @@ public class EnhancedStorageMixinPlugin implements IMixinConfigPlugin {
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
         if (mixinClassName.contains(".compat.rrv.")) {
             return FabricLoader.getInstance().isModLoaded("rrv")
+                    && hasRequiredMethods(targetClassName, mixinClassName);
+        }
+        if (mixinClassName.contains(".compat.skyblocker.")) {
+            return FabricLoader.getInstance().isModLoaded("skyblocker")
                     && hasRequiredMethods(targetClassName, mixinClassName);
         }
         if (mixinClassName.contains(".compat.skyhanni.")) {

@@ -55,6 +55,12 @@ public class EnhancedStorageConfig extends MidnightConfig {
     @Entry(category = CATEGORY_INTERFACE)
     public static PageTitleStyle pageTitleStyle = PageTitleStyle.NORMAL;
 
+    // The Page Titles choice made while Layout Density was Custom; a preset overwrites pageTitleStyle, so switching
+    // back to Custom restores this (see LayoutSpacing).
+    @Hidden
+    @Entry(category = CATEGORY_INTERFACE)
+    public static PageTitleStyle customPageTitleStyle = PageTitleStyle.NORMAL;
+
     @Entry(category = CATEGORY_INTERFACE)
     public static boolean showEmptySlotCount = true;
 
@@ -114,17 +120,49 @@ public class EnhancedStorageConfig extends MidnightConfig {
     @Entry(category = CATEGORY_LAYOUT, isSlider = true, min = 2, max = 12, precision = 1)
     public static int innerPadding = 6;
 
+    @Condition(requiredOption = "layoutDensity", requiredValue = "CUSTOM")
+    @Entry(category = CATEGORY_LAYOUT, isSlider = true, min = 0, max = 10, precision = 1)
+    public static int scrollbarGap = 4;
+
+    // Not a setting: LayoutSpacing keeps it equal to "the inventory or the navigation panel sits beside the pages", so
+    // Side Panel Gap (Horizontal) can be shown for either. MidnightLib conditions must all match and only see listed
+    // entries, so this is a real entry whose own condition can never match, which keeps it off the screen.
+    @Condition(requiredOption = "layoutDensity", requiredValue = "NEVER")
+    @Entry(category = CATEGORY_LAYOUT)
+    public static boolean panelsBesidePages = false;
+
+    @Condition(requiredOption = "layoutDensity", requiredValue = "CUSTOM")
+    @Condition(requiredOption = "panelsBesidePages", requiredValue = "true")
+    @Entry(category = CATEGORY_LAYOUT, isSlider = true, min = 0, max = 10, precision = 1)
+    public static int panelGap = 2;
+
+    @Condition(requiredOption = "layoutDensity", requiredValue = "CUSTOM")
+    @Condition(requiredOption = "inventoryPosition", requiredValue = {"LEFT", "RIGHT"})
+    @Entry(category = CATEGORY_LAYOUT, isSlider = true, min = 0, max = 10, precision = 1)
+    public static int columnGap = 2;
+
+    // Only used while Room for Other Mods is Automatic.
+    @Condition(requiredOption = "layoutDensity", requiredValue = "CUSTOM")
+    @Condition(requiredOption = "modWidgetSpacing", requiredValue = "AUTOMATIC")
+    @Entry(category = CATEGORY_LAYOUT, isSlider = true, min = 0, max = 10, precision = 1)
+    public static int modWidgetGap = 2;
+
     @Comment(category = CATEGORY_LAYOUT)
     public static Comment spacerModCompat;
 
     @Comment(category = CATEGORY_LAYOUT, centered = true)
     public static Comment sectionModCompat;
 
+    @Entry(category = CATEGORY_LAYOUT)
+    public static ModWidgetSpacing modWidgetSpacing = ModWidgetSpacing.AUTOMATIC;
+
     // Add extra margins to give space for skyblocker quick nav buttons, but defaults to 10 to not make the overlay too small
     // we are just using of the exciting padding added before, so now there is no space between the quick nav buttons and the top and bottom of the screen
+    @Condition(requiredOption = "modWidgetSpacing", requiredValue = "MANUAL")
     @Entry(category = CATEGORY_LAYOUT, isSlider = true, min = 0, max = 50, precision = 1)
     public static int extraTopAndBottomMarginForQuickNav = 10;
 
+    @Condition(requiredOption = "modWidgetSpacing", requiredValue = "MANUAL")
     @Entry(category = CATEGORY_LAYOUT, isSlider = true, min = 0, max = 50, precision = 1)
     public static int extraBottomMarginForRecipeSearchBar = 35;
 
@@ -192,6 +230,14 @@ public class EnhancedStorageConfig extends MidnightConfig {
         }
     }
 
+    /** Sets the hidden panelsBesidePages helper while the config screen may be open, so conditions see it right away. */
+    static void setPanelsBesidePages(boolean beside) {
+        if (panelsBesidePages == beside) return;
+        panelsBesidePages = beside;
+        EntryInfo info = entries.get(EnhancedStorage.MOD_ID + ":panelsBesidePages");
+        if (info != null) info.setValue(beside);
+    }
+
     public enum BackgroundType {
         LIGHT, DARK, TRANSPARENT
     }
@@ -220,6 +266,10 @@ public class EnhancedStorageConfig extends MidnightConfig {
 
     public enum LayoutDensity {
         CUSTOM, COMFORTABLE, COMPACT, DENSE
+    }
+
+    public enum ModWidgetSpacing {
+        AUTOMATIC, MANUAL
     }
 
     public enum SearchMode {

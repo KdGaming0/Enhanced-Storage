@@ -45,13 +45,16 @@ A new panel on the side of the overlay makes it easier to navigate your pages an
 - Added the ability to move the Inventory to the left or right of the overlay. 
   - This also comes with the new config option to center the whole overlay on the screen instead of just the storage part. Useful when the inventory is on the side, so the overlay utilizes the whole screen better.
 - Added a new setting to make page titles compact or hide them. When set to compact, the title bar is only tall enough to show the title. When hidden, the title bar is gone.
-- Added a new setting to quickly change how compact the overlay is. The new **Layout Density** setting has four options: **Custom**, **Comfortable**, **Compact**, and **Dense**. It changes the spacing between pages and setting it to compact or dense can let you see more pages at once. Custom lets you use the existing sliders to fine-tune the values your self."
+- Added a new setting to quickly change how compact the overlay is. The new **Layout Density** setting has four options: **Custom**, **Normal**, **Compact**, and **Dense**. It changes the spacing between pages and setting it to compact or dense can let you see more pages at once. Custom lets you use the existing sliders to fine-tune the values your self.
+- Added a **Room for Other Mods** setting. When set to **Automatic** (the default), the overlay leaves just enough space for Skyblocker's Quick Nav tabs, RRV's search bar and SkyRecipes' category buttons — only for the ones you have turned on — so the overlay can use more of your screen. **Manual** lets you set the space yourself, like before.
+- Skyblocker's Quick Nav tabs now line up with your storage pages and inventory instead of the middle of the screen.
 
 ### Fixes
 - Fixed an issue that stopped the storage cache from being saved between game restarts for some players.
   - Hypixel doesn't automatically send your profile ID when you have only one SkyBlock profile. The mod now requests it with `/profileid` after you join SkyBlock, so the cache can be saved correctly.
 - Fixed items in an open storage page briefly appearing in the top row of the overlay before moving to the correct page.
 - Fixed a brief flash that sometimes appeared when switching between storage pages.
+- Fixed items in RRV's item list being invisible while the storage overlay is open with RRV's Recipe Book theme.
 
 ## Update 1.2.2
 

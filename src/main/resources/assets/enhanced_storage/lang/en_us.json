@@ -80,6 +80,21 @@
   "enhanced_storage.midnightconfig.innerPadding": "Inner Padding",
   "enhanced_storage.midnightconfig.innerPadding.tooltip": "Gap (px) between the overlay's inner edge and the pages inside it.",
 
+  "enhanced_storage.midnightconfig.scrollbarGap": "Scrollbar Gap",
+  "enhanced_storage.midnightconfig.scrollbarGap.tooltip": "Gap (px) between the pages and the scrollbar.",
+
+  "enhanced_storage.midnightconfig.panelGap": "Side Panel Gap (Horizontal)",
+  "enhanced_storage.midnightconfig.panelGap.tooltip": "Gap (px) between the pages and the panels beside them: the navigation panel and the inventory column.",
+
+  "enhanced_storage.midnightconfig.columnGap": "Side Panel Gap (Vertical)",
+  "enhanced_storage.midnightconfig.columnGap.tooltip": "Gap (px) between the panels stacked beside the pages: the navigation panel, the inventory, the Storage Overview and the buttons.",
+
+  "enhanced_storage.midnightconfig.modWidgetGap": "Gap to Other Mods",
+  "enhanced_storage.midnightconfig.modWidgetGap.tooltip": "Gap (px) between the overlay and other mods' buttons around it, like Skyblocker's Quick Nav tabs and the RRV search bar. Only used when Room for Other Mods is Automatic.",
+
+  "enhanced_storage.midnightconfig.modWidgetSpacing": "Room for Other Mods",
+  "enhanced_storage.midnightconfig.modWidgetSpacing.tooltip": "How much room the overlay leaves for Skyblocker's Quick Nav tabs and RRV's search bar. \n\nAutomatic leaves just enough room for the ones you have turned on, using the margins above where it can. \n\nManual lets you set the extra room yourself with the sliders below.",
+
   "enhanced_storage.midnightconfig.extraTopAndBottomMarginForQuickNav": "Extra Margin for Quick Nav",
   "enhanced_storage.midnightconfig.extraTopAndBottomMarginForQuickNav.tooltip": "Extra top/bottom margin (px) to leave room for Skyblocker quick-nav buttons.",
 
@@ -153,9 +168,12 @@
   "enhanced_storage.midnightconfig.enum.PageTitleStyle.HIDDEN": "Hidden",
 
   "enhanced_storage.midnightconfig.enum.LayoutDensity.CUSTOM": "Custom",
-  "enhanced_storage.midnightconfig.enum.LayoutDensity.COMFORTABLE": "Comfortable",
+  "enhanced_storage.midnightconfig.enum.LayoutDensity.COMFORTABLE": "Normal",
   "enhanced_storage.midnightconfig.enum.LayoutDensity.COMPACT": "Compact",
   "enhanced_storage.midnightconfig.enum.LayoutDensity.DENSE": "Dense",
+
+  "enhanced_storage.midnightconfig.enum.ModWidgetSpacing.AUTOMATIC": "Automatic",
+  "enhanced_storage.midnightconfig.enum.ModWidgetSpacing.MANUAL": "Manual",
 
   "enhanced_storage.midnightconfig.enum.SearchMode.FILTER": "Filter",
   "enhanced_storage.midnightconfig.enum.SearchMode.DIM": "Dim",

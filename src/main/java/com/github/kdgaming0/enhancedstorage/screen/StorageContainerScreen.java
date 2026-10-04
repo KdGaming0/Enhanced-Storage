@@ -47,6 +47,13 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     private final LiveSlotPlacer slotPlacer;
     private final LiveSlotSearch liveSearch = new LiveSlotSearch();
     private final boolean rrvLoaded = FabricLoader.getInstance().isModLoaded("rrv");
+    private boolean refocusRrvSearchBar;
+    private int backgroundMouseX;
+    private int backgroundMouseY;
+    private float backgroundPartialTick;
+    private boolean rrvDrawnInBackground;
+    private boolean bottomTabSelectedThisFrame;
+    private final List<SunkRrvRenderable> sunkRrvWidgets = new ArrayList<>();
     private boolean autoScrolledToOpenCard = false;
     private long deferredCloseAt = 0;
 
@@ -58,7 +65,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     }
 
     private static boolean isRrvWidget(Object o) {
-        if (o instanceof HoverMaskedRenderable) {
+        if (o instanceof SunkRrvRenderable) {
             return true; // treat wrappers as RRV widgets so we can re-process them
         }
         return o.getClass().getName().startsWith("cc.cassian.rrv");
@@ -171,6 +178,11 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         CopyHighlight.setTarget(hoveredStack(mouseX, mouseY));
         layout.updateCopyFilter();
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        layout.setQuickNavBottomTabSelected(bottomTabSelectedThisFrame);
+        if (refocusRrvSearchBar) {
+            refocusRrvSearchBar = false;
+            RRVCompat.focusSearchBar(this);
+        }
     }
 
     private ItemStack hoveredStack(int mouseX, int mouseY) {
@@ -196,41 +208,61 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     @Override
     public void extractBackground(@NotNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         if (rrvLoaded) {
-            sinkForeignRrvWidgets(mouseX, mouseY);
+            sinkForeignRrvWidgets();
         }
+        bottomTabSelectedThisFrame = false;
+        backgroundMouseX = mouseX;
+        backgroundMouseY = mouseY;
+        backgroundPartialTick = partialTick;
+        rrvDrawnInBackground = false;
         super.extractBackground(guiGraphics, mouseX, mouseY, partialTick);
         // Rendering RRV's overlay early, in the background stratum, so everything this screen draws appears on top of it and not the other way around.
-        if (rrvLoaded) {
-            RRVCompat.renderOverlayBelow(guiGraphics, mouseX, mouseY, partialTick);
+        if (rrvLoaded && !rrvDrawnInBackground) {
+            drawRrvBelow(guiGraphics, mouseX, mouseY, partialTick);
         }
     }
 
-    // Makes the Item list buttons from RRV render behind the menu instead of on top / block the mouse hovered from reaching the button
-    private void sinkForeignRrvWidgets(int mouseX, int mouseY) {
+    /**
+     * Draws RRV right after the background dim rather than after the whole background pass, because Skyblocker draws
+     * its unselected Quick Nav tabs straight after this dim: RRV's side panel would otherwise cover tabs that reach it.
+     */
+    @Override
+    public void extractTransparentBackground(@NotNull GuiGraphicsExtractor guiGraphics) {
+        super.extractTransparentBackground(guiGraphics);
+        if (rrvLoaded) drawRrvBelow(guiGraphics, backgroundMouseX, backgroundMouseY, backgroundPartialTick);
+    }
+
+    /**
+     * Makes the Item list buttons from RRV render behind the menu instead of on top / block the mouse hovered from reaching the button.
+     * They stay in the renderables list (RRV adds and removes them there) but are wrapped so the widget pass skips them;
+     * drawRrvBelow draws them in the background pass instead, under Skyblocker's Quick Nav tabs.
+     */
+    private void sinkForeignRrvWidgets() {
+        sunkRrvWidgets.clear();
         if (!(this instanceof IScreenAccessor accessor)) return;
 
         List<Renderable> renderables = accessor.uilib$getRenderables();
         List<GuiEventListener> children = accessor.uilib$getChildren();
-        List<Renderable> rrvWidgets = new ArrayList<>();
 
         renderables.removeIf(r -> {
             if (!isRrvWidget(r)) return false;
 
-            Renderable original = (r instanceof HoverMaskedRenderable m) ? m.delegate() : r;
+            Renderable original = (r instanceof SunkRrvRenderable sunk) ? sunk.delegate() : r;
             if (!(original instanceof GuiEventListener l) || children.contains(l)) {
-                rrvWidgets.add(original);
+                sunkRrvWidgets.add(new SunkRrvRenderable(this, original));
             }
             return true;
         });
 
-        if (rrvWidgets.isEmpty()) return;
+        renderables.addAll(0, sunkRrvWidgets);
+    }
 
-        boolean covered = isInsideOverlay(mouseX, mouseY);
-        List<Renderable> toInsert = new ArrayList<>(rrvWidgets.size());
-        for (Renderable r : rrvWidgets) {
-            toInsert.add(covered ? new HoverMaskedRenderable(this, r) : r);
+    private void drawRrvBelow(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
+        RRVCompat.renderOverlayBelow(guiGraphics, mouseX, mouseY, partialTick);
+        for (SunkRrvRenderable widget : sunkRrvWidgets) {
+            widget.extractInBackground(guiGraphics, mouseX, mouseY, partialTick);
         }
-        renderables.addAll(0, toInsert);
+        rrvDrawnInBackground = true;
     }
 
     private boolean isInsideOverlay(double mx, double my) {
@@ -272,6 +304,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
             return;
         }
         layout.tick();
+        if (layout.modWidgetSpaceChanged()) rebuildWidgets();
     }
 
     /**
@@ -283,6 +316,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     protected void rebuildWidgets() {
         var previous = layout.getSearchBox();
         boolean refocus = previous != null && (previous.isFocused() || this.getFocused() == previous);
+        refocusRrvSearchBar |= rrvLoaded && RRVCompat.isSearchBarFocused(this);
 
         super.rebuildWidgets();
 
@@ -352,6 +386,14 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
     private boolean isOverPageOverview(double mouseX, double mouseY) {
         return Rect.contains(layout.getPageOverviewBounds(), mouseX, mouseY);
+    }
+
+    // Centers Skyblocker Quick Nav row on the inventory or main storage panel instead of the whole screen.
+    public int quickNavTabX(int x, int y, boolean toggled) {
+        boolean topRow = y < this.topPos;
+        if (!topRow && toggled) bottomTabSelectedThisFrame = true;
+        int skyblockerCenter = this.leftPos + this.imageWidth / 2;
+        return x - skyblockerCenter + layout.quickNavRowCenterX(topRow);
     }
 
     // Call to reset the Storage Overlay if the cache changes while it open
@@ -539,13 +581,16 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         return super.keyPressed(event);
     }
 
-    private record HoverMaskedRenderable(StorageContainerScreen screen, Renderable delegate) implements Renderable {
+    private record SunkRrvRenderable(StorageContainerScreen screen, Renderable delegate) implements Renderable {
         @Override
         public void extractRenderState(@NonNull GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+        }
+
+        void extractInBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
             if (screen.isInsideOverlay(mouseX, mouseY)) {
-                delegate.extractRenderState(graphics, -9999, -9999, a);  // Suppress when covered by this screen
+                delegate.extractRenderState(graphics, -9999, -9999, a);  // Suppress hover when covered by this screen
             } else {
-                delegate.extractRenderState(graphics, mouseX, mouseY, a); // Uncovered, do nothing
+                delegate.extractRenderState(graphics, mouseX, mouseY, a);
             }
         }
     }

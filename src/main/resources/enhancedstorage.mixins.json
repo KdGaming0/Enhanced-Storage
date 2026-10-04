@@ -5,8 +5,10 @@
   "plugin": "com.github.kdgaming0.enhancedstorage.mixin.EnhancedStorageMixinPlugin",
   "mixins": [
     "compat.rrv.RRVItemViewOverlayMixin",
+    "compat.rrv.RRVOverlayManagerBackgroundMixin",
     "compat.rrv.RRVOverlayManagerMixin",
     "compat.rrv.RRVSearchBarMixin",
+    "compat.skyblocker.SkyblockerQuickNavButtonMixin",
     "compat.skyhanni.SkyHanniChestValueMixin",
     "compat.skyhanni.SkyHanniInventoryUtilsMixin",
     "compat.skyhanni.SkyHanniRenderDataMixin"

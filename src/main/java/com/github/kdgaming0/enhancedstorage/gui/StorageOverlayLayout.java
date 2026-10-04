@@ -8,6 +8,7 @@ import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.daqem.uilib.gui.component.text.TextComponent;
 import com.daqem.uilib.gui.component.text.TruncatedTextComponent;
 import com.daqem.uilib.gui.widget.EditBoxWidget;
+import com.github.kdgaming0.enhancedstorage.compat.ModWidgetSpace;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.config.LayoutSpacing;
 import com.github.kdgaming0.enhancedstorage.gui.component.common.IconButtonComponent;
@@ -29,7 +30,6 @@ import com.github.kdgaming0.enhancedstorage.storage.profile.ProfileSession;
 import com.github.kdgaming0.enhancedstorage.util.ItemModels;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
 import com.github.kdgaming0.enhancedstorage.util.TextUtils;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -52,8 +52,6 @@ import static com.github.kdgaming0.enhancedstorage.EnhancedStorage.MOD_ID;
 
 public class StorageOverlayLayout {
 
-    public static final boolean RRV_LOADED = FabricLoader.getInstance().isModLoaded("rrv");
-    public static final boolean SKYBLOCKER_LOADED = FabricLoader.getInstance().isModLoaded("skyblocker");
     public static final int SLOTS_ACROSS = 9;
     public static final int SLOT_SIZE = 18;
     public static final int CARD_BORDER = 3;
@@ -66,7 +64,6 @@ public class StorageOverlayLayout {
     private static final int OVERVIEW_WIDTH = 176;
     private static final int OVERVIEW_HEIGHT = 85;
     private static final int PANEL_TOP = 3;
-    private static final int COLUMN_GAP = 2;
     private static final long WARMUP_BUDGET_MS = 3;
     private static final int EDIT_MODE_TITLE_COLOR = 0xFFFFD24A;
     private static final List<Hint> EDIT_MODE_HINTS = List.of(
@@ -78,7 +75,6 @@ public class StorageOverlayLayout {
             new Hint("Drop on edge", "Stack pages"));
     private static final int SECTION_LINE_REACH = 3;
     private static final int SECTION_INSET = 4;
-    private static final int NAV_GAP = 2;
     private static final int NAV_INSET = 2;
     private static final int NAV_GROUP_GAP = 4;
     private static final int NAV_MIN_WIDTH = 70;
@@ -99,6 +95,8 @@ public class StorageOverlayLayout {
     private ItemStack copyFilterTarget = ItemStack.EMPTY;
     private String pageMatchQuery = "";
     private int contentInset;
+    private int builtModWidgetMargin;
+    private boolean quickNavBottomTabSelected;
     private int frameWidth;
     private int liveRowTop = -1;
     private int liveRowBottom = -1;
@@ -170,8 +168,17 @@ public class StorageOverlayLayout {
                 .orElse(pageWidth());
     }
 
-    private static int computeMainBackgroundHeight(int height, boolean inventoryBelow) {
+    private int computeMainBackgroundHeight(int height, boolean inventoryBelow) {
         return height - computeTopMargin() - computeBottomMargin(inventoryBelow);
+    }
+
+    // Returns true if the bottom margin for the mod widget space has changed since the last build, which may require a rebuild of the overlay.
+    public boolean modWidgetSpaceChanged() {
+        return ModWidgetSpace.bottomMargin(LayoutSpacing.bottomMargin(), quickNavBottomTabSelected) != builtModWidgetMargin;
+    }
+
+    public void setQuickNavBottomTabSelected(boolean selected) {
+        this.quickNavBottomTabSelected = selected;
     }
 
     public static int computeMainBackgroundY() {
@@ -179,33 +186,15 @@ public class StorageOverlayLayout {
     }
 
     private static int computeTopMargin() {
-        // Quick Nav buttons sit in a row just above and below the container, so add more margin to make space for them.
-        if (SKYBLOCKER_LOADED && isSkyblockerQuickNavEnabled()) {
-            return LayoutSpacing.topMargin() + EnhancedStorageConfig.extraTopAndBottomMarginForQuickNav;
-        }
-        return LayoutSpacing.topMargin();
+        // Skyblocker's Quick Nav tabs sit just above the overlay.
+        return ModWidgetSpace.topMargin(LayoutSpacing.topMargin());
     }
 
-    private static int computeBottomMargin(boolean inventoryBelow) {
-        // Reserve room for the inventory panel when it sits directly below the page overview.
-        int margin = LayoutSpacing.bottomMargin() + (inventoryBelow ? INVENTORY_HEIGHT : 0);
-
-        // Quick Nav buttons sit in a row just above and below the container, so add more margin to make space for them.
-        if (SKYBLOCKER_LOADED && isSkyblockerQuickNavEnabled()) {
-            margin += EnhancedStorageConfig.extraTopAndBottomMarginForQuickNav - 5;
-        }
-        if (RRV_LOADED) {
-            margin += EnhancedStorageConfig.extraBottomMarginForRecipeSearchBar;
-        }
-        return margin;
-    }
-
-    private static boolean isSkyblockerQuickNavEnabled() {
-        try {
-            return de.hysky.skyblocker.config.SkyblockerConfigManager.get().quickNav.enableQuickNav;
-        } catch (NoClassDefFoundError e) {
-            return false;
-        }
+    private int computeBottomMargin(boolean inventoryBelow) {
+        // Reserve room for the inventory panel when it sits directly below the page overview,
+        // plus room below it for Quick Nav tabs and RRV's search bar.
+        return ModWidgetSpace.bottomMargin(LayoutSpacing.bottomMargin(), quickNavBottomTabSelected)
+                + (inventoryBelow ? INVENTORY_HEIGHT : 0);
     }
 
     private static List<StorageKey> applyCustomOrder(List<StorageKey> defaultOrder) {
@@ -509,6 +498,13 @@ public class StorageOverlayLayout {
         return openCard != null && visibleCards.contains(openCard) ? openCard : null;
     }
 
+    public int quickNavRowCenterX(boolean topRow) {
+        if (!topRow && inventoryPosition == EnhancedStorageConfig.InventoryPosition.BOTTOM) {
+            return inventoryPanel.getTotalX() + inventoryPanel.getWidth() / 2;
+        }
+        return mainBackgroundX + mainBackgroundWidth / 2;
+    }
+
     public SpriteComponent getInventoryPanel() {
         return inventoryPanel;
     }
@@ -636,7 +632,7 @@ public class StorageOverlayLayout {
         this.mainBackgroundY = computeMainBackgroundY();
 
         int available = width - LayoutSpacing.horizontalMargin() - LayoutSpacing.innerPadding() * 2
-                - SCROLLBAR_WIDTH - SCROLLBAR_GAP - contentInset * 2;
+                - SCROLLBAR_WIDTH - LayoutSpacing.scrollbarGap() - contentInset * 2;
         this.maxSlotsAcross = Math.max(PageWidths.MIN_WIDTH, (available - CARD_BORDER * 2) / SLOT_SIZE);
         this.cardWidth = CARD_BORDER * 2 + Math.min(pageWidth(), maxSlotsAcross) * SLOT_SIZE;
 
@@ -663,6 +659,7 @@ public class StorageOverlayLayout {
             setRowWidth(width, entries, limit);
         }
         this.mainBackgroundHeight = computeMainBackgroundHeight(height, bottom);
+        this.builtModWidgetMargin = ModWidgetSpace.bottomMargin(LayoutSpacing.bottomMargin(), quickNavBottomTabSelected);
         this.panelTop = bottom ? 0 : PANEL_TOP;
     }
 
@@ -670,7 +667,7 @@ public class StorageOverlayLayout {
         // Shrinks to the widest row so narrow pages don't leave empty overlay; never below one default page.
         this.rowContentWidth = Math.max(packedWidth(entries, limit), cardWidth);
         this.frameWidth = rowContentWidth + contentInset * 2;
-        this.mainBackgroundWidth = frameWidth + LayoutSpacing.innerPadding() * 2 + SCROLLBAR_WIDTH + SCROLLBAR_GAP;
+        this.mainBackgroundWidth = frameWidth + LayoutSpacing.innerPadding() * 2 + SCROLLBAR_WIDTH + LayoutSpacing.scrollbarGap();
         this.mainBackgroundX = (width / 2) - (mainBackgroundWidth / 2);
     }
 
@@ -714,16 +711,16 @@ public class StorageOverlayLayout {
 
         boolean sameSide = navigationSharesSide(inventoryPosition);
         // Too short to stack above the inventory, it becomes its own panel between the grid and the column.
-        this.navigationStacked = sameSide && mainHeight - sideStackHeight() - COLUMN_GAP >= NAV_MIN_HEIGHT;
+        this.navigationStacked = sameSide && mainHeight - sideStackHeight() - LayoutSpacing.columnGap() >= NAV_MIN_HEIGHT;
 
-        int column = NAV_GAP + INVENTORY_WIDTH;
+        int column = LayoutSpacing.panelGap() + INVENTORY_WIDTH;
         boolean left = inventoryPosition == EnhancedStorageConfig.InventoryPosition.LEFT;
         if (!fitBeside(width, entries, left ? column : 0, left ? 0 : column)) return false;
 
-        int besideNav = sameSide && !navigationStacked ? navigationWidth + NAV_GAP : 0;
+        int besideNav = sameSide && !navigationStacked ? navigationWidth + LayoutSpacing.panelGap() : 0;
         this.columnX = left
                 ? mainBackgroundX - besideNav - column
-                : mainBackgroundX + mainBackgroundWidth + besideNav + NAV_GAP;
+                : mainBackgroundX + mainBackgroundWidth + besideNav + LayoutSpacing.panelGap();
         if (navigationStacked) this.navigationWidth = INVENTORY_WIDTH;
         return true;
     }
@@ -737,7 +734,7 @@ public class StorageOverlayLayout {
         EnhancedStorageConfig.NavigationPanelSide nav = EnhancedStorageConfig.navigationPanel;
         boolean separateNav = nav != EnhancedStorageConfig.NavigationPanelSide.DISABLED && !navigationStacked;
         boolean navLeft = nav == EnhancedStorageConfig.NavigationPanelSide.LEFT;
-        int navMin = separateNav ? NAV_GAP + NAV_MIN_WIDTH : 0;
+        int navMin = separateNav ? LayoutSpacing.panelGap() + NAV_MIN_WIDTH : 0;
         int left = fixedLeft + (navLeft ? navMin : 0);
         int right = fixedRight + (navLeft ? 0 : navMin);
         boolean whole = centersWholeOverlay();
@@ -784,8 +781,8 @@ public class StorageOverlayLayout {
 
     private int sideStackHeight() {
         int panels = INVENTORY_HEIGHT + PANEL_TOP;
-        if (showOverview()) panels += COLUMN_GAP + OVERVIEW_HEIGHT + PANEL_TOP;
-        return panels + BUTTON_GAP + BUTTON_SIZE;
+        if (showOverview()) panels += LayoutSpacing.columnGap() + OVERVIEW_HEIGHT + PANEL_TOP;
+        return panels + LayoutSpacing.columnGap() + BUTTON_SIZE;
     }
 
     private SpriteComponent buildMainPanel(IScreen screen) {
@@ -799,11 +796,11 @@ public class StorageOverlayLayout {
     private void buildNavigationPanel(IScreen screen, SpriteComponent mainBackground, List<LayoutEntry> entries) {
         if (navigationWidth == 0) return;
         boolean left = EnhancedStorageConfig.navigationPanel == EnhancedStorageConfig.NavigationPanelSide.LEFT;
-        int x = left ? mainBackgroundX - NAV_GAP - navigationWidth : mainBackgroundX + mainBackgroundWidth + NAV_GAP;
+        int x = left ? mainBackgroundX - LayoutSpacing.panelGap() - navigationWidth : mainBackgroundX + mainBackgroundWidth + LayoutSpacing.panelGap();
         int height = mainBackground.getHeight();
         if (navigationStacked) {
             x = columnX;
-            height -= sideStackHeight() + COLUMN_GAP;
+            height -= sideStackHeight() + LayoutSpacing.columnGap();
         }
 
         SpriteComponent panel = new SpriteComponent(x, mainBackgroundY, navigationWidth, height,
@@ -1156,11 +1153,13 @@ public class StorageOverlayLayout {
             inventoryX = (width / 2) - (INVENTORY_WIDTH / 2);
             overviewX = inventoryX - OVERVIEW_WIDTH;
 
-            // On narrow screens, center the inventory + overview block under the main panel instead of the screen.
+            // When the overview would stick out past the main panel's left edge, shift the pair right just far enough
+            // to line it up, so the inventory stays as close to the centre as it can. On a panel too narrow for that,
+            // the pair is centred under it instead.
             if (showOverview && overviewX < mainBackgroundX) {
                 int mainCenterX = mainBackgroundX + mainBackgroundWidth / 2;
-                overviewX = mainCenterX - (INVENTORY_WIDTH + OVERVIEW_WIDTH) / 2;
-                inventoryX = overviewX + OVERVIEW_WIDTH;
+                inventoryX = Math.min(mainBackgroundX + OVERVIEW_WIDTH, mainCenterX - (INVENTORY_WIDTH + OVERVIEW_WIDTH) / 2 + OVERVIEW_WIDTH);
+                overviewX = inventoryX - OVERVIEW_WIDTH;
             }
             inventoryY = mainBackgroundY + mainBackground.getHeight();
             overviewY = inventoryY;
@@ -1168,7 +1167,7 @@ public class StorageOverlayLayout {
             inventoryX = columnX;
             inventoryY = mainBackgroundY + mainBackground.getHeight() - sideStackHeight();
             overviewX = inventoryX;
-            overviewY = inventoryY + INVENTORY_HEIGHT + PANEL_TOP + COLUMN_GAP;
+            overviewY = inventoryY + INVENTORY_HEIGHT + PANEL_TOP + LayoutSpacing.columnGap();
         }
 
         boolean withTop = panelTop > 0;

@@ -2,6 +2,7 @@ package com.github.kdgaming0.enhancedstorage.compat;
 
 import cc.cassian.rrv.common.overlay.OverlayManager;
 import cc.cassian.rrv.common.overlay.itemlist.view.ItemViewOverlay;
+import cc.cassian.rrv.common.overlay.itemlist.view.SearchBar;
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -16,6 +17,7 @@ public final class RRVCompat {
     private static final MethodType HIGHLIGHT_TYPE = MethodType.methodType(void.class, ItemViewOverlay.class, Screen.class, GuiGraphicsExtractor.class, int.class, int.class, float.class);
     private static final MethodHandle RENDER_ITEM_HIGHLIGHTING = bindRenderItemHighlighting();
     private static boolean renderingEarly = false;
+    private static final boolean RENDER_ALL_BACKGROUND_AVAILABLE = hasRenderAllBackground();
     private static boolean renderingHighlightLate = false;
 
     private RRVCompat() {
@@ -29,6 +31,27 @@ public final class RRVCompat {
         return renderingHighlightLate;
     }
 
+    public static boolean isSearchBarFocused(Screen screen) {
+        return screen.getFocused() instanceof SearchBar;
+    }
+
+    /** Gives RRV's search bar focus again, e.g. after a rebuild took it away while the player was typing. */
+    public static void focusSearchBar(Screen screen) {
+        SearchBar searchBar = ItemViewOverlay.INSTANCE.getSearchbar();
+        if (searchBar == null || !searchBar.isVisible()) return;
+        screen.setFocused(searchBar);
+        searchBar.setFocused(true);
+    }
+
+    private static boolean hasRenderAllBackground() {
+        try {
+            OverlayManager.class.getMethod("renderAllBackground", GuiGraphicsExtractor.class, int.class, int.class, float.class);
+            return true;
+        } catch (NoSuchMethodException e) {
+            return false;
+        }
+    }
+
     public static boolean canDeferHighlight() {
         return RENDER_ITEM_HIGHLIGHTING != null;
     }
@@ -37,6 +60,11 @@ public final class RRVCompat {
     public static void renderOverlayBelow(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTicks) {
         renderingEarly = true;
         try {
+            // RRV normally draws its panel backgrounds in Fabric's after-background event, which comes after our early
+            // item list; the recipe book theme's opaque panel would then hide the items, so the backgrounds go first here.
+            if (RENDER_ALL_BACKGROUND_AVAILABLE) {
+                OverlayManager.INSTANCE.renderAllBackground(guiGraphics, mouseX, mouseY, partialTicks);
+            }
             OverlayManager.INSTANCE.renderAll(guiGraphics, mouseX, mouseY, partialTicks);
         } finally {
             renderingEarly = false;
