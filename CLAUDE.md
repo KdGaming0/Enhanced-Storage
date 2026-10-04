@@ -6,7 +6,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
 
-Rules:
 - For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
@@ -14,10 +13,11 @@ Rules:
 
 ## Project overview
 
-Enhanced Storage is a Fabric client mod for Hypixel SkyBlock (Minecraft) that replaces the vanilla chest GUI with a unified, searchable overlay showing all Ender Chest and Backpack pages at once.
+Enhanced Storage is a Fabric client mod for Hypixel SkyBlock (Minecraft) that replaces the vanilla chest GUI with a unified, searchable overlay showing all Ender Chest, Backpack and Rift Storage pages at once.
+
 ## Build system
 
-Stonecutter (multi-Minecraft-version Gradle) generates per-version project copies, so tasks can be prefixed with a version — `./gradlew :26.1:runClient` launches a dev client for that version, against a `run/` directory shared across versions.
+Stonecutter (multi-Minecraft-version Gradle) generates per-version project copies, so tasks can be prefixed with a version — `./gradlew :26.1:runClient` launches a dev client for that version, against a `run/` directory shared across versions. Versions are declared in `settings.gradle.kts` (currently `26.1` and `26.2`); `26.1` is the VCS/active version, so the checked-in source is the 26.1 variant.
 
 - `./gradlew buildAndCollect` — build and copy the mod jar (+ sources jar) into `build/libs/<mod.version>/`.
 - `./gradlew chiseledSrc` / stonecutter migrate tasks — used only when adding/porting to a new Minecraft version; don't invoke unless asked.
@@ -28,61 +28,60 @@ Version/mod metadata (mod id, version, dependency versions per MC version) is ce
 
 ## Architecture
 
-Client-only Fabric mod, single entrypoint: `EnhancedStorage` (`ClientModInitializer`). On init it wires up MidnightLib config, registers a profile-change listener that reloads storage caches/names and rebuilds any open overlay, and registers the `StorageCaptureHandler`.
+Client-only Fabric mod, single entrypoint: `EnhancedStorage` (`ClientModInitializer`).
 
 Use `graphify query` to orient in the module graph. Non-obvious contracts:
-- `StorageProfile.setOnChange` is the hook point for "player switched SkyBlock profile" — caches must be **reloaded**, not just re-read, on that event.
+- **Per-profile persistence**: everything saved per SkyBlock profile (`PageCache`, `PageNames`, `PageOrder`, `PageLayout`, `PageWidths`) implements `ProfileScopedStore` and must be registered in `EnhancedStorage.onInitializeClient` via `ProfileSession.register(...)`. A new store that isn't registered is never loaded or saved.
+- **Profile switch**: `ProfileSession` owns profile state (`UNKNOWN` → `GUESSED` from `last_profile.txt` on join → `CONFIRMED`). On a switch, stores are **reloaded** from the new profile dir (not just re-read) and `StorageEvents.PROFILE_CHANGED` fires; listeners rebuild UI. Saves are held back until the profile is `CONFIRMED`, pages captured before then are staged, and `requestSave()` debounces writes (~10s).
 
-### Mixins
+# Mixins
 
-Mixins live in `mixin/` and are declared in `src/main/resources/enhancedstorage.mixins.json`. `EnhancedStorageMixinPlugin` gates the `compat.RRV*` mixins behind `FabricLoader.isModLoaded("rrv")` — RRV/Skyblocker compat mixins must stay optional at the mixin-plugin level, not just at runtime, since those mods are compile-only deps (see `modCompileOnly` entries in `build.gradle.kts`).
+Mixins live in `mixin/` and are declared in `src/main/resources/enhancedstorage.mixins.json`. Third-party compat mixins live under `mixin/compat/{rrv,skyblocker,skyhanni}/` and `EnhancedStorageMixinPlugin.shouldApplyMixin` gates each package behind `FabricLoader.isModLoaded(...)` — they must stay optional at the mixin-plugin level, not just at runtime, since those mods are compile-only deps (see `modCompileOnly` entries in `build.gradle.kts`).
 
-### Config
+When adding a compat mixin, also add its injection-target method names to `REQUIRED_TARGET_METHODS` in the plugin: it checks the target's bytecode and skips the mixin if the method was renamed/removed, so an update to the other mod disables the feature instead of crashing the game. Prefer the argument-less handler form (`CallbackInfo` only) so signature changes don't break APPLY.
 
-`EnhancedStorageConfig` uses MidnightLib (`MidnightConfig`), giving in-game editable config with live saving via Mod Menu — there is no separate config-file-parsing code to maintain.
 
-# Development Workflow
+## Verifying APIs
+
+Your training data may predate MC 26.x and the current versions of the compat mods. Don't rely on memory for Minecraft, Fabric or third-party class names, signatures, mapping names or injection targets. Verify them against the actual bytecode or source (`javap` on the Loom Minecraft jar or the dependency jar in `~/.gradle/caches`). For compat work, check the version I actually run, not just the `modCompileOnly` pin.
+
+Minecraft 26.3 replaces GLFW with SDL. Use `InputConstants` for keys and modifiers, not `org.lwjgl.glfw.GLFW`, and don't do arithmetic or range checks on key codes (SDL's differ); use explicit sets or tables. Text inputs must report focus changes through `Minecraft.onTextInputFocusChange` (vanilla `EditBox.setFocused` already does). `MouseHandlerMixin`'s `glfwSetCursorPos` is a deliberate exception for now.
+
+# Workflow
+
+Investigate → plan → get approval → implement → validate → document. Follow the `work-on-problem` skill; this file adds only the project specifics.
+
+## When to keep going and when to stop
+
+- **Before approval**: stop after the plan and wait. No code before I approve.
+- **After approval**: when a step doesn't need my input, keep going. Put status notes in the same message as your next action. Don't stop just to report progress or offer to continue.
+- **Stop and ask** when you can't continue without me, when the approved plan turns out to be wrong or would change existing behavior, or before anything destructive: deleting files or data outside the plan, any `git push` or history rewrite, or writing anywhere outside this repository. Reading outside the repo (e.g. launcher profiles to find the mod jars I run) is fine.
+
+For work with many steps, keep a checklist in `TASKS.md`, tick items as you finish them, and add anything new you find. Delete it once the task is documented.
+
+## Validate
+
+Run `./gradlew build` before considering the work complete and report the real result. It is the only automated gate. Where logic is MC-free, verify the shipped code standalone (see the skill's gotchas for the JDK 25 and classpath setup).
+
+Most behavior can only be verified in game. When it is, describe what to test, how to reproduce it, and the expected result, then wait for me to report back before documenting.
+
+## Reporting
+
+End every run with these headings, omitting any that are empty:
+
+- **Needs from you**: decisions, approvals, in-game tests to run
+- **Changed**: each file touched and what the change does, in plain language
+- **Found**: findings, surprises, and anything you couldn't confirm (say where you looked)
 
 ## Documentation
 
-- `CLAUDE.md`: Project architecture and design overview.
-- `IMPLEMENTATION_LOG.md`: Record of implementation decisions and reasoning. Keep entries concise (maximum 500 lines total).
+After testing has passed:
 
-## Workflow
+- Add a concise entry to `IMPLEMENTATION_LOG.md`: what changed, why, and notable decisions. The whole file stays under 500 lines.
+- If the work fixes a bug or adds a user-visible feature, add a short, non-technical entry to `CHANGELOG.md` for end users, with no implementation details or internal terms.
+- Update this file only if a convention or contract changed.
 
-Investigate → plan → get approval → implement. Follow the `work-on-problem` skill for those steps; the project-specific additions are below.
+## Principles
 
-### Validate
-
-Run `./gradlew build` before considering the work complete — it is the only correctness gate.
-
-Because this is a client mod for a live server, most behavior can only be verified in game. When manual in-game testing is required, clearly describe what should be tested, how to reproduce it, and the expected result — then wait for the user to report back before finalizing the task.
-
-### Documentation
-
-After all testing has passed:
-
-- Add a concise entry to `IMPLEMENTATION_LOG.md` describing:
-    - what changed
-    - why the change was made
-    - any notable implementation decisions
-
-- Run:
-
-```bash
-graphify update .
-```
-
-to keep the project graph up to date.
-
-- If the work fixes a bug or introduces a user-visible feature, update `CHANGELOG.md` with a short, non-technical description suitable for end users. Avoid implementation details and internal terminology.
-
-## General Principles
-
-### Scope Control
-
-Only modify files that are necessary for the requested change. Avoid unrelated formatting changes, refactoring, or file reorganizations unless explicitly requested or required to complete the task safely.
-
-### Preserve Existing Behavior
-
-Unless the request explicitly changes existing functionality, preserve current behavior. If a proposed implementation requires changing existing behavior or introduces trade-offs, explain them in the implementation plan and wait for approval.
+- **Scope**: only modify files needed for the requested change. No unrelated formatting, refactoring or reorganization unless asked or required to complete the task safely.
+- **Preserve behavior**: unless the request explicitly changes it, keep existing behavior. If a change or trade-off is needed, raise it in the plan and wait for approval.

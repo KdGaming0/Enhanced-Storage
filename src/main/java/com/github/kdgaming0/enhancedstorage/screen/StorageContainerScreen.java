@@ -365,7 +365,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
         boolean rift = openKey.type() == StorageKey.Type.RIFT;
         this.minecraft.player.closeContainer();
-        this.minecraft.setScreen(StorageOverlay.forEditMode(rift, true));
+        Minecraft.getInstance().setScreen(StorageOverlay.forEditMode(rift, true));
     }
 
     private boolean isOverOverviewPanel(double mx, double my) {

@@ -124,8 +124,7 @@ public class EnhancedStorageCommand {
 
 
     private static int executeEdit(boolean rift) {
-        Minecraft client = Minecraft.getInstance();
-        client.schedule(() -> client.setScreen(StorageOverlay.forEditMode(rift, false)));
+        Minecraft.getInstance().schedule(() -> Minecraft.getInstance().setScreen(StorageOverlay.forEditMode(rift, false)));
         return 1;
     }
 
