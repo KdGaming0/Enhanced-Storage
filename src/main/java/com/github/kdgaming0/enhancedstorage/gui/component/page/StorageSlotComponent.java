@@ -43,6 +43,7 @@ public class StorageSlotComponent extends AbstractComponent {
         if (stack != null && !stack.isEmpty()) {
             this.item = new TooltipItemComponent(itemInset, itemInset, stack, true);
             this.item.setTooltipEnabled(EnhancedStorageConfig.showItemTooltipsOnCachedItems);
+            this.item.setGlintHideable(true);
             this.addComponent(this.item);
         } else {
             this.item = null;

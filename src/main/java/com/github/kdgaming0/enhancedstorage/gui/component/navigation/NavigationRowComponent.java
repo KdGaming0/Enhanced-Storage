@@ -11,6 +11,7 @@ import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
 import com.github.kdgaming0.enhancedstorage.storage.data.LayoutEntry;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
 import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
+import com.github.kdgaming0.enhancedstorage.util.TextUtils;
 import com.mojang.blaze3d.platform.cursor.CursorTypes;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -89,7 +90,7 @@ public class NavigationRowComponent extends AbstractComponent {
                                                  boolean dimmed) {
         // The saved state, like the grid's arrow, even while the live page keeps the section open.
         LayoutEntry.Section entry = header.entry();
-        return new NavigationRowComponent(width, header, entry.name(), true, entry.collapsed(), false, false, true,
+        return new NavigationRowComponent(width, header, TextUtils.colorCodes(entry.name()), true, entry.collapsed(), false, false, true,
                 hasPages, dimmed);
     }
 
@@ -100,7 +101,7 @@ public class NavigationRowComponent extends AbstractComponent {
     public static NavigationRowComponent page(int width, PageCardComponent card, boolean indented,
                                               boolean continues, boolean open, boolean dimmed) {
         StorageKey key = card.getKey();
-        String name = PageNames.getInstance().get(key).orElse(key.displayName());
+        String name = TextUtils.colorCodes(PageNames.getInstance().get(key).orElse(key.displayName()));
         return new NavigationRowComponent(width, card, name, false, false, indented, open, card.isCached(),
                 continues, dimmed);
     }

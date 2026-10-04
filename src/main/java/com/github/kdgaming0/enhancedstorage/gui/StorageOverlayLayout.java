@@ -30,6 +30,7 @@ import com.github.kdgaming0.enhancedstorage.storage.profile.ProfileSession;
 import com.github.kdgaming0.enhancedstorage.util.ItemModels;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
 import com.github.kdgaming0.enhancedstorage.util.TextUtils;
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -42,7 +43,6 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import org.jetbrains.annotations.Nullable;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.*;
 import java.util.stream.Stream;
@@ -63,6 +63,9 @@ public class StorageOverlayLayout {
     private static final int INVENTORY_HEIGHT = 96;
     private static final int OVERVIEW_WIDTH = 176;
     private static final int OVERVIEW_HEIGHT = 85;
+    private static final int[] DIGIT_KEYS = {InputConstants.KEY_1, InputConstants.KEY_2, InputConstants.KEY_3,
+            InputConstants.KEY_4, InputConstants.KEY_5, InputConstants.KEY_6, InputConstants.KEY_7, InputConstants.KEY_8,
+            InputConstants.KEY_9};
     private static final int PANEL_TOP = 3;
     private static final long WARMUP_BUDGET_MS = 3;
     private static final int EDIT_MODE_TITLE_COLOR = 0xFFFFD24A;
@@ -429,16 +432,23 @@ public class StorageOverlayLayout {
 
     private static boolean nameMatches(String name, String query) {
         return EnhancedStorageConfig.searchPageAndSectionNames
-                && TextUtils.stripString(name).contains(TextUtils.stripString(query));
+                && TextUtils.stripString(TextUtils.colorCodes(name)).contains(TextUtils.stripString(query));
     }
 
     private static boolean customNameMatches(StorageKey key, String query) {
         return PageNames.getInstance().get(key).map(name -> nameMatches(name, query)).orElse(false);
     }
 
+    private static int digitKey(int key) {
+        for (int i = 0; i < DIGIT_KEYS.length; i++) {
+            if (DIGIT_KEYS[i] == key) return i + 1;
+        }
+        return 0;
+    }
+
     private static boolean isArrow(int key) {
-        return key == GLFW.GLFW_KEY_UP || key == GLFW.GLFW_KEY_DOWN
-                || key == GLFW.GLFW_KEY_LEFT || key == GLFW.GLFW_KEY_RIGHT;
+        return key == InputConstants.KEY_UP || key == InputConstants.KEY_DOWN
+                || key == InputConstants.KEY_LEFT || key == InputConstants.KEY_RIGHT;
     }
 
     private static String emptySlotsDescription(StorageKey key) {
@@ -1732,7 +1742,7 @@ public class StorageOverlayLayout {
                 if (!pageItemAt(card, mouseX, mouseY).isEmpty()) return;
                 String name = PageNames.getInstance().get(card.getKey()).orElse(card.getKey().displayName());
                 graphics.setComponentTooltipForNextFrame(font, List.of(
-                                Component.literal(name),
+                                Component.literal(TextUtils.colorCodes(name)),
                                 Component.literal(emptySlotsDescription(card.getKey())).withStyle(ChatFormatting.GRAY)),
                         mouseX, mouseY);
                 return;
@@ -1744,11 +1754,11 @@ public class StorageOverlayLayout {
                     || header.isOverGrip(mouseX, mouseY) || header.isOverTrash(mouseX, mouseY)) return;
 
             List<Component> lines = new ArrayList<>();
-            lines.add(Component.literal(header.entry().name()));
+            lines.add(Component.literal(TextUtils.colorCodes(header.entry().name())));
             for (int i = cells.indexOf(header) + 1; i < cells.size() && !isBoundary(cells.get(i)); i++) {
                 if (cells.get(i) instanceof PageCardComponent card) {
                     String name = PageNames.getInstance().get(card.getKey()).orElse(card.getKey().displayName());
-                    lines.add(Component.literal(name).withStyle(ChatFormatting.GRAY));
+                    lines.add(Component.literal(TextUtils.colorCodes(name)).withStyle(ChatFormatting.GRAY));
                 }
             }
             if (lines.size() > 1) graphics.setComponentTooltipForNextFrame(font, lines, mouseX, mouseY);
@@ -1781,13 +1791,13 @@ public class StorageOverlayLayout {
     public boolean handleNavigationKey(KeyEvent event) {
         if (editMode) return false;
         int mods = event.modifiers()
-                & (GLFW.GLFW_MOD_SHIFT | GLFW.GLFW_MOD_CONTROL | GLFW.GLFW_MOD_ALT | GLFW.GLFW_MOD_SUPER);
+                & (InputConstants.MOD_SHIFT | InputConstants.MOD_CONTROL | InputConstants.MOD_ALT | InputConstants.MOD_SUPER);
         int key = event.key();
         StorageKey target;
-        if (mods == GLFW.GLFW_MOD_SHIFT && key >= GLFW.GLFW_KEY_1 && key <= GLFW.GLFW_KEY_9) {
+        if (mods == InputConstants.MOD_SHIFT && digitKey(key) > 0) {
             // Consumed even without a page, so vanilla doesn't also swap the hovered slot with the hotbar.
-            target = pageByNumber(key - GLFW.GLFW_KEY_1 + 1);
-        } else if ((mods & ~GLFW.GLFW_MOD_ALT) == 0 && isArrow(key)) {
+            target = pageByNumber(digitKey(key));
+        } else if ((mods & ~InputConstants.MOD_ALT) == 0 && isArrow(key)) {
             // Alt is allowed, so arrows also step through pages filtered by a held item.
             target = pageInDirection(key);
         } else {
@@ -1812,9 +1822,9 @@ public class StorageOverlayLayout {
         if (current == null) return visibleCards.getFirst().getKey();
         int index = visibleCards.indexOf(current);
         return switch (key) {
-            case GLFW.GLFW_KEY_LEFT -> index > 0 ? visibleCards.get(index - 1).getKey() : null;
-            case GLFW.GLFW_KEY_RIGHT -> index < visibleCards.size() - 1 ? visibleCards.get(index + 1).getKey() : null;
-            default -> verticalNeighbour(current, key == GLFW.GLFW_KEY_UP);
+            case InputConstants.KEY_LEFT -> index > 0 ? visibleCards.get(index - 1).getKey() : null;
+            case InputConstants.KEY_RIGHT -> index < visibleCards.size() - 1 ? visibleCards.get(index + 1).getKey() : null;
+            default -> verticalNeighbour(current, key == InputConstants.KEY_UP);
         };
     }
 

@@ -9,6 +9,7 @@ import java.util.regex.Pattern;
 public final class TextUtils {
 
     private static final Pattern WHITESPACE = Pattern.compile("\\s+");
+    private static final Pattern AMPERSAND_CODE = Pattern.compile("&([0-9a-fk-orA-FK-OR])");
 
     private TextUtils() {
     }
@@ -28,6 +29,15 @@ public final class TextUtils {
         if (raw == null) return "";
         String stripped = ChatFormatting.stripFormatting(raw);
         return normalizeWhitespace(stripped.toLowerCase(Locale.ROOT));
+    }
+
+    /**
+     * Turns "&c"-style colour and format codes in a user-typed page or section name into "§" codes for drawing.
+     * Names are stored as typed, since the text box doesn't accept "§". An "&" not followed by a code stays as is.
+     */
+    public static String colorCodes(String name) {
+        if (name == null || name.indexOf('&') < 0) return name;
+        return AMPERSAND_CODE.matcher(name).replaceAll("§$1");
     }
 
     /**

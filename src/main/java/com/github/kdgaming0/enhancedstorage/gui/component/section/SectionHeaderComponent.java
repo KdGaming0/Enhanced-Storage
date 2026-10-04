@@ -10,6 +10,7 @@ import com.github.kdgaming0.enhancedstorage.gui.component.page.GridCellComponent
 import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
 import com.github.kdgaming0.enhancedstorage.storage.data.LayoutEntry;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
+import com.github.kdgaming0.enhancedstorage.util.TextUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -72,9 +73,10 @@ public class SectionHeaderComponent extends GridCellComponent {
         addComponent(statsText);
 
         this.nameMaxWidth = Math.max(0, statsX - NAME_STATS_GAP - nameX);
-        this.nameWidth = Math.min(font.width(entry.name()), nameMaxWidth);
+        String name = TextUtils.colorCodes(entry.name());
+        this.nameWidth = Math.min(font.width(name), nameMaxWidth);
         this.nameText = new TruncatedTextComponent(nameX, TEXT_Y, nameMaxWidth,
-                Component.literal(entry.name()), OverlayTheme.titleColor());
+                Component.literal(name), OverlayTheme.titleColor());
         nameText.setDrawShadow(OverlayTheme.titleShadow());
         addComponent(nameText);
     }

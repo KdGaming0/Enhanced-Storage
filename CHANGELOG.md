@@ -5,6 +5,7 @@
 #### Edit Mode
 Edit Mode lets you make the storage overlay your own. Open it with the new **Edit** button beside your inventory (you can hide the button in the settings). From there, you can:
 - **Rename pages:** Click a page's title and type a new name. Press Enter or click outside the title to save, or press Escape to cancel. Clearing the name restores the default name.
+  - Page and section names can be colored with `&` color codes, like Minecraft's chat codes. For example, `&cWeapons` shows "Weapons" in red and `&l` makes text bold. `&r` goes back to the normal color.
 - **Reorder pages:** Click and drag any page to move it.
 - **Create sections:** Click anywhere between two rows of pages to show the new **Add Section** text. Click it to create a section. You can group related pages in sections and hide them when you don't need them.
   - You can give sections custom names and expand or collapse them. This is useful for pages you don't always need to access quickly. A collapsed section appears as a single bar showing its name and the total number of free slots on its pages.
@@ -38,8 +39,12 @@ A new panel on the side of the overlay makes it easier to navigate your pages an
   - The old **Hide** mode is still available and remains the default. You can switch to Dim mode in the settings.
 - A new **Search Page and Section Names** setting has been added. When it's on, you can search for pages and sections by their custom names.
 - A new keybind fills the search bar with the name of the item under your mouse cursor. It has no key set by default, but you can set one in the vanilla Controls settings.
+- New **Search Bar Autofocus** setting. When it's on, you can start typing anywhere to search, without clicking the search bar first. While your mouse is over an item, keys work as usual, so you can still swap items with 1–9 or drop them with Q.
+- New color and opacity settings for the search highlight and for **Highlight Matching Items**, so you can pick colors that are easier for you to see.
 
 #### Smaller Improvements
+- Added an **Invert Scroll Direction** setting for the pages and the navigation panel.
+- Added a **Hide Enchant Glint on Cached Pages** setting that removes the enchant shimmer from items on pages that aren't open.
 - Added keyboard navigation. Use the arrow keys to move to the page above, below, left, or right of the current one. Use Shift + 1–9 to open one of the first nine pages.
 - Each page now shows its number of free slots in the top right corner of its title bar. You can turn this off in the settings.
 - Added the ability to move the Inventory to the left or right of the overlay. 

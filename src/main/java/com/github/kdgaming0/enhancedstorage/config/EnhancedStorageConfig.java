@@ -72,6 +72,9 @@ public class EnhancedStorageConfig extends MidnightConfig {
     @Entry(category = CATEGORY_INTERFACE)
     public static boolean showEmptySlotCount = true;
 
+    @Entry(category = CATEGORY_INTERFACE)
+    public static boolean hideEnchantGlintOnCachedItems = false;
+
     @Comment(category = CATEGORY_INTERFACE)
     public static Comment spacerEditMode;
 
@@ -185,6 +188,15 @@ public class EnhancedStorageConfig extends MidnightConfig {
     @Entry(category = CATEGORY_SEARCH)
     public static boolean rememberSearchOnReopen = false;
 
+    @Entry(category = CATEGORY_SEARCH)
+    public static boolean searchBarAutofocus = false;
+
+    @Entry(category = CATEGORY_SEARCH, isColor = true, width = 7, min = 7)
+    public static String searchHighlightColor = "#33cc33";
+
+    @Entry(category = CATEGORY_SEARCH, isSlider = true, min = 0, max = 100, precision = 1)
+    public static int searchHighlightOpacity = 50;
+
     @Comment(category = CATEGORY_SEARCH)
     public static Comment spacerCopies;
 
@@ -197,6 +209,12 @@ public class EnhancedStorageConfig extends MidnightConfig {
     @Entry(category = CATEGORY_SEARCH)
     public static boolean hidePagesWithoutCopies = false;
 
+    @Entry(category = CATEGORY_SEARCH, isColor = true, width = 7, min = 7)
+    public static String copyHighlightColor = "#33ccff";
+
+    @Entry(category = CATEGORY_SEARCH, isSlider = true, min = 0, max = 100, precision = 1)
+    public static int copyHighlightOpacity = 50;
+
     // --- Scrolling & Navigation ---
 
     @Entry(category = CATEGORY_NAVIGATION)
@@ -204,6 +222,9 @@ public class EnhancedStorageConfig extends MidnightConfig {
 
     @Entry(category = CATEGORY_NAVIGATION, isSlider = true, min = 1, max = 60, precision = 1)
     public static int overlayScrollSpeed = 18;
+
+    @Entry(category = CATEGORY_NAVIGATION)
+    public static boolean invertScrollDirection = false;
 
     @Entry(category = CATEGORY_NAVIGATION)
     public static boolean rememberScrollOnReopen = false;

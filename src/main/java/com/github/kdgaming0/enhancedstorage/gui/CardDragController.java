@@ -11,6 +11,7 @@ import com.github.kdgaming0.enhancedstorage.gui.layout.PageViewport;
 import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
 import com.github.kdgaming0.enhancedstorage.storage.data.LayoutEntry;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
+import com.github.kdgaming0.enhancedstorage.util.TextUtils;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
@@ -142,7 +143,7 @@ final class CardDragController {
             layout.setDraggedSection(header);
         }
         if (name != null) {
-            TextComponent title = new TextComponent(0, 0, Component.literal(name), OverlayTheme.titleColor());
+            TextComponent title = new TextComponent(0, 0, Component.literal(TextUtils.colorCodes(name)), OverlayTheme.titleColor());
             title.setDrawShadow(OverlayTheme.titleShadow());
             title.updateParentPosition(0, 0, screenWidth, screenHeight);
             this.ghostTitle = title;

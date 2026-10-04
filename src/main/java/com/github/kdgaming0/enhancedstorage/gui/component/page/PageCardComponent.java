@@ -15,6 +15,7 @@ import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
 import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
+import com.github.kdgaming0.enhancedstorage.util.TextUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -101,7 +102,7 @@ public class PageCardComponent extends GridCellComponent {
         }
 
         // Show the custom name if the user set one, otherwise the default.
-        String displayName = PageNames.getInstance().get(key).orElse(key.displayName());
+        String displayName = TextUtils.colorCodes(PageNames.getInstance().get(key).orElse(key.displayName()));
 
         boolean showTitle = titleStyle != EnhancedStorageConfig.PageTitleStyle.HIDDEN;
         int titleX = 3;
@@ -173,6 +174,7 @@ public class PageCardComponent extends GridCellComponent {
         String ellipsis = "...";
         int end = text.length();
         while (end > 0 && font.width(text.substring(0, end) + ellipsis) > maxWidth) end--;
+        if (end > 0 && text.charAt(end - 1) == '§') end--;
         return text.substring(0, end) + ellipsis;
     }
 

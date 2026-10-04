@@ -6,6 +6,7 @@ import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
 import com.github.kdgaming0.enhancedstorage.compat.RRVCompat;
+import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.gui.*;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.CopyHighlight;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.SearchHighlight;
@@ -408,14 +409,15 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        double ownScrollY = EnhancedStorageConfig.invertScrollDirection ? -scrollY : scrollY;
         ScrollContainerWidget navigation = layout.getNavigationList();
         if (navigation != null && Rect.contains(layout.getNavigationBounds(), mouseX, mouseY)
-                && navigation.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) {
+                && navigation.mouseScrolled(mouseX, mouseY, scrollX, ownScrollY)) {
             return true;
         }
         if (isOverPageOverview(mouseX, mouseY)) {
             ScrollContainerWidget overview = layout.getPageOverview();
-            if (overview.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) {
+            if (overview.mouseScrolled(mouseX, mouseY, scrollX, ownScrollY)) {
                 return true;
             }
         }
@@ -571,6 +573,10 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
                 return true;
             }
             box.keyPressed(event);
+            if (SearchAutofocus.shouldRelease(event, box)) {
+                box.setFocused(false);
+                this.setFocused(null);
+            }
             return true;
         }
         if (CopyHighlight.isSearchKey(event)) {
@@ -578,6 +584,12 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
             return true;
         }
         if (layout.handleNavigationKey(event)) return true;
+        if (box != null && SearchAutofocus.shouldFocus(event, this.hoveredSlot != null || !CopyHighlight.hovered().isEmpty())) {
+            this.setFocused(box);
+            box.setFocused(true);
+            box.keyPressed(event);
+            return true;
+        }
         return super.keyPressed(event);
     }
 

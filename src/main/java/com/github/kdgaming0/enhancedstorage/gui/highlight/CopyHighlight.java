@@ -15,7 +15,6 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 import org.jetbrains.annotations.Nullable;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -28,7 +27,7 @@ import static com.github.kdgaming0.enhancedstorage.EnhancedStorage.MOD_ID;
 public final class CopyHighlight {
 
     private static final int ITEM_SIZE = 16;
-    private static final int COLOR = 0x8033CCFF;
+    private static final HighlightColor COLOR = new HighlightColor(0x33CCFF);
     private static final Identity NONE = new Identity("", null);
     private static final Map<ItemStack, Identity> IDENTITIES = new WeakHashMap<>();
     private static final KeyMapping.Category CATEGORY =
@@ -45,9 +44,9 @@ public final class CopyHighlight {
 
     public static void register() {
         key = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.enhanced_storage.highlight_copies",
-                InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_ALT, CATEGORY));
+                InputConstants.Type.KEYSYM, InputConstants.KEY_LALT, CATEGORY));
         searchKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.enhanced_storage.search_hovered",
-                InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, CATEGORY));
+                InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY));
     }
 
     public static void setTarget(ItemStack hovered) {
@@ -86,7 +85,8 @@ public final class CopyHighlight {
     }
 
     public static void draw(GuiGraphicsExtractor graphics, int itemX, int itemY) {
-        graphics.fill(itemX, itemY, itemX + ITEM_SIZE, itemY + ITEM_SIZE, COLOR);
+        graphics.fill(itemX, itemY, itemX + ITEM_SIZE, itemY + ITEM_SIZE,
+                COLOR.get(EnhancedStorageConfig.copyHighlightColor, EnhancedStorageConfig.copyHighlightOpacity));
     }
 
     public static boolean sameItem(ItemStack a, ItemStack b) {

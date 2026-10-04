@@ -52,6 +52,9 @@
   "enhanced_storage.midnightconfig.showEmptySlotCount": "Show Empty Slot Count",
   "enhanced_storage.midnightconfig.showEmptySlotCount.tooltip": "Show how many slots without items each page has, for example \"6 empty\", next to the page title. Section headers and the navigation panel tooltip always show the count.",
 
+  "enhanced_storage.midnightconfig.hideEnchantGlintOnCachedItems": "Hide Enchant Glint on Cached Pages",
+  "enhanced_storage.midnightconfig.hideEnchantGlintOnCachedItems.tooltip": "Remove the enchant shimmer from items on pages that are not open. The page you have open still shows it.",
+
   "enhanced_storage.midnightconfig.backgroundType": "Background Style",
   "enhanced_storage.midnightconfig.backgroundType.tooltip": "Visual style for the overlay background: light, dark, or transparent.",
 
@@ -106,6 +109,15 @@
   "enhanced_storage.midnightconfig.rememberSearchOnReopen": "Remember Search on Reopen",
   "enhanced_storage.midnightconfig.rememberSearchOnReopen.tooltip": "Keep the previous search term when the overlay is reopened.",
 
+  "enhanced_storage.midnightconfig.searchBarAutofocus": "Search Bar Autofocus",
+  "enhanced_storage.midnightconfig.searchBarAutofocus.tooltip": "Start typing anywhere to search, without clicking the search bar first. Keys still work as usual while your mouse is over an item, so you can swap items with 1-9 or drop them with Q. Once the search bar is empty again, E closes the storage as normal.",
+
+  "enhanced_storage.midnightconfig.searchHighlightColor": "Search Highlight Color",
+  "enhanced_storage.midnightconfig.searchHighlightColor.tooltip": "Color drawn behind items that match your search.",
+
+  "enhanced_storage.midnightconfig.searchHighlightOpacity": "Search Highlight Opacity",
+  "enhanced_storage.midnightconfig.searchHighlightOpacity.tooltip": "How see-through the search highlight is, from 0 (invisible) to 100 (solid).",
+
   "enhanced_storage.midnightconfig.rememberScrollOnReopen": "Remember Scroll on Reopen",
   "enhanced_storage.midnightconfig.rememberScrollOnReopen.tooltip": "Keep the previous scroll position when the overlay is reopened.",
 
@@ -121,11 +133,20 @@
   "enhanced_storage.midnightconfig.hidePagesWithoutCopies": "Hide Pages Without Copies",
   "enhanced_storage.midnightconfig.hidePagesWithoutCopies.tooltip": "Hold Key mode only. While holding the key, only pages that contain the hovered item are shown, and sections holding them open up. Release the key to return to where you were.",
 
+  "enhanced_storage.midnightconfig.copyHighlightColor": "Copy Highlight Color",
+  "enhanced_storage.midnightconfig.copyHighlightColor.tooltip": "Color drawn behind other stacks of the hovered item.",
+
+  "enhanced_storage.midnightconfig.copyHighlightOpacity": "Copy Highlight Opacity",
+  "enhanced_storage.midnightconfig.copyHighlightOpacity.tooltip": "How see-through the copy highlight is, from 0 (invisible) to 100 (solid).",
+
   "enhanced_storage.midnightconfig.autoScrollToOpenPage": "Auto-Scroll to Open Page",
   "enhanced_storage.midnightconfig.autoScrollToOpenPage.tooltip": "When to automatically scroll so the currently open page is visible.",
 
   "enhanced_storage.midnightconfig.overlayScrollSpeed": "Scroll Speed",
   "enhanced_storage.midnightconfig.overlayScrollSpeed.tooltip": "Mouse-wheel scroll speed for the overlay (1–60).",
+
+  "enhanced_storage.midnightconfig.invertScrollDirection": "Invert Scroll Direction",
+  "enhanced_storage.midnightconfig.invertScrollDirection.tooltip": "Scroll the pages and the navigation panel the other way. Other mods on the screen are not affected.",
 
   "enhanced_storage.midnightconfig.collapseSectionsWhileDragging": "Collapse Sections While Dragging",
   "enhanced_storage.midnightconfig.collapseSectionsWhileDragging.tooltip": "Shows every section as its collapsed bar while you move a section in edit mode.",

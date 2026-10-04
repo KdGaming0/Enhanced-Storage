@@ -6,6 +6,7 @@ import com.daqem.uilib.gui.component.text.TextComponent;
 import com.daqem.uilib.gui.widget.EditBoxWidget;
 import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
+import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayLayout.ResetPart;
 import com.github.kdgaming0.enhancedstorage.gui.component.common.PaintLayerComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.common.PopupComponent;
@@ -551,7 +552,18 @@ public class StorageOverlay extends AbstractScreen {
             return true;
         }
         if (!typing && layout.handleNavigationKey(event)) return true;
-        return super.keyPressed(event);
+        if (!typing && search != null && SearchAutofocus.shouldFocus(event, !CopyHighlight.hovered().isEmpty())) {
+            setFocused(search);
+            search.setFocused(true);
+            search.keyPressed(event);
+            return true;
+        }
+        boolean handled = super.keyPressed(event);
+        if (typing && SearchAutofocus.shouldRelease(event, search)) {
+            search.setFocused(false);
+            setFocused(null);
+        }
+        return handled;
     }
 
     private @Nullable GridCellComponent cellAt(double x, double y) {
@@ -636,17 +648,18 @@ public class StorageOverlay extends AbstractScreen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        double ownScrollY = EnhancedStorageConfig.invertScrollDirection ? -scrollY : scrollY;
         if (popup != null) return true;
         ScrollContainerWidget navigation = layout.getNavigationList();
         if (navigation != null
                 && Rect.contains(layout.getNavigationBounds(), mouseX, mouseY)
-                && navigation.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) {
+                && navigation.mouseScrolled(mouseX, mouseY, scrollX, ownScrollY)) {
             return true;
         }
         ScrollContainerWidget overview = layout.getPageOverview();
         if (overview != null
                 && Rect.contains(layout.getPageOverviewBounds(), mouseX, mouseY)
-                && overview.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) {
+                && overview.mouseScrolled(mouseX, mouseY, scrollX, ownScrollY)) {
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);

@@ -6,11 +6,14 @@ import com.github.kdgaming0.enhancedstorage.gui.highlight.CopyHighlight;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.item.ItemStack;
 
 public class TooltipItemComponent extends ItemComponent {
 
     private boolean tooltipEnabled = true;
+    private boolean glintHideable;
+    private ItemStack noGlintStack;
 
     public TooltipItemComponent(ItemStack itemStack) {
         super(itemStack);
@@ -46,15 +49,40 @@ public class TooltipItemComponent extends ItemComponent {
         this.tooltipEnabled = tooltipEnabled;
     }
 
+    public void setGlintHideable(boolean glintHideable) {
+        this.glintHideable = glintHideable;
+    }
+
+    private ItemStack glintlessStack() {
+        if (!glintHideable || !EnhancedStorageConfig.hideEnchantGlintOnCachedItems) return null;
+        ItemStack stack = getItemStack();
+        if (noGlintStack == null) {
+            if (stack.hasFoil()) {
+                noGlintStack = stack.copy();
+                noGlintStack.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, false);
+            } else {
+                noGlintStack = ItemStack.EMPTY;
+            }
+        }
+        return noGlintStack.isEmpty() ? null : noGlintStack;
+    }
+
     @Override
     public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int parentWidth, int parentHeight) {
+        ItemStack glintless = glintlessStack();
         if (EnhancedStorageConfig.fastCachedItemDecorations && isDecorated()) {
             ItemStack stack = getItemStack();
             int x = getTotalX();
             int y = getTotalY();
 
-            guiGraphics.fakeItem(stack, x, y);
+            guiGraphics.fakeItem(glintless != null ? glintless : stack, x, y);
             extractDecorationsFast(guiGraphics, stack, x, y);
+        } else if (glintless != null) {
+            int x = getTotalX();
+            int y = getTotalY();
+
+            guiGraphics.fakeItem(glintless, x, y);
+            if (isDecorated()) guiGraphics.itemDecorations(Minecraft.getInstance().font, getItemStack(), x, y);
         } else {
             super.extractRenderState(guiGraphics, mouseX, mouseY, partialTick, parentWidth, parentHeight);
         }
