@@ -6,7 +6,7 @@
 Edit Mode lets you make the storage overlay your own. Open it with the new **Edit** button beside your inventory (you can hide the button in the settings). From there, you can:
 - **Rename pages:** Click a page's title and type a new name. Press Enter or click outside the title to save, or press Escape to cancel. Clearing the name restores the default name.
   - Page and section names can be colored with `&` color codes, like Minecraft's chat codes. For example, `&cWeapons` shows "Weapons" in red and `&l` makes text bold. You can find all the color codes here: https://minecraft.wiki/w/Formatting_codes.
-- **Reorder pages:** Click and drag any page to move it.
+- **Reorder pages:** Click and drag any page to move it. Dropping on the left half of a page puts it before that page, and the right half puts it after.
 - **Create sections:** Click anywhere between two rows of pages to show the new **Add Section** text. Click it to create a section. You can group related pages in sections and hide them when you don't need them.
   - You can give sections custom names and expand or collapse them. This is useful for pages you don't always need to access quickly. A collapsed section appears as a single bar showing its name and the total number of free slots on its pages.
 - New settings:
@@ -17,9 +17,8 @@ Edit Mode lets you make the storage overlay your own. Open it with the new **Edi
 #### Custom Page Layouts
 A new page layout system gives you more control over how your pages are arranged.
 - **Custom page widths:** Each page can be 2 to 18 slots wide. Right-click a page and choose **Page Width...** to set its width.
-- **Spacers:** Right-click a page and choose **Add Spacer Before** or **Add Spacer After**. A spacer leaves empty space where a page would normally be, making it easy to separate groups of pages.
-- **Row breaks:** Right-click a page and choose **Add Row Break After** to start a new row after it. In Edit Mode, a break appears as a faint "Row break" area. Right-click the area or the page to remove it. Unlike a spacer, which takes up a fixed amount of space, a row break moves the next page to a new row.
-- **Stacked pages:** You can drag a page onto the top or bottom edge of another page to stack them. Drag it away again to unstack it. This is useful if you want one tall, thin page beside two wide, short pages.
+- **Spaces:** Right-click a page and choose **Add Space Before** or **Add Space After** to leave empty room between pages. Right-click a space to change its width, or choose **Fill Row** to use up the rest of the row, so the next page starts on a new row. Choose **Fixed Width** to go back, or **Remove Space** to delete it.
+- **Stacked pages:** Drag a page onto the top or bottom edge of another page to stack them. The edges light up faintly while you drag. Pages in a stack always share one width. Right-click a stacked page and choose **Remove from Stack** to take it out. This is useful if you want one tall, thin page beside two wide, short pages.
 - **The overlay's width now adapts to your pages:**
   - **Max pages per row** is now measured in pages that are 9 slots wide, so more narrow pages can fit in a row. For example, if you set the maximum to 3, you can fit 6 pages in a row if they are all 4 slots wide. Each page in the setting allows 9 slots of overlay width, and the number of pages that fit depends on their widths.
   - The overlay shrinks to fit when there are only a few pages, but it won't grow wider than the screen.

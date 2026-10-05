@@ -6,10 +6,12 @@ import com.github.kdgaming0.enhancedstorage.gui.component.page.PageCardComponent
 import com.github.kdgaming0.enhancedstorage.gui.component.page.SpacerCardComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.section.SectionEndComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.section.SectionHeaderComponent;
-import com.github.kdgaming0.enhancedstorage.gui.component.section.StackJoinComponent;
 import com.github.kdgaming0.enhancedstorage.gui.layout.PageViewport;
 import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
 import com.github.kdgaming0.enhancedstorage.storage.data.LayoutEntry;
+import com.github.kdgaming0.enhancedstorage.storage.data.LayoutOps;
+import com.github.kdgaming0.enhancedstorage.storage.data.PageWidths;
+import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
 import com.github.kdgaming0.enhancedstorage.util.TextUtils;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -21,10 +23,15 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 /**
- * Drag-and-drop reordering of page cards in edit mode.
+ * Drag-and-drop reordering of page cards, spaces and sections in edit mode.
+ *
+ * <p>A page or space lands where the cursor points at a card, split into fixed zones: the left or right half
+ * puts it in its own column beside that card, a thin edge at the top or bottom stacks it. The result is always worked out from
+ * the layout as it was before the drag, so the same cursor position gives the same layout.</p>
  */
 final class CardDragController {
 
@@ -33,7 +40,11 @@ final class CardDragController {
     private static final int SCROLL_EDGE = 24;
     private static final double MAX_SCROLL_SPEED = 400; // pixels per second
     private static final long SPRING_DELAY_MS = 600;
-    private static final int STACK_BAND = 12;
+    private static final int INDICATOR_COLOR = 0xFFFFD24A;
+    private static final int INDICATOR_FILL = 0x40FFD24A;
+    private static final int INDICATOR_HINT = 0x18FFD24A;
+    private static final int INDICATOR_WIDTH = 2;
+    private static final int STACK_BAND = 14;
 
     private final StorageOverlayLayout layout;
     private final Consumer<List<LayoutEntry>> onDrop;
@@ -50,37 +61,14 @@ final class CardDragController {
     private long lastFrameMs;
     private @Nullable SectionHeaderComponent springTarget;
     private long springStartMs;
-    private @Nullable List<GridCellComponent> undoOrder;
+    private List<LayoutEntry> originalEntries = List.of();
+    private @Nullable LayoutEntry item;
+    private @Nullable List<LayoutEntry> undoEntries;
     private @Nullable Rect moveZone;
-    private @Nullable GridCellComponent dragJoin;
 
     CardDragController(StorageOverlayLayout layout, Consumer<List<LayoutEntry>> onDrop) {
         this.layout = layout;
         this.onDrop = onDrop;
-    }
-
-    private static int stackBand(GridCellComponent dragged, GridCellComponent target) {
-        if (!(dragged instanceof PageCardComponent) || !(target instanceof PageCardComponent)) return 0;
-        return Math.min(STACK_BAND, target.getHeight() / 4);
-    }
-
-    /**
-     * The order with the card taken out of its stack and placed beside it, or null if it isn't stacked.
-     * In the middle of a stack, the pages above and below stay linked to each other.
-     */
-    private static @Nullable List<GridCellComponent> detach(List<GridCellComponent> order, GridCellComponent card) {
-        int i = order.indexOf(card);
-        boolean above = StorageOverlayLayout.isLink(order, i - 1);
-        boolean below = StorageOverlayLayout.isLink(order, i + 1);
-        if (!above && !below) return null;
-
-        GridCellComponent neighbour = order.get(above ? i - 2 : i + 2);
-        List<GridCellComponent> result = new ArrayList<>(order);
-        result.remove(below ? i + 1 : i - 1);
-        result.remove(card);
-        int n = result.indexOf(neighbour);
-        result.add(above ? StorageOverlayLayout.stackEnd(result, n) : StorageOverlayLayout.stackStart(result, n), card);
-        return result;
     }
 
     /**
@@ -121,6 +109,9 @@ final class CardDragController {
     void start(GridCellComponent cell, double pressX, double pressY, int screenWidth, int screenHeight) {
         this.dragged = cell;
         this.originalOrder = List.copyOf(layout.getCells());
+        this.originalEntries = layout.currentEntries();
+        this.item = cell instanceof PageCardComponent card ? new LayoutEntry.Page(card.getKey())
+                : cell instanceof SpacerCardComponent ? cell.entry() : null;
         this.grabOffsetX = pressX - cell.getTotalX();
         this.grabOffsetY = pressY - cell.getTotalY();
         this.screenWidth = screenWidth;
@@ -148,11 +139,6 @@ final class CardDragController {
             title.updateParentPosition(0, 0, screenWidth, screenHeight);
             this.ghostTitle = title;
         }
-        if (cell instanceof PageCardComponent) {
-            this.dragJoin = new StackJoinComponent(new LayoutEntry.StackJoin(layout.nextStackJoinId()));
-            List<GridCellComponent> detached = detach(layout.getCells(), cell);
-            if (detached != null) layout.previewOrder(detached);
-        }
     }
 
     void update(double mouseX, double mouseY) {
@@ -163,10 +149,8 @@ final class CardDragController {
             updateSection(header, mouseX, mouseY);
             return;
         }
-
-        // The full order, including cells hidden in collapsed sections, so a save never drops them.
-        List<GridCellComponent> current = layout.getCells();
-        if (!current.contains(cell)) return;
+        LayoutEntry moved = item;
+        if (moved == null || !layout.getCells().contains(cell)) return;
 
         GridCellComponent hovered = cellUnder(layout.getVisibleCells(), viewport, mouseX, mouseY);
         SectionHeaderComponent spring = hovered instanceof SectionHeaderComponent h && h.isCollapsed() ? h : null;
@@ -175,61 +159,78 @@ final class CardDragController {
             springStartMs = Util.getMillis();
         }
 
-        // Positions are picked in the order without the dragged card and its join, then the card goes back in there.
-        List<GridCellComponent> order = new ArrayList<>(current);
-        order.remove(cell);
-        if (dragJoin != null) order.remove(dragJoin);
-
+        LayoutOps.Target target;
         if (hovered instanceof SectionHeaderComponent header) {
             // First in that section. A collapsed one opens after a short hover instead (see paint).
             if (header.isCollapsed()) return;
-            order.add(order.indexOf(header) + 1, cell);
-        } else if (hovered != null) {
+            target = new LayoutOps.Target.After(header.entry());
+        } else if (hovered != null && !(hovered instanceof SectionEndComponent)) {
             if (hovered == cell) return;
-            Rect bounds = hovered.bounds();
-            int at = order.indexOf(hovered);
-            int band = stackBand(cell, hovered);
-            if (mouseY < bounds.y() + band) {
-                order.add(at, dragJoin);
-                order.add(at, cell);
-            } else if (mouseY >= bounds.bottom() - band) {
-                order.add(at + 1, cell);
-                order.add(at + 1, dragJoin);
-            } else {
-                boolean after = mouseX >= bounds.x() + bounds.width() / 2.0;
-                order.add(after ? StorageOverlayLayout.stackEnd(order, at) : StorageOverlayLayout.stackStart(order, at), cell);
-            }
+            target = targetOf(hovered, zoneAt(hovered, cell, mouseX, mouseY));
         } else {
-            int insertBefore = insertionInEmptySpace(current, mouseX, mouseY);
+            int insertBefore = insertionInEmptySpace(layout.getCells(), mouseX, mouseY);
             // Other gaps keep the current slot, so the grid doesn't jitter.
             if (insertBefore < 0) return;
-            order.add(withoutDragged(current, insertBefore), cell);
+            long before = layout.entriesBeforeCell(insertBefore).stream().filter(e -> !e.equals(moved)).count();
+            target = new LayoutOps.Target.At((int) before);
         }
-        if (order.equals(current)) return;
+
+        List<LayoutEntry> current = layout.currentEntries();
+        List<LayoutEntry> order = LayoutOps.move(originalEntries, moved, target);
+        if (order == null || order.equals(current)) return;
 
         // A cell moved into a collapsed section would vanish mid-drag.
-        SectionHeaderComponent section = sectionOf(order, order.indexOf(cell));
-        if (section != null && section.isCollapsed()) return;
+        if (landsInCollapsedSection(order, moved)) return;
 
         if (moveZone != null && !moveZone.contains(mouseX, mouseY)) {
-            undoOrder = null;
+            undoEntries = null;
             moveZone = null;
         }
 
-        if (order.equals(undoOrder)) return;
+        if (order.equals(undoEntries)) return;
         boolean byCard = hovered != null && !(hovered instanceof SectionHeaderComponent);
-        undoOrder = byCard ? List.copyOf(current) : null;
+        undoEntries = byCard ? current : null;
         moveZone = byCard ? hovered.bounds() : null;
-        layout.previewOrder(order);
+        layout.previewEntries(order);
     }
 
-    private int withoutDragged(List<GridCellComponent> current, int insertBefore) {
-        int index = 0;
-        for (int i = 0; i < insertBefore && i < current.size(); i++) {
-            GridCellComponent c = current.get(i);
-            if (c != dragged && c != dragJoin) index++;
+    private boolean landsInCollapsedSection(List<LayoutEntry> order, LayoutEntry moved) {
+        int at = LayoutOps.indexOfAnchor(order, moved);
+        LayoutEntry.Section section = null;
+        for (int i = 0; i < at; i++) {
+            if (order.get(i) instanceof LayoutEntry.Section s) section = s;
+            else if (order.get(i) instanceof LayoutEntry.SectionEnd) section = null;
         }
-        return index;
+        if (section == null) return false;
+        for (GridCellComponent c : layout.getCells()) {
+            if (c instanceof SectionHeaderComponent header && header.entry().equals(section)) return header.isCollapsed();
+        }
+        return false;
+    }
+
+    private enum Zone {BEFORE, AFTER, ABOVE, BELOW}
+
+    private static Zone zoneAt(GridCellComponent hovered, GridCellComponent dragged, double mouseX, double mouseY) {
+        Rect bounds = hovered.bounds();
+        if (dragged instanceof PageCardComponent && hovered instanceof PageCardComponent) {
+            int band = stackBand(bounds);
+            if (mouseY < bounds.y() + band) return Zone.ABOVE;
+            if (mouseY >= bounds.bottom() - band) return Zone.BELOW;
+        }
+        return mouseX < bounds.x() + bounds.width() / 2.0 ? Zone.BEFORE : Zone.AFTER;
+    }
+
+    private static int stackBand(Rect bounds) {
+        return Math.min(STACK_BAND, bounds.height() / 4);
+    }
+
+    private static LayoutOps.Target targetOf(GridCellComponent hovered, Zone zone) {
+        return switch (zone) {
+            case BEFORE -> new LayoutOps.Target.Before(hovered.entry());
+            case AFTER -> new LayoutOps.Target.After(hovered.entry());
+            case ABOVE -> new LayoutOps.Target.Stack(((PageCardComponent) hovered).getKey(), true);
+            case BELOW -> new LayoutOps.Target.Stack(((PageCardComponent) hovered).getKey(), false);
+        };
     }
 
     private int insertionInEmptySpace(List<GridCellComponent> order, double mouseX, double mouseY) {
@@ -281,8 +282,8 @@ final class CardDragController {
     }
 
     void cancel() {
-        if (dragged != null && !layout.getCells().equals(originalOrder)) {
-            layout.previewOrder(originalOrder);
+        if (dragged != null && !layout.currentEntries().equals(originalEntries)) {
+            layout.previewEntries(originalEntries);
         }
         reset();
     }
@@ -291,12 +292,13 @@ final class CardDragController {
         boolean wasSection = dragged instanceof SectionHeaderComponent;
         boolean closeSprung = !springOpened.isEmpty();
         dragged = null;
+        item = null;
         ghostTitle = null;
         originalOrder = List.of();
+        originalEntries = List.of();
         springTarget = null;
-        undoOrder = null;
+        undoEntries = null;
         moveZone = null;
-        dragJoin = null;
         springOpened.forEach(SectionHeaderComponent::closeAfterDrag);
         springOpened.clear();
         if (wasSection) {
@@ -310,17 +312,32 @@ final class CardDragController {
         GridCellComponent cell = dragged;
         if (cell == null) return;
         List<GridCellComponent> finalOrder = List.copyOf(layout.getCells());
-        boolean changed = !finalOrder.equals(originalOrder);
+        List<LayoutEntry> finalEntries = layout.currentEntries();
+        boolean changed = !finalEntries.equals(originalEntries);
         SectionHeaderComponent landedIn = sectionOf(finalOrder, finalOrder.indexOf(cell));
         SectionHeaderComponent keepOpen = springOpened.contains(landedIn) ? landedIn : null;
         reset();
         if (!changed) return;
 
         List<LayoutEntry> entries = new ArrayList<>();
-        for (GridCellComponent c : finalOrder) {
-            entries.add(c == keepOpen ? keepOpen.entry().withCollapsed(false) : c.entry());
+        for (LayoutEntry entry : finalEntries) {
+            entries.add(keepOpen != null && entry.equals(keepOpen.entry()) ? keepOpen.entry().withCollapsed(false) : entry);
         }
+        if (cell instanceof PageCardComponent card) joinStackWidth(entries, card.getKey());
         onDrop.accept(entries);
+    }
+
+    /**
+     * A page dropped into a stack takes the stack's width, so the whole stack stays one column.
+     */
+    private static void joinStackWidth(List<LayoutEntry> entries, StorageKey key) {
+        int at = LayoutOps.indexOfKey(entries, key);
+        if (at < 0 || !(entries.get(at) instanceof LayoutEntry.Stack(List<StorageKey> keys))) return;
+        StorageKey mate = keys.stream().filter(k -> !k.equals(key)).findFirst().orElse(null);
+        if (mate == null) return;
+        Optional<Integer> width = PageWidths.getInstance().get(mate);
+        if (width.isPresent()) PageWidths.getInstance().set(key, width.get());
+        else PageWidths.getInstance().clear(key);
     }
 
     // Scrolls the page overview when the cursor is near the top or bottom edge of the viewport.
@@ -354,6 +371,7 @@ final class CardDragController {
             graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(OverlayTheme.PAGE_CARD_HOVER),
                     bar.x(), bar.y(), bar.width(), bar.height());
         }
+        paintIndicator(graphics, viewport, cell, mouseX, mouseY);
         graphics.disableScissor();
 
         int ghostX = (int) (mouseX - grabOffsetX);
@@ -375,6 +393,64 @@ final class CardDragController {
             ghostTitle.setY(ghostY + ghostTitleY);
             ghostTitle.extractRenderStateBase(graphics, mouseX, mouseY, 0, screenWidth, screenHeight);
         }
+    }
+
+    /**
+     * Marks what the cursor is pointing at: a line beside the column for reordering, the highlighted top or
+     * bottom edge for stacking, and an outline around the stack the dragged page now sits in. Drawn inside the clipped viewport
+     * and inside existing bounds, so nothing gets bigger.
+     */
+    private void paintIndicator(GuiGraphicsExtractor graphics, Rect viewport, GridCellComponent cell,
+                                int mouseX, int mouseY) {
+        if (cell instanceof SectionHeaderComponent) return;
+        List<GridCellComponent> cells = layout.getCells();
+        int index = cells.indexOf(cell);
+        if (index >= 0 && cell.stackTag() != GridCellComponent.NO_STACK) {
+            Rect stack = union(cells, StorageOverlayLayout.stackStart(cells, index), StorageOverlayLayout.stackEnd(cells, index));
+            outline(graphics, stack);
+        }
+
+        GridCellComponent hovered = cellUnder(layout.getVisibleCells(), viewport, mouseX, mouseY);
+        if (hovered == null || hovered == cell || hovered instanceof SectionHeaderComponent
+                || hovered instanceof SectionEndComponent) return;
+        Rect bounds = hovered.bounds();
+        int hoveredAt = cells.indexOf(hovered);
+        Rect column = hoveredAt < 0 ? bounds
+                : union(cells, StorageOverlayLayout.stackStart(cells, hoveredAt), StorageOverlayLayout.stackEnd(cells, hoveredAt));
+        Zone zone = zoneAt(hovered, cell, mouseX, mouseY);
+        if (cell instanceof PageCardComponent && hovered instanceof PageCardComponent) {
+            int band = stackBand(bounds);
+            graphics.fill(bounds.x(), bounds.y(), bounds.right(), bounds.y() + band, zone == Zone.ABOVE ? INDICATOR_FILL : INDICATOR_HINT);
+            graphics.fill(bounds.x(), bounds.bottom() - band, bounds.right(), bounds.bottom(), zone == Zone.BELOW ? INDICATOR_FILL : INDICATOR_HINT);
+        }
+        switch (zone) {
+            case BEFORE -> graphics.fill(column.x(), column.y(), column.x() + INDICATOR_WIDTH, column.bottom(), INDICATOR_COLOR);
+            case AFTER -> graphics.fill(column.right() - INDICATOR_WIDTH, column.y(), column.right(), column.bottom(), INDICATOR_COLOR);
+            case ABOVE -> graphics.fill(bounds.x(), bounds.y(), bounds.right(), bounds.y() + INDICATOR_WIDTH, INDICATOR_COLOR);
+            case BELOW -> graphics.fill(bounds.x(), bounds.bottom() - INDICATOR_WIDTH, bounds.right(), bounds.bottom(), INDICATOR_COLOR);
+        }
+    }
+
+    private static Rect union(List<GridCellComponent> cells, int from, int to) {
+        int left = Integer.MAX_VALUE;
+        int top = Integer.MAX_VALUE;
+        int right = Integer.MIN_VALUE;
+        int bottom = Integer.MIN_VALUE;
+        for (int i = from; i < to; i++) {
+            Rect r = cells.get(i).bounds();
+            left = Math.min(left, r.x());
+            top = Math.min(top, r.y());
+            right = Math.max(right, r.right());
+            bottom = Math.max(bottom, r.bottom());
+        }
+        return new Rect(left, top, right - left, bottom - top);
+    }
+
+    private static void outline(GuiGraphicsExtractor graphics, Rect r) {
+        graphics.fill(r.x(), r.y(), r.right(), r.y() + 1, INDICATOR_COLOR);
+        graphics.fill(r.x(), r.bottom() - 1, r.right(), r.bottom(), INDICATOR_COLOR);
+        graphics.fill(r.x(), r.y(), r.x() + 1, r.bottom(), INDICATOR_COLOR);
+        graphics.fill(r.right() - 1, r.y(), r.right(), r.bottom(), INDICATOR_COLOR);
     }
 
     /**

@@ -17,10 +17,8 @@ import com.github.kdgaming0.enhancedstorage.gui.component.common.ItemButtonCompo
 import com.github.kdgaming0.enhancedstorage.gui.component.navigation.NavigationRowComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.navigation.NavigationTitleComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.page.*;
-import com.github.kdgaming0.enhancedstorage.gui.component.section.RowBreakComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.section.SectionEndComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.section.SectionHeaderComponent;
-import com.github.kdgaming0.enhancedstorage.gui.component.section.StackJoinComponent;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.CopyHighlight;
 import com.github.kdgaming0.enhancedstorage.gui.layout.IndexGrid;
 import com.github.kdgaming0.enhancedstorage.gui.layout.PageViewport;
@@ -87,13 +85,13 @@ public class StorageOverlayLayout {
     private static final int BUTTON_SIZE = 24;
     private static final int BUTTON_GAP = 2;
     private final boolean editMode;
+    private int nextStackTag;
     private final boolean editRiftContext;
     private final List<GridCellComponent> cells = new ArrayList<>();
     private final List<GridCellComponent> visibleCells = new ArrayList<>();
     private final List<PageCardComponent> visibleCards = new ArrayList<>();
     private final List<SectionFrame> sectionFrames = new ArrayList<>();
     private final List<PlacedRow> rows = new ArrayList<>();
-    private final List<RowBreakMark> rowBreakMarks = new ArrayList<>();
     private final Map<StorageKey, Boolean> pageMatchCache = new HashMap<>();
     private final Set<GridCellComponent> searchMisses = new HashSet<>();
     private ItemStack copyFilterTarget = ItemStack.EMPTY;
@@ -302,31 +300,37 @@ public class StorageOverlayLayout {
         return result;
     }
 
-    static boolean isLink(List<GridCellComponent> order, int i) {
-        return i > 0 && i + 1 < order.size() && order.get(i) instanceof StackJoinComponent
-                && order.get(i - 1) instanceof PageCardComponent && order.get(i + 1) instanceof PageCardComponent;
-    }
-
     static int stackStart(List<GridCellComponent> order, int i) {
-        while (isLink(order, i - 1)) i -= 2;
+        int tag = order.get(i).stackTag();
+        if (tag == GridCellComponent.NO_STACK) return i;
+        while (i > 0 && order.get(i - 1).stackTag() == tag) i--;
         return i;
     }
 
     static int stackEnd(List<GridCellComponent> order, int i) {
-        while (isLink(order, i + 1)) i += 2;
-        return i + 1;
+        int tag = order.get(i).stackTag();
+        i++;
+        if (tag == GridCellComponent.NO_STACK) return i;
+        while (i < order.size() && order.get(i).stackTag() == tag) i++;
+        return i;
     }
 
-    private static List<LayoutEntry> cleanJoins(List<LayoutEntry> entries) {
+    private static List<LayoutEntry> entriesOf(List<GridCellComponent> list) {
         List<LayoutEntry> result = new ArrayList<>();
-        for (int i = 0; i < entries.size(); i++) {
-            LayoutEntry entry = entries.get(i);
-            if (entry instanceof LayoutEntry.StackJoin) {
-                boolean linked = !result.isEmpty() && result.getLast() instanceof LayoutEntry.Page
-                        && i + 1 < entries.size() && entries.get(i + 1) instanceof LayoutEntry.Page;
-                if (!linked) continue;
+        int i = 0;
+        while (i < list.size()) {
+            GridCellComponent cell = list.get(i);
+            int end = stackEnd(list, i);
+            if (cell instanceof PageCardComponent && end - i > 1) {
+                List<StorageKey> keys = new ArrayList<>();
+                for (int j = i; j < end; j++) {
+                    if (list.get(j) instanceof PageCardComponent card) keys.add(card.getKey());
+                }
+                result.add(LayoutOps.stackOf(keys));
+            } else {
+                result.add(cell.entry());
             }
-            result.add(entry);
+            i = end;
         }
         return result;
     }
@@ -339,9 +343,7 @@ public class StorageOverlayLayout {
 
     private static List<StorageKey> pageKeys(List<LayoutEntry> entries) {
         List<StorageKey> keys = new ArrayList<>();
-        for (LayoutEntry entry : entries) {
-            if (entry instanceof LayoutEntry.Page(StorageKey key)) keys.add(key);
-        }
+        for (LayoutEntry entry : entries) keys.addAll(LayoutOps.keysOf(entry));
         return keys;
     }
 
@@ -372,32 +374,28 @@ public class StorageOverlayLayout {
      */
     private static int nextBoundary(List<List<GridCellComponent>> groups, int from) {
         int i = from;
-        while (i < groups.size() && !isBoundary(groups.get(i).getFirst())
-                && !(groups.get(i).getFirst() instanceof RowBreakComponent)) i++;
+        while (i < groups.size() && !isBoundary(groups.get(i).getFirst())) i++;
         return i;
     }
 
     private static boolean endsSectionAt(List<List<GridCellComponent>> groups, int index) {
-        while (index < groups.size() && groups.get(index).getFirst() instanceof RowBreakComponent) index++;
+        while (index < groups.size() && isFillSpacer(groups.get(index).getFirst())) index++;
         return index == groups.size() || isBoundary(groups.get(index).getFirst());
     }
 
+    private static boolean isFillSpacer(GridCellComponent cell) {
+        return cell instanceof SpacerCardComponent spacer && spacer.isFill();
+    }
+
     /**
-     * Splits cells into flow items: linked pages become one group; joins themselves take no place.
+     * Splits cells into flow items: the cards of one stack become one group.
      */
     private static List<List<GridCellComponent>> groupStacks(List<GridCellComponent> cells) {
         List<List<GridCellComponent>> groups = new ArrayList<>();
         int i = 0;
         while (i < cells.size()) {
-            // Joins inside a stack are stepped over below; any other join links nothing.
-            if (cells.get(i) instanceof StackJoinComponent) {
-                i++;
-                continue;
-            }
             int end = stackEnd(cells, i);
-            List<GridCellComponent> group = new ArrayList<>();
-            for (int j = i; j < end; j += 2) group.add(cells.get(j));
-            groups.add(group);
+            groups.add(new ArrayList<>(cells.subList(i, end)));
             i = end;
         }
         return groups;
@@ -405,7 +403,9 @@ public class StorageOverlayLayout {
 
     private static RowFlow.Box boxOf(List<GridCellComponent> group, int spacing) {
         GridCellComponent first = group.getFirst();
-        if (!(first instanceof PageCardComponent)) return new RowFlow.Box(first.getWidth(), 0);
+        if (!(first instanceof PageCardComponent)) {
+            return new RowFlow.Box(first.getWidth(), 0, isFillSpacer(first));
+        }
         int width = 0;
         int height = -spacing;
         for (GridCellComponent cell : group) {
@@ -691,31 +691,35 @@ public class StorageOverlayLayout {
         int spacing = LayoutSpacing.cardSpacing();
         int widest = 0;
         List<RowFlow.Box> segment = new ArrayList<>();
-        for (int i = 0; i < entries.size(); i++) {
-            switch (entries.get(i)) {
-                case LayoutEntry.Page(StorageKey key) -> {
-                    int width = cardWidthFor(key);
-                    int height = cardHeightFor(key);
-                    // A linked page joins the stack box above it, exactly as groupStacks() does for the real cells.
-                    boolean linked = i >= 2 && entries.get(i - 1) instanceof LayoutEntry.StackJoin
-                            && entries.get(i - 2) instanceof LayoutEntry.Page;
-                    if (linked) {
-                        RowFlow.Box stack = segment.removeLast();
-                        segment.add(new RowFlow.Box(Math.max(stack.width(), width), stack.height() + spacing + height));
-                    } else {
-                        segment.add(new RowFlow.Box(width, height));
+        for (LayoutEntry entry : entries) {
+            switch (entry) {
+                case LayoutEntry.Page(StorageKey key) ->
+                        segment.add(new RowFlow.Box(cardWidthFor(key), cardHeightFor(key)));
+                case LayoutEntry.Stack(List<StorageKey> keys) -> {
+                    int width = 0;
+                    int height = -spacing;
+                    for (StorageKey key : keys) {
+                        width = Math.max(width, cardWidthFor(key));
+                        height += cardHeightFor(key) + spacing;
                     }
+                    segment.add(new RowFlow.Box(width, height));
                 }
-                case LayoutEntry.Spacer _ -> segment.add(new RowFlow.Box(cardWidth, 0));
-                case LayoutEntry.StackJoin _ -> {
-                }
-                case LayoutEntry.Section _, LayoutEntry.SectionEnd _, LayoutEntry.RowBreak _ -> {
+                case LayoutEntry.Spacer spacer -> segment.add(spacerBox(spacer));
+                case LayoutEntry.Section _, LayoutEntry.SectionEnd _ -> {
                     widest = Math.max(widest, widestRow(segment, limit));
                     segment.clear();
                 }
             }
         }
         return Math.max(widest, widestRow(segment, limit));
+    }
+
+    private int spacerWidth(LayoutEntry.Spacer spacer) {
+        return spacer.fill() ? 0 : CARD_BORDER * 2 + Math.min(spacer.slots(), maxSlotsAcross) * LayoutSpacing.slotSize();
+    }
+
+    private RowFlow.Box spacerBox(LayoutEntry.Spacer spacer) {
+        return new RowFlow.Box(spacerWidth(spacer), 0, spacer.fill());
     }
 
     private boolean placeSideColumn(int width, int height, List<LayoutEntry> entries) {
@@ -857,10 +861,8 @@ public class StorageOverlayLayout {
     }
 
     public void saveOrder(List<LayoutEntry> order) {
-        PageLayout.getInstance().setOrder(PageLayout.Context.of(riftContext), closeSections(cleanJoins(order)));
-        for (LayoutEntry entry : order) {
-            if (entry instanceof LayoutEntry.Page(StorageKey key)) PageOrder.getInstance().clear(key);
-        }
+        PageLayout.getInstance().setOrder(PageLayout.Context.of(riftContext), closeSections(LayoutOps.normalize(order)));
+        for (StorageKey key : pageKeys(order)) PageOrder.getInstance().clear(key);
         ProfileSession.getInstance().saveAll();
     }
 
@@ -873,17 +875,81 @@ public class StorageOverlayLayout {
     }
 
     List<LayoutEntry> currentEntries() {
-        List<LayoutEntry> entries = new ArrayList<>();
+        return entriesOf(cells);
+    }
+
+    /**
+     * The index in {@link #currentEntries()} that matches a boundary between cells, never inside a stack.
+     */
+    int entryIndexOfCell(int cellIndex) {
+        return entriesBeforeCell(cellIndex).size();
+    }
+
+    List<LayoutEntry> entriesBeforeCell(int cellIndex) {
+        return entriesOf(cells.subList(0, cellIndex));
+    }
+
+    /**
+     * Shows another layout without saving it, reusing the existing cells. Stacks are re-tagged from the entries.
+     */
+    void previewEntries(List<LayoutEntry> entries) {
+        Map<StorageKey, GridCellComponent> pages = new HashMap<>();
+        Map<LayoutEntry, GridCellComponent> singles = new HashMap<>();
+        Deque<GridCellComponent> ends = new ArrayDeque<>();
         for (GridCellComponent cell : cells) {
-            entries.add(cell.entry());
+            if (cell instanceof PageCardComponent card) pages.put(card.getKey(), cell);
+            else if (cell instanceof SectionEndComponent) ends.add(cell);
+            else singles.put(cell.entry(), cell);
         }
-        return entries;
+        List<GridCellComponent> next = new ArrayList<>(cells.size());
+        for (LayoutEntry entry : entries) {
+            switch (entry) {
+                case LayoutEntry.Page(StorageKey key) -> addCard(next, pages, key, GridCellComponent.NO_STACK);
+                case LayoutEntry.Stack(List<StorageKey> keys) -> {
+                    int tag = nextStackTag++;
+                    for (StorageKey key : keys) addCard(next, pages, key, tag);
+                }
+                case LayoutEntry.SectionEnd _ -> {
+                    GridCellComponent end = ends.poll();
+                    if (end != null) next.add(end);
+                }
+                default -> {
+                    GridCellComponent cell = singles.get(entry);
+                    if (cell != null) next.add(cell);
+                }
+            }
+        }
+        previewOrder(next);
+    }
+
+    private static void addCard(List<GridCellComponent> into, Map<StorageKey, GridCellComponent> pages,
+                                StorageKey key, int tag) {
+        GridCellComponent card = pages.get(key);
+        if (card == null) return;
+        card.setStackTag(tag);
+        into.add(card);
+    }
+
+    /**
+     * The page and every page stacked with it, top to bottom.
+     */
+    List<StorageKey> stackMates(StorageKey key) {
+        for (int i = 0; i < cells.size(); i++) {
+            if (cells.get(i) instanceof PageCardComponent card && card.getKey().equals(key)) {
+                List<StorageKey> keys = new ArrayList<>();
+                for (int j = stackStart(cells, i); j < stackEnd(cells, i); j++) {
+                    if (cells.get(j) instanceof PageCardComponent mate) keys.add(mate.getKey());
+                }
+                return keys;
+            }
+        }
+        return List.of(key);
     }
 
     int nextSpacerId() {
         int max = 0;
         for (GridCellComponent cell : cells) {
-            if (cell.entry() instanceof LayoutEntry.Spacer(int id)) max = Math.max(max, id);
+            if (cell.entry() instanceof LayoutEntry.Spacer(int id, int slots)) max = Math.max(max, id);
         }
         return max + 1;
     }
@@ -892,22 +958,6 @@ public class StorageOverlayLayout {
         int max = 0;
         for (GridCellComponent cell : cells) {
             if (cell.entry() instanceof LayoutEntry.Section section) max = Math.max(max, section.id());
-        }
-        return max + 1;
-    }
-
-    int nextRowBreakId() {
-        int max = 0;
-        for (GridCellComponent cell : cells) {
-            if (cell.entry() instanceof LayoutEntry.RowBreak(int id)) max = Math.max(max, id);
-        }
-        return max + 1;
-    }
-
-    int nextStackJoinId() {
-        int max = 0;
-        for (GridCellComponent cell : cells) {
-            if (cell.entry() instanceof LayoutEntry.StackJoin(int id)) max = Math.max(max, id);
         }
         return max + 1;
     }
@@ -986,18 +1036,6 @@ public class StorageOverlayLayout {
         return -1;
     }
 
-    List<RowBreakMark> getRowBreakMarks() {
-        return rowBreakMarks;
-    }
-
-    @Nullable RowBreakComponent rowBreakAt(double x, double y) {
-        if (!Rect.contains(getPageOverviewBounds(), x, y)) return null;
-        for (RowBreakMark mark : rowBreakMarks) {
-            if (mark.bounds().contains(x, y)) return mark.cell();
-        }
-        return null;
-    }
-
     void refresh() {
         if (pageOverview != null) applySearch(activeQuery());
     }
@@ -1025,23 +1063,22 @@ public class StorageOverlayLayout {
             case NAMES -> (int) PageNames.getInstance().all().keySet().stream().filter(this::inContext).count();
             case WIDTHS -> (int) PageWidths.getInstance().all().keySet().stream().filter(this::inContext).count();
             case SECTIONS -> (int) entries.stream().filter(LayoutEntry.Section.class::isInstance).count();
-            case SPACERS -> (int) entries.stream()
-                    .filter(e -> e instanceof LayoutEntry.Spacer || e instanceof LayoutEntry.RowBreak).count();
-            case STACKS -> (int) entries.stream().filter(LayoutEntry.StackJoin.class::isInstance).count();
+            case SPACERS -> (int) entries.stream().filter(LayoutEntry.Spacer.class::isInstance).count();
+            case STACKS -> (int) entries.stream().filter(LayoutEntry.Stack.class::isInstance).count();
         };
     }
 
     public void resetLayout(Set<ResetPart> parts) {
         List<LayoutEntry> entries = currentEntries();
+        if (parts.contains(ResetPart.ORDER) || parts.contains(ResetPart.STACKS)) entries = LayoutOps.unstackAll(entries);
         if (parts.contains(ResetPart.ORDER)) {
             Iterator<StorageKey> sorted = pageKeys(entries).stream().sorted(StorageKey.DISPLAY_ORDER).iterator();
             entries.replaceAll(entry -> entry instanceof LayoutEntry.Page ? new LayoutEntry.Page(sorted.next()) : entry);
         }
         entries.removeIf(entry -> switch (entry) {
             case LayoutEntry.Section _, LayoutEntry.SectionEnd _ -> parts.contains(ResetPart.SECTIONS);
-            case LayoutEntry.Spacer _, LayoutEntry.RowBreak _ -> parts.contains(ResetPart.SPACERS);
-            case LayoutEntry.StackJoin _ -> parts.contains(ResetPart.STACKS) || parts.contains(ResetPart.ORDER);
-            case LayoutEntry.Page _ -> false;
+            case LayoutEntry.Spacer _ -> parts.contains(ResetPart.SPACERS);
+            case LayoutEntry.Page _, LayoutEntry.Stack _ -> false;
         });
 
         if (parts.stream().anyMatch(p -> p != ResetPart.NAMES && p != ResetPart.WIDTHS)) {
@@ -1077,12 +1114,18 @@ public class StorageOverlayLayout {
         for (int i = 0; i < entries.size(); i++) {
             switch (entries.get(i)) {
                 case LayoutEntry.Spacer spacer ->
-                        cells.add(new SpacerCardComponent(cardWidth, UNCACHED_CARD_HEIGHT, spacer));
+                        cells.add(new SpacerCardComponent(spacerWidth(spacer), UNCACHED_CARD_HEIGHT, spacer));
                 case LayoutEntry.Page(StorageKey key) -> cells.add(buildPageCard(key, liveKey, liveRows));
+                case LayoutEntry.Stack(List<StorageKey> keys) -> {
+                    int tag = nextStackTag++;
+                    for (StorageKey key : keys) {
+                        PageCardComponent card = buildPageCard(key, liveKey, liveRows);
+                        card.setStackTag(tag);
+                        cells.add(card);
+                    }
+                }
                 case LayoutEntry.Section section -> cells.add(buildSectionHeader(entries, i, section, liveKey));
                 case LayoutEntry.SectionEnd _ -> cells.add(new SectionEndComponent(frameWidth, 0));
-                case LayoutEntry.RowBreak rowBreak -> cells.add(new RowBreakComponent(rowBreak));
-                case LayoutEntry.StackJoin join -> cells.add(new StackJoinComponent(join));
             }
         }
     }
@@ -1094,7 +1137,7 @@ public class StorageOverlayLayout {
         boolean containsLive = false;
         for (int i = index + 1; i < entries.size()
                 && !(entries.get(i) instanceof LayoutEntry.Section || entries.get(i) instanceof LayoutEntry.SectionEnd); i++) {
-            if (entries.get(i) instanceof LayoutEntry.Page(StorageKey key)) {
+            for (StorageKey key : LayoutOps.keysOf(entries.get(i))) {
                 pages++;
                 free += freeSlots(key);
                 containsLive |= key.equals(liveKey);
@@ -1460,7 +1503,6 @@ public class StorageOverlayLayout {
         pageOverview.clearComponents();
         sectionFrames.clear();
         rows.clear();
-        rowBreakMarks.clear();
         liveRowTop = -1;
         liveRowBottom = -1;
 
@@ -1484,7 +1526,8 @@ public class StorageOverlayLayout {
                 continue;
             }
 
-            if (first instanceof RowBreakComponent) {
+            if (isFillSpacer(first)) {
+                ((SpacerCardComponent) first).setWidth(0);
                 start++;
                 continue;
             }
@@ -1514,7 +1557,10 @@ public class StorageOverlayLayout {
                         cell.setX(0);
                     } else {
                         cell.setX(contentInset + spot.x());
-                        if (cell instanceof SpacerCardComponent spacer) spacer.setSlotHeight(spot.lineHeight());
+                        if (cell instanceof SpacerCardComponent spacer) {
+                            spacer.setSlotHeight(spot.lineHeight());
+                            if (spacer.isFill()) spacer.setWidth(Math.max(0, rowContentWidth - spot.x()));
+                        }
                     }
                     // Cells are reused between reflows and stacked ones sit lower, so y is reset every time.
                     // UI Lib propagates setY through the whole subtree, so it's skipped when unchanged.
@@ -1532,13 +1578,6 @@ public class StorageOverlayLayout {
             }
             pageOverview.addComponent(row);
             rows.add(new PlacedRow(row, List.copyOf(rowCells), section));
-            if (flow != null && end < groups.size() && groups.get(end).getFirst() instanceof RowBreakComponent rowBreak) {
-                int left = contentInset + flow.width() + spacing;
-                int right = contentInset + rowContentWidth;
-                if (right - left >= LayoutSpacing.slotSize()) {
-                    rowBreakMarks.add(new RowBreakMark(rowBreak, row, left, right - left, flow.height()));
-                }
-            }
             if (section != null && endsSection) sectionFrames.add(new SectionFrame(section, row));
             contentY += rowHeight + spacing;
             start = end;
@@ -1963,7 +2002,7 @@ public class StorageOverlayLayout {
         NAMES("Page names"),
         WIDTHS("Page widths"),
         SECTIONS("Sections"),
-        SPACERS("Spacers & row breaks"),
+        SPACERS("Spacers"),
         STACKS("Stacked pages");
 
         private final String label;
@@ -1998,12 +2037,6 @@ public class StorageOverlayLayout {
 
         Rect bounds() {
             return new Rect(component.getTotalX(), component.getTotalY(), component.getWidth(), component.getHeight());
-        }
-    }
-
-    record RowBreakMark(RowBreakComponent cell, EmptyComponent row, int x, int width, int height) {
-        Rect bounds() {
-            return new Rect(row.getTotalX() + x, row.getTotalY(), width, height);
         }
     }
 

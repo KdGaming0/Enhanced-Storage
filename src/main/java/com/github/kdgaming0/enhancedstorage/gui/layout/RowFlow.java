@@ -47,9 +47,10 @@ public final class RowFlow {
             }
 
             xs.add(x);
+            i++;
+            if (box.fill()) break;
             used = x + box.width();
             tallest = Math.max(tallest, box.height());
-            i++;
         }
         int height = tallest > 0 ? tallest : emptyHeight;
         return new Row(i, used, height, topLine(xs, height));
@@ -83,6 +84,7 @@ public final class RowFlow {
             int j = i;
             while (j < stop) {
                 Box box = boxes.get(j);
+                if (box.fill()) break;
                 int x = used == 0 ? 0 : used + spacing;
                 // Unlike the top line, a cell wider than the area ends it rather than overflowing.
                 if (x + box.width() > width) break;
@@ -108,8 +110,12 @@ public final class RowFlow {
 
     /**
      * A cell's size. Height 0 means it has no height of its own and stretches to its line, like a spacer.
+     * A fill box takes whatever is left of its row, and ends it.
      */
-    public record Box(int width, int height) {
+    public record Box(int width, int height, boolean fill) {
+        public Box(int width, int height) {
+            this(width, height, false);
+        }
     }
 
     /**

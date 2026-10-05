@@ -14,7 +14,6 @@ import com.github.kdgaming0.enhancedstorage.gui.component.page.GridCellComponent
 import com.github.kdgaming0.enhancedstorage.gui.component.page.PageCardComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.page.PageWidthSlider;
 import com.github.kdgaming0.enhancedstorage.gui.component.page.SpacerCardComponent;
-import com.github.kdgaming0.enhancedstorage.gui.component.section.RowBreakComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.section.SectionEndComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.section.SectionHeaderComponent;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.CopyHighlight;
@@ -48,8 +47,8 @@ public class StorageOverlay extends AbstractScreen {
     private static final int SECTION_LINE_COLOR = 0xFFFFD24A;
     private static final int SECTION_LABEL_BACKGROUND = 0xC0000000;
     private static final String ADD_SECTION_TEXT = "+ Add section here";
-    private static final String ROW_BREAK_TEXT = "Row break";
-    private static final float ROW_BREAK_ALPHA = 0.5f;
+    private static final String FILL_SPACER_TEXT = "Fills the row";
+    private static final float FILL_SPACER_ALPHA = 0.5f;
     private final StorageOverlayState state = StorageOverlayState.session();
     private final StorageOverlayLayout layout;
     private final OverlayActions actions = OverlayActions.create(this, state, this::onPageCardClicked, this::toggleEditMode, this::rebuildWidgets);
@@ -188,6 +187,7 @@ public class StorageOverlay extends AbstractScreen {
             search.setFocused(false);
             setFocused(null);
         }
+        boolean endedRename = false;
         if (renameBox != null) {
             if (renameBox.isMouseOver(event.x(), event.y())) {
                 renameBox.mouseClicked(event, doubleClick);
@@ -196,6 +196,7 @@ public class StorageOverlay extends AbstractScreen {
             }
             // Clicking outside saves, then the click carries on against the rebuilt layout.
             endRename(true);
+            endedRename = true;
         }
 
         if (editMode && event.button() == 0 && layout.isOverResetButton(event.x(), event.y())) {
@@ -207,7 +208,7 @@ public class StorageOverlay extends AbstractScreen {
         if (editMode && event.button() == 1 && openSpacerMenu(event.x(), event.y())) return true;
 
         if (editMode && event.button() == 0) {
-            StorageOverlayLayout.SectionSlot slot = layout.sectionSlotAt(event.x(), event.y());
+            StorageOverlayLayout.SectionSlot slot = endedRename ? null : layout.sectionSlotAt(event.x(), event.y());
             if (slot != null) {
                 insertSection(slot.index());
                 return true;
@@ -323,28 +324,34 @@ public class StorageOverlay extends AbstractScreen {
         List<GridCellComponent> cells = layout.getCells();
         GridCellComponent cell = cellAt(x, y);
         List<PopupComponent.Option> options;
-        if (cell instanceof SpacerCardComponent) {
-            options = List.of(option("Remove Spacer", () -> removeSpacer(cell)));
+        if (cell instanceof SpacerCardComponent spacer) {
+            LayoutEntry.Spacer entry = (LayoutEntry.Spacer) spacer.entry();
+            options = List.of(
+                    option("Space Width...", () -> openSpacerWidthMenu(entry, (int) x, (int) y)),
+                    entry.fill()
+                            ? option("Fixed Width", () -> replaceSpacer(entry, entry.withSlots(StorageOverlayLayout.pageWidth())))
+                            : option("Fill Row", () -> replaceSpacer(entry, entry.withSlots(LayoutEntry.Spacer.FILL))),
+                    option("Remove Space", () -> removeSpacer(cell)));
         } else if (cell instanceof PageCardComponent card) {
             int index = cells.indexOf(cell);
-            // A stack is one cell in the flow, so spacers and breaks go beside the whole stack, never inside it.
+            // A stack is one column, so spaces go beside the whole stack.
             int before = StorageOverlayLayout.stackStart(cells, index);
             int after = StorageOverlayLayout.stackEnd(cells, index);
             GridCellComponent next = after < cells.size() ? cells.get(after) : null;
-            options = List.of(
-                    option("Add Spacer Before", () -> insertSpacer(before)),
-                    option("Add Spacer After", () -> insertSpacer(after)),
-                    next instanceof RowBreakComponent
-                            ? option("Remove Row Break", () -> removeRowBreak(next))
-                            : option("Add Row Break After", () -> insertRowBreak(after)),
-                    option("Page Width...", () -> openWidthMenu(card.getKey(), (int) x, (int) y)));
+            options = new ArrayList<>();
+            options.add(option("Add Space Before", () -> insertSpacer(before)));
+            options.add(option("Add Space After", () -> insertSpacer(after)));
+            if (next instanceof SpacerCardComponent) {
+                options.add(option("Remove Space After", () -> removeSpacer(next)));
+            }
+            if (cell.stackTag() != GridCellComponent.NO_STACK) {
+                options.add(option("Remove from Stack", () -> unstack(card.getKey())));
+            }
+            options.add(option("Page Width...", () -> openWidthMenu(card.getKey(), (int) x, (int) y)));
         } else {
             int index = layout.spacerSlotAt(x, y);
-            RowBreakComponent rowBreak = layout.rowBreakAt(x, y);
-            if (index < 0 && rowBreak == null) return false;
-            options = new ArrayList<>();
-            if (index >= 0) options.add(option("Add Spacer", () -> insertSpacer(index)));
-            if (rowBreak != null) options.add(option("Remove Row Break", () -> removeRowBreak(rowBreak)));
+            if (index < 0) return false;
+            options = List.of(option("Add Space", () -> insertSpacer(index)));
         }
         popup = PopupComponent.menu(this.width, this.height, this.font, (int) x, (int) y, options);
         return true;
@@ -363,16 +370,43 @@ public class StorageOverlay extends AbstractScreen {
     }
 
     private void setPageWidth(StorageKey key, @Nullable Integer slots, int menuX, int menuY) {
-        if (slots == null) PageWidths.getInstance().clear(key);
-        else PageWidths.getInstance().set(key, slots);
+        // Pages in a stack always share one width, so the whole stack changes together.
+        for (StorageKey mate : layout.stackMates(key)) {
+            if (slots == null) PageWidths.getInstance().clear(mate);
+            else PageWidths.getInstance().set(mate, slots);
+        }
         ProfileSession.getInstance().saveAll();
         rebuildWidgets();
         openWidthMenu(key, menuX, menuY);
     }
 
-    private void insertSpacer(int index) {
+    private void openSpacerWidthMenu(LayoutEntry.Spacer spacer, int x, int y) {
+        int current = spacer.fill() ? StorageOverlayLayout.pageWidth() : spacer.slots();
+        PopupComponent.WidgetFactory slider = (sx, sy, sw, sh) -> new PageWidthSlider(sx, sy, sw, sh,
+                current, false, slots -> {
+            replaceSpacer(spacer, spacer.withSlots(slots));
+            openSpacerWidthMenu(spacer.withSlots(slots), x, y);
+        });
+        popup = PopupComponent.menu(this.width, this.height, this.font, x, y,
+                slider, PageWidthSlider.preferredWidth(this.font), List.of());
+    }
+
+    private void replaceSpacer(LayoutEntry.Spacer from, LayoutEntry.Spacer to) {
         List<LayoutEntry> entries = layout.currentEntries();
-        entries.add(index, new LayoutEntry.Spacer(layout.nextSpacerId()));
+        int index = entries.indexOf(from);
+        if (index < 0) return;
+        entries.set(index, to);
+        applyOrder(entries);
+    }
+
+    private void unstack(StorageKey key) {
+        applyOrder(LayoutOps.unstack(layout.currentEntries(), key));
+    }
+
+    private void insertSpacer(int cellIndex) {
+        List<LayoutEntry> entries = layout.currentEntries();
+        entries.add(layout.entryIndexOfCell(cellIndex),
+                new LayoutEntry.Spacer(layout.nextSpacerId(), StorageOverlayLayout.pageWidth()));
         applyOrder(entries);
     }
 
@@ -382,23 +416,12 @@ public class StorageOverlay extends AbstractScreen {
         applyOrder(entries);
     }
 
-    private void insertRowBreak(int index) {
-        List<LayoutEntry> entries = layout.currentEntries();
-        entries.add(index, new LayoutEntry.RowBreak(layout.nextRowBreakId()));
-        applyOrder(entries);
-    }
-
-    private void removeRowBreak(GridCellComponent rowBreak) {
-        List<LayoutEntry> entries = layout.currentEntries();
-        entries.remove(rowBreak.entry());
-        applyOrder(entries);
-    }
-
     private void insertSection(int index) {
         LayoutEntry.Section section = new LayoutEntry.Section(layout.nextSectionId(), LayoutEntry.Section.DEFAULT_NAME, false);
         List<LayoutEntry> entries = layout.currentEntries();
-        entries.add(index, section);
-        entries.add(index + 1, new LayoutEntry.SectionEnd());
+        int at = layout.entryIndexOfCell(index);
+        entries.add(at, section);
+        entries.add(at + 1, new LayoutEntry.SectionEnd());
         applyOrder(entries);
 
         for (GridCellComponent cell : layout.getVisibleCells()) {
@@ -459,24 +482,20 @@ public class StorageOverlay extends AbstractScreen {
     private void paintSpacers(GuiGraphicsExtractor graphics, Rect viewport) {
         graphics.enableScissor(viewport.x(), viewport.y(), viewport.right(), viewport.bottom());
         for (GridCellComponent cell : layout.getCells()) {
-            if (cell instanceof SpacerCardComponent) {
+            if (cell instanceof SpacerCardComponent spacer && cell.getWidth() > 0) {
                 Rect r = cell.bounds();
+                boolean fill = spacer.isFill();
                 graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(OverlayTheme.PAGE_SPACER),
-                        r.x(), r.y(), r.width(), r.height());
+                        r.x(), r.y(), r.width(), r.height(), fill ? ARGB.white(FILL_SPACER_ALPHA) : -1);
+                int textWidth = this.font.width(FILL_SPACER_TEXT);
+                if (fill && textWidth + 8 <= r.width()) {
+                    graphics.text(this.font, Component.literal(FILL_SPACER_TEXT),
+                            r.x() + (r.width() - textWidth) / 2, r.y() + (r.height() - this.font.lineHeight) / 2 + 1,
+                            OverlayTheme.secondaryTextColor(), OverlayTheme.titleShadow());
+                }
             }
         }
 
-        int textWidth = this.font.width(ROW_BREAK_TEXT);
-        for (StorageOverlayLayout.RowBreakMark mark : layout.getRowBreakMarks()) {
-            Rect r = mark.bounds();
-            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(OverlayTheme.PAGE_SPACER),
-                    r.x(), r.y(), r.width(), r.height(), ARGB.white(ROW_BREAK_ALPHA));
-            if (textWidth + 8 <= r.width()) {
-                graphics.text(this.font, Component.literal(ROW_BREAK_TEXT),
-                        r.x() + (r.width() - textWidth) / 2, r.y() + (r.height() - this.font.lineHeight) / 2 + 1,
-                        OverlayTheme.secondaryTextColor(), OverlayTheme.titleShadow());
-            }
-        }
         graphics.disableScissor();
     }
 

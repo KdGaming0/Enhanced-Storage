@@ -3,6 +3,7 @@ package com.github.kdgaming0.enhancedstorage.storage.data;
 import com.github.kdgaming0.enhancedstorage.storage.io.ProfileScopedStore;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 
 import java.util.*;
@@ -22,8 +23,8 @@ public final class PageLayout extends ProfileScopedStore {
     private static final String NAME_KEY = "name";
     private static final String COLLAPSED_KEY = "collapsed";
     private static final String SECTION_END_KEY = "sections_end";
-    private static final String ROW_BREAK_KEY = "row_break";
-    private static final String STACK_JOIN_KEY = "stack_join";
+    private static final String SLOTS_KEY = "slots";
+    private static final String STACK_KEY = "stack";
     private final Map<Context, List<LayoutEntry>> orders = new ConcurrentHashMap<>();
 
     private PageLayout() {
@@ -36,11 +37,11 @@ public final class PageLayout extends ProfileScopedStore {
 
     private static int insertionIndex(List<LayoutEntry> result, List<StorageKey> defaultOrder, int defaultIndex) {
         for (int j = defaultIndex - 1; j >= 0; j--) {
-            int at = result.indexOf(new LayoutEntry.Page(defaultOrder.get(j)));
+            int at = LayoutOps.indexOfKey(result, defaultOrder.get(j));
             if (at >= 0) return at + 1;
         }
         for (int j = defaultIndex + 1; j < defaultOrder.size(); j++) {
-            int at = result.indexOf(new LayoutEntry.Page(defaultOrder.get(j)));
+            int at = LayoutOps.indexOfKey(result, defaultOrder.get(j));
             if (at >= 0) return at;
         }
         return result.size();
@@ -59,16 +60,23 @@ public final class PageLayout extends ProfileScopedStore {
         Set<StorageKey> present = new HashSet<>(defaultOrder);
         List<LayoutEntry> result = new ArrayList<>();
         for (LayoutEntry entry : saved) {
-            if (!(entry instanceof LayoutEntry.Page(StorageKey key)) || present.contains(key)) {
-                result.add(entry);
+            switch (entry) {
+                case LayoutEntry.Page(StorageKey key) -> {
+                    if (present.contains(key)) result.add(entry);
+                }
+                case LayoutEntry.Stack(List<StorageKey> keys) -> {
+                    List<StorageKey> kept = keys.stream().filter(present::contains).toList();
+                    if (!kept.isEmpty()) result.add(LayoutOps.stackOf(kept));
+                }
+                default -> result.add(entry);
             }
         }
 
         // Walk in default order so consecutive new pages chain (#4 lands after #3, then #5 after #4).
         for (int i = 0; i < defaultOrder.size(); i++) {
-            LayoutEntry.Page page = new LayoutEntry.Page(defaultOrder.get(i));
-            if (!result.contains(page)) {
-                result.add(insertionIndex(result, defaultOrder, i), page);
+            StorageKey key = defaultOrder.get(i);
+            if (LayoutOps.indexOfKey(result, key) < 0) {
+                result.add(insertionIndex(result, defaultOrder, i), new LayoutEntry.Page(key));
             }
         }
         return Optional.of(result);
@@ -91,15 +99,21 @@ public final class PageLayout extends ProfileScopedStore {
                 CompoundTag tag = new CompoundTag();
                 switch (entry) {
                     case LayoutEntry.Page(StorageKey key) -> tag.putString(PAGE_KEY, key.id());
-                    case LayoutEntry.Spacer(int id) -> tag.putInt(SPACER_KEY, id);
+                    case LayoutEntry.Stack(List<StorageKey> keys) -> {
+                        ListTag pages = new ListTag();
+                        for (StorageKey key : keys) pages.add(StringTag.valueOf(key.id()));
+                        tag.put(STACK_KEY, pages);
+                    }
+                    case LayoutEntry.Spacer(int id, int slots) -> {
+                        tag.putInt(SPACER_KEY, id);
+                        tag.putInt(SLOTS_KEY, slots);
+                    }
                     case LayoutEntry.Section(int id, String name, boolean collapsed) -> {
                         tag.putInt(SECTION_KEY, id);
                         tag.putString(NAME_KEY, name);
                         if (collapsed) tag.putBoolean(COLLAPSED_KEY, true);
                     }
                     case LayoutEntry.SectionEnd() -> tag.putBoolean(SECTION_END_KEY, true);
-                    case LayoutEntry.RowBreak(int id) -> tag.putInt(ROW_BREAK_KEY, id);
-                    case LayoutEntry.StackJoin(int id) -> tag.putInt(STACK_JOIN_KEY, id);
                 }
                 list.add(tag);
             }
@@ -117,20 +131,30 @@ public final class PageLayout extends ProfileScopedStore {
                     if (!(tag instanceof CompoundTag entry)) continue;
                     entry.getString(PAGE_KEY).flatMap(StorageKey::fromId)
                             .<LayoutEntry>map(LayoutEntry.Page::new)
-                            .or(() -> entry.getInt(SPACER_KEY).map(LayoutEntry.Spacer::new))
+                            .or(() -> readStack(entry))
+                            .or(() -> entry.getInt(SPACER_KEY).map(id ->
+                                    new LayoutEntry.Spacer(id, entry.getInt(SLOTS_KEY).orElse(LayoutEntry.Spacer.FILL))))
                             .or(() -> entry.getInt(SECTION_KEY).map(id -> new LayoutEntry.Section(id,
                                     entry.getString(NAME_KEY).orElse(LayoutEntry.Section.DEFAULT_NAME),
                                     entry.getBoolean(COLLAPSED_KEY).orElse(false))))
                             .or(() -> entry.getBoolean(SECTION_END_KEY).map(present -> new LayoutEntry.SectionEnd()))
-                            .or(() -> entry.getInt(ROW_BREAK_KEY).map(LayoutEntry.RowBreak::new))
-                            .or(() -> entry.getInt(STACK_JOIN_KEY).map(LayoutEntry.StackJoin::new))
                             .filter(e -> e instanceof LayoutEntry.SectionEnd || seen.add(e))
                             .ifPresent(entries::add);
                 }
-                orders.put(context, List.copyOf(entries));
+                orders.put(context, List.copyOf(LayoutOps.normalize(entries)));
             });
         }
         LOGGER.info("Loaded storage layout: {} contexts (file version {})", orders.size(), fileVersion);
+    }
+
+    private static Optional<LayoutEntry> readStack(CompoundTag entry) {
+        return entry.getList(STACK_KEY).map(list -> {
+            List<StorageKey> keys = new ArrayList<>();
+            for (Tag tag : list) {
+                tag.asString().flatMap(StorageKey::fromId).ifPresent(keys::add);
+            }
+            return keys.isEmpty() ? null : LayoutOps.stackOf(keys);
+        });
     }
 
     @Override

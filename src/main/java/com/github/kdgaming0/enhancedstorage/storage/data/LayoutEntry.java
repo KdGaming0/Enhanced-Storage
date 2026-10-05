@@ -1,11 +1,23 @@
 package com.github.kdgaming0.enhancedstorage.storage.data;
 
+import java.util.List;
+
 /**
  * One position in a saved layout.
  */
 public sealed interface LayoutEntry {
 
     record Page(StorageKey key) implements LayoutEntry {
+    }
+
+    /**
+     * Two or more pages drawn one under the other as a single column. They share one width.
+     * Use {@link LayoutOps#stackOf} so a stack never holds fewer than two pages.
+     */
+    record Stack(List<StorageKey> keys) implements LayoutEntry {
+        public Stack {
+            keys = List.copyOf(keys);
+        }
     }
 
     record Section(int id, String name, boolean collapsed) implements LayoutEntry {
@@ -24,21 +36,18 @@ public sealed interface LayoutEntry {
     }
 
     /**
-     * Empty slot used to push pages onto the next row. The id only needs to be unique within its context.
+     * Empty space between pages. {@code slots} is its width in slots, or {@link #FILL} to take the rest of the
+     * row, which makes the next page start a new row. The id only needs to be unique within its context.
      */
-    record Spacer(int id) implements LayoutEntry {
-    }
+    record Spacer(int id, int slots) implements LayoutEntry {
+        public static final int FILL = 0;
 
-    /**
-     * Ends the current row so the next page starts a new one. The id only needs to be unique within its context.
-     */
-    record RowBreak(int id) implements LayoutEntry {
-    }
+        public boolean fill() {
+            return slots == FILL;
+        }
 
-    /**
-     * Stacks the page after it under the page before it. Only meaningful between two pages.
-     * The id only needs to be unique within its context.
-     */
-    record StackJoin(int id) implements LayoutEntry {
+        public Spacer withSlots(int slots) {
+            return new Spacer(id, slots);
+        }
     }
 }

@@ -6,7 +6,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * An empty grid cell. It draws nothing, so it is invisible outside edit mode;
+ * An empty grid cell, fixed in width or filling the rest of its row. It draws nothing, so it is invisible outside edit mode;
  * edit mode paints its outline from the screen.
  */
 public class SpacerCardComponent extends GridCellComponent {
@@ -18,6 +18,10 @@ public class SpacerCardComponent extends GridCellComponent {
         super(0, 0, width, height);
         this.entry = entry;
         this.slotHeight = height;
+    }
+
+    public boolean isFill() {
+        return entry.fill();
     }
 
     @Override
