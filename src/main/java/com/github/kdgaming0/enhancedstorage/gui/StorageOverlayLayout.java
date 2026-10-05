@@ -11,6 +11,7 @@ import com.daqem.uilib.gui.widget.EditBoxWidget;
 import com.github.kdgaming0.enhancedstorage.compat.ModWidgetSpace;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.config.LayoutSpacing;
+import com.github.kdgaming0.enhancedstorage.gui.component.common.CachedPanelComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.common.IconButtonComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.common.ItemButtonComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.navigation.NavigationRowComponent;
@@ -834,6 +835,7 @@ public class StorageOverlayLayout {
         this.navigationParentX = panel.getTotalX() + NAV_INSET;
         this.navigationParentY = panel.getTotalY() + listTop;
         panel.addWidget(list);
+        list.setPageLayer(this::pageLayerEnabled, () -> null);
         this.navigationList = list;
     }
 
@@ -1143,10 +1145,16 @@ public class StorageOverlayLayout {
         this.pageOverviewParentY = mainBackground.getTotalY() + padding;
         mainBackground.addWidget(viewport);
         viewport.setBackgroundPainter(this::paintSectionFrames);
+        viewport.setPageLayer(this::pageLayerEnabled,
+                () -> new PageLayerInputs(state.getOpenKey(), CopyHighlight.target()));
         this.pageOverview = viewport;
 
         reflowRows(activeQuery());
         viewport.setScrollAmount(state.getScrollAmount());
+    }
+
+    private boolean pageLayerEnabled() {
+        return EnhancedStorageConfig.cachePageRendering;
     }
 
     // A remembered search could hide or dim pages the player is trying to arrange. So we set the search box to empty when entering edit mode and restore it when leaving.
@@ -1195,8 +1203,9 @@ public class StorageOverlayLayout {
 
         SpriteComponent overview = null;
         if (showOverview) {
-            overview = new SpriteComponent(overviewX, overviewY, OVERVIEW_WIDTH, OVERVIEW_HEIGHT + panelTop,
-                    OverlayTheme.sprite(withTop ? OverlayTheme.STORAGE_OVERVIEW_TOP : OverlayTheme.STORAGE_OVERVIEW));
+            overview = new CachedPanelComponent(overviewX, overviewY, OVERVIEW_WIDTH, OVERVIEW_HEIGHT + panelTop,
+                    OverlayTheme.sprite(withTop ? OverlayTheme.STORAGE_OVERVIEW_TOP : OverlayTheme.STORAGE_OVERVIEW),
+                    this::pageLayerEnabled);
             screen.addComponent(overview);
         }
         this.overviewPanel = overview;
@@ -1969,6 +1978,9 @@ public class StorageOverlayLayout {
     }
 
     private record Hint(String action, String result) {
+    }
+
+    private record PageLayerInputs(@Nullable StorageKey openKey, ItemStack copyTarget) {
     }
 
     record SectionSlot(int index, int x, int lineY, int width) {

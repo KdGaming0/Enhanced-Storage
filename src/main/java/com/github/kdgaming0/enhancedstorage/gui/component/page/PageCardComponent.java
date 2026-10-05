@@ -9,6 +9,8 @@ import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.gui.OverlayTheme;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayLayout;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayState;
+import com.github.kdgaming0.enhancedstorage.gui.layout.LiveCell;
+import com.github.kdgaming0.enhancedstorage.gui.layout.PartialHoverCell;
 import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
 import com.github.kdgaming0.enhancedstorage.storage.data.LayoutEntry;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
@@ -16,6 +18,7 @@ import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
 import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
 import com.github.kdgaming0.enhancedstorage.util.TextUtils;
+import com.mojang.blaze3d.platform.cursor.CursorTypes;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -36,7 +39,7 @@ import static com.github.kdgaming0.enhancedstorage.EnhancedStorage.MOD_ID;
 /**
  * A clickable storage page card.
  */
-public class PageCardComponent extends GridCellComponent {
+public class PageCardComponent extends GridCellComponent implements LiveCell, PartialHoverCell {
 
     private static final int TITLE_GAP = 2;
     private static final int COMPACT_TITLE_Y = 1;
@@ -60,6 +63,7 @@ public class PageCardComponent extends GridCellComponent {
     private final List<ItemStack> items;
     private final List<StorageSlotComponent> slots = new ArrayList<>();
     private final TextComponent pageTitle;
+    private final @Nullable PageCardButtonWidget button;
     Identifier idle = OverlayTheme.sprite(OverlayTheme.PAGE_CARD_IDLE);
     Identifier active = OverlayTheme.sprite(OverlayTheme.PAGE_CARD_ACTIVE);
     private @Nullable EditBoxWidget titleEditor;
@@ -86,6 +90,7 @@ public class PageCardComponent extends GridCellComponent {
         if (live) {
             SpriteComponent background = new SpriteComponent(0, 0, width, height, OverlayTheme.sprite(OverlayTheme.PAGE_CARD_ACTIVE));
             this.addComponent(background);
+            this.button = null;
         } else {
             WidgetSprites idleSprites = new WidgetSprites(idle, idle, idle);
             WidgetSprites activeSprites = new WidgetSprites(active, active, active);
@@ -99,6 +104,7 @@ public class PageCardComponent extends GridCellComponent {
             // Makes pages not clickable when in edit mode.
             background.active = clickable;
             this.addWidget(background);
+            this.button = background;
         }
 
         // Show the custom name if the user set one, otherwise the default.
@@ -212,6 +218,24 @@ public class PageCardComponent extends GridCellComponent {
         return live;
     }
 
+    @Override
+    public boolean drawsLive() {
+        return live || titleEditor != null;
+    }
+
+    @Override
+    public @Nullable Rect hoverArea(int mouseX, int mouseY) {
+        for (StorageSlotComponent slot : slots) {
+            if (slot.contains(mouseX, mouseY)) return slot.hoverBounds();
+        }
+        return null;
+    }
+
+    @Override
+    public void requestHoverCursor(GuiGraphicsExtractor graphics) {
+        if (button != null) graphics.requestCursor(button.isActive() ? CursorTypes.POINTING_HAND : CursorTypes.NOT_ALLOWED);
+    }
+
     public int slotsAcross() {
         return slotsAcross;
     }
@@ -315,6 +339,8 @@ public class PageCardComponent extends GridCellComponent {
             titleEditor.uilib$updateParentPosition(getTotalX(), getTotalY());
         }
         updateEmptyLabel();
+        // Own stratum per card, so vanilla's layering search for each slot, item and label only covers this card.
+        guiGraphics.nextStratum();
 
         // Render the background/button widget first
         for (IWidget widget : getWidgets()) {

@@ -7,6 +7,7 @@ import com.daqem.uilib.gui.component.text.TruncatedTextComponent;
 import com.daqem.uilib.gui.widget.EditBoxWidget;
 import com.github.kdgaming0.enhancedstorage.gui.OverlayTheme;
 import com.github.kdgaming0.enhancedstorage.gui.component.page.GridCellComponent;
+import com.github.kdgaming0.enhancedstorage.gui.layout.LiveCell;
 import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
 import com.github.kdgaming0.enhancedstorage.storage.data.LayoutEntry;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
@@ -19,7 +20,7 @@ import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class SectionHeaderComponent extends GridCellComponent {
+public class SectionHeaderComponent extends GridCellComponent implements LiveCell {
 
     public static final int OPEN_HEIGHT = 16;
     public static final int CLOSED_HEIGHT = 17;
@@ -152,6 +153,11 @@ public class SectionHeaderComponent extends GridCellComponent {
         this.nameEditor = box;
         this.addWidget(box);
         return box;
+    }
+
+    @Override
+    public boolean drawsLive() {
+        return nameEditor != null;
     }
 
     @Override

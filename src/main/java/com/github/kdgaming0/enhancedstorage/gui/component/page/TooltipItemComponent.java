@@ -7,6 +7,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.locale.Language;
+import net.minecraft.network.chat.FormattedText;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.ItemStack;
 
 public class TooltipItemComponent extends ItemComponent {
@@ -14,6 +17,8 @@ public class TooltipItemComponent extends ItemComponent {
     private boolean tooltipEnabled = true;
     private boolean glintHideable;
     private ItemStack noGlintStack;
+    private int shownCount = 1;
+    private FormattedCharSequence countText = FormattedCharSequence.EMPTY;
 
     public TooltipItemComponent(ItemStack itemStack) {
         super(itemStack);
@@ -30,11 +35,15 @@ public class TooltipItemComponent extends ItemComponent {
     // Vanilla's itemDecorations is wrapped by several mods that fire events per item per frame
     // (SkyHanni, skyblock-api, ...), which dominates the overlay's render cost. Cached items only
     // need the stack count and durability bar, so draw those directly.
-    private static void extractDecorationsFast(GuiGraphicsExtractor guiGraphics, ItemStack stack, int x, int y) {
-        if (stack.getCount() != 1) {
+    private void extractDecorationsFast(GuiGraphicsExtractor guiGraphics, ItemStack stack, int x, int y) {
+        int count = stack.getCount();
+        if (count != 1) {
             Font font = Minecraft.getInstance().font;
-            String count = String.valueOf(stack.getCount());
-            guiGraphics.text(font, count, x + 19 - 2 - font.width(count), y + 6 + 3, 0xFFFFFFFF, true);
+            if (count != shownCount) {
+                shownCount = count;
+                countText = Language.getInstance().getVisualOrder(FormattedText.of(String.valueOf(count)));
+            }
+            guiGraphics.text(font, countText, x + 19 - 2 - font.width(countText), y + 6 + 3, 0xFFFFFFFF, true);
         }
 
         if (stack.isBarVisible()) {
@@ -87,6 +96,11 @@ public class TooltipItemComponent extends ItemComponent {
             super.extractRenderState(guiGraphics, mouseX, mouseY, partialTick, parentWidth, parentHeight);
         }
 
+        extractTooltip(guiGraphics, mouseX, mouseY);
+    }
+
+    /** Shows the item's tooltip if the mouse is over it; also used where the item itself is drawn from a cache. */
+    public void extractTooltip(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY) {
         if (tooltipEnabled && !CopyHighlight.hidesTooltips() && isHovered(guiGraphics, mouseX, mouseY)) {
             guiGraphics.setTooltipForNextFrame(
                     Minecraft.getInstance().font,

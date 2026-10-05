@@ -438,6 +438,12 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     }
 
     @Override
+    protected void extractSlots(@NonNull GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        graphics.nextStratum();
+        super.extractSlots(graphics, mouseX, mouseY);
+    }
+
+    @Override
     protected void extractSlot(@NonNull GuiGraphicsExtractor graphics, Slot slot, int mouseX, int mouseY) {
         // Slots parked offscreen (nav row, hidden index rows) still cost full item extraction
         // plus every other mod's slot hooks — skip them entirely.

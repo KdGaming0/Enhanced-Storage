@@ -167,6 +167,10 @@
 
   "enhanced_storage.midnightconfig.fastCachedItemDecorations": "Fast Cached Item Rendering",
   "enhanced_storage.midnightconfig.fastCachedItemDecorations.tooltip": "Draw stack counts and durability bars on cached items directly, skipping other mods' item overlay hooks (e.g. SkyHanni item tips) on cached pages. Can give some FPS improvement; disable to restore other mods' overlays on cached items.",
+  "enhanced_storage.midnightconfig.animatedItemRefreshRate": "Enchant Glint Refresh Rate",
+  "enhanced_storage.midnightconfig.animatedItemRefreshRate.tooltip": "How often enchanted and other animated items are redrawn while the storage overlay is open. \nSmooth redraws them every frame, which can cost a lot of FPS when many enchanted items are on screen. \n30 FPS and 20 FPS animate the shimmer a little less smoothly but give much higher FPS.",
+  "enhanced_storage.midnightconfig.cachePageRendering": "Cache Page Rendering",
+  "enhanced_storage.midnightconfig.cachePageRendering.tooltip": "Draw pages that aren't changing once and reuse the image, instead of redrawing every item each frame. Gives a large FPS boost with many pages on screen. \nTurn off if pages look out of date or another mod's item overlays stop updating.",
 
   "enhanced_storage.midnightconfig.enum.BackgroundType.LIGHT": "Light",
   "enhanced_storage.midnightconfig.enum.BackgroundType.DARK": "Dark",
@@ -194,6 +198,9 @@
 
   "enhanced_storage.midnightconfig.enum.SlotSize.NORMAL": "Normal",
   "enhanced_storage.midnightconfig.enum.SlotSize.COMPACT": "Compact",
+  "enhanced_storage.midnightconfig.enum.AnimatedItemRefreshRate.SMOOTH": "Smooth",
+  "enhanced_storage.midnightconfig.enum.AnimatedItemRefreshRate.FPS_30": "30 FPS",
+  "enhanced_storage.midnightconfig.enum.AnimatedItemRefreshRate.FPS_20": "20 FPS",
 
   "enhanced_storage.midnightconfig.enum.LayoutDensity.CUSTOM": "Custom",
   "enhanced_storage.midnightconfig.enum.LayoutDensity.COMFORTABLE": "Normal",

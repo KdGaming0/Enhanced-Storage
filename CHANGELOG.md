@@ -56,6 +56,19 @@ A new panel on the side of the overlay makes it easier to navigate your pages an
 - Added a **Room for Other Mods** setting. When set to **Automatic** (the default), the overlay leaves just enough space for Skyblocker's Quick Nav tabs, RRV's search bar and SkyRecipes' category buttons — only for the ones you have turned on — so the overlay can use more of your screen. **Manual** lets you set the space yourself, like before.
 - Skyblocker's Quick Nav tabs now line up with your storage pages and inventory instead of the middle of the screen.
 
+#### Performance
+**Storage Overlay is now 2–5× faster**, especially with a large window and many pages on screen. It now costs about 3 ms less per frame, so slower PCs get a smaller multiplier but the same time saved.
+
+| Overlay open | Avg FPS | 1% low | 0.1% low |
+|---|---|---|---|
+| **Desktop** (Ryzen 7 5700X3D, RX 9070 XT) | 264 → **1436** (5.4×) | 172 → **310** | 156 → **245** |
+| **Laptop** (Ryzen 7 8840HS, Radeon 780M) | 170 → **350** (2.1×) | 78 → **115** | 55 → **80** |
+<sub>Tested on Hypixel SkyBlock while looking at the void, with Sodium, ImmediatelyFast and Gnetum installed.</sub>
+
+**New settings**
+- **Enchant Glint Refresh Rate** (default: 30 FPS): Updates the enchant shimmer less often while the overlay is open. The shimmer looks slightly less smooth, but you get a lot more FPS. Set it to **Smooth** for the old behavior.
+- **Cache Page Rendering** (default: on): Pages that aren't changing are drawn once and reused instead of being redrawn every frame. Turn it off if a page looks out of date or another mod's item overlays stop updating.
+
 ### Fixes
 - Fixed an issue that stopped the storage cache from being saved between game restarts for some players.
   - Hypixel doesn't automatically send your profile ID when you have only one SkyBlock profile. The mod now requests it with `/profileid` after you join SkyBlock, so the cache can be saved correctly.

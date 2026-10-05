@@ -1,26 +1,50 @@
 package com.github.kdgaming0.enhancedstorage.gui.layout;
 
 import com.daqem.uilib.api.component.IComponent;
+import com.daqem.uilib.api.widget.IWidget;
+import com.daqem.uilib.gui.component.EmptyComponent;
 import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
+import com.github.kdgaming0.enhancedstorage.gui.layer.LayerRefresh;
+import com.github.kdgaming0.enhancedstorage.gui.layer.PageLayerCache;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.input.MouseButtonEvent;
+import org.joml.Matrix3x2f;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.DoubleConsumer;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 /**
  * Scrollable viewport holding the page-card rows. Rows are stacked by {@link #positionRows()}
  * instead of by the container so their positions are valid before the first frame is drawn.
+ * <p>
+ * With the page layer enabled, cells are drawn once into a {@link PageLayerCache} layer and reused. Only
+ * {@link LiveCell}s that ask for it (the open page, a title being renamed) are left out and extracted every frame.
+ * The cell under the mouse is extracted every frame too, into a gap left in the layer's blit, so hovering never
+ * redraws the layer; a cell must therefore not draw outside its own bounds. For a {@link PartialHoverCell} the gap
+ * is only the part that hovering changes, such as one slot of a page card.
  */
 public class PageViewport extends ScrollContainerWidget {
 
     private final DoubleConsumer scrollListener;
     private @Nullable Consumer<GuiGraphicsExtractor> backgroundPainter;
+    private @Nullable BooleanSupplier layerEnabled;
+    private Supplier<?> layerInputs = () -> null;
+
+    private final LayerRefresh layerRefresh = new LayerRefresh();
+
+    // Everything the layer shows. The pose is part of it because the layer's pixels sit where the pose put them when it was drawn.
+    private record LayerKey(int generation, List<IComponent> rows, int scroll, int x, int y, int width, int height,
+                            Matrix3x2f pose, List<IComponent> liveCells, @Nullable Object inputs) {
+    }
 
     public PageViewport(int width, int height, int rowSpacing, DoubleConsumer scrollListener) {
         super(width, height, rowSpacing);
@@ -32,6 +56,15 @@ public class PageViewport extends ScrollContainerWidget {
      */
     public void setBackgroundPainter(@Nullable Consumer<GuiGraphicsExtractor> painter) {
         this.backgroundPainter = painter;
+    }
+
+    /**
+     * Draws unchanging cells from a cached layer while {@code enabled} holds. {@code inputs} returns the outside
+     * state the cells read while drawing (compared with {@link java.util.Objects#equals}); the layer is redrawn when it changes.
+     */
+    public void setPageLayer(BooleanSupplier enabled, Supplier<?> inputs) {
+        this.layerEnabled = enabled;
+        this.layerInputs = inputs;
     }
 
     @Override
@@ -69,21 +102,192 @@ public class PageViewport extends ScrollContainerWidget {
     }
 
     @Override
+    protected int contentHeight() {
+        List<IComponent> rows = getComponents();
+        if (rows.isEmpty()) return 0;
+        int height = getContentSpacing() * (rows.size() - 1);
+        for (IComponent row : rows) height += row.getHeight();
+        return height;
+    }
+
+    @Override
     protected void extractWidgetRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         guiGraphics.enableScissor(this.getX(), this.getY(),
                 this.getX() + this.getWidth(), this.getY() + this.getHeight());
 
         positionRows();
-        if (backgroundPainter != null) backgroundPainter.accept(guiGraphics);
-        for (IComponent row : getComponents()) {
-            int rowY = row.getY();
-            if (rowY + row.getHeight() > 0 && rowY < this.getHeight()) {
-                row.extractRenderStateBase(guiGraphics, mouseX, mouseY, partialTick, this.getWidth(), this.getHeight());
-            }
+        if (layerEnabled != null && layerEnabled.getAsBoolean()) {
+            extractLayered(guiGraphics, mouseX, mouseY, partialTick);
+        } else {
+            extractDirect(guiGraphics, mouseX, mouseY, partialTick);
         }
 
         guiGraphics.disableScissor();
         this.extractScrollbar(guiGraphics, mouseX, mouseY);
+    }
+
+    private void extractDirect(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
+        if (backgroundPainter != null) backgroundPainter.accept(guiGraphics);
+        // Vanilla layers each new element by searching every earlier element in the current stratum, which is
+        // quadratic in the element count. Starting a fresh stratum keeps the rows out of the search for whatever
+        // was drawn before them (and page cards start their own). Later strata draw on top, matching draw order.
+        guiGraphics.nextStratum();
+        for (IComponent row : getComponents()) {
+            if (isRowVisible(row)) {
+                row.extractRenderStateBase(guiGraphics, mouseX, mouseY, partialTick, this.getWidth(), this.getHeight());
+            }
+        }
+        guiGraphics.nextStratum();
+    }
+
+    private void extractLayered(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
+        List<IComponent> live = collectLiveCells();
+        LayerKey key = new LayerKey(PageLayerCache.sync(guiGraphics), List.copyOf(getComponents()), (int) scrollAmount(),
+                getX(), getY(), getWidth(), getHeight(), new Matrix3x2f(guiGraphics.pose()), live, layerInputs.get());
+        if (layerRefresh.prefersDirect()) {
+            extractDirect(guiGraphics, mouseX, mouseY, partialTick);
+            return;
+        }
+
+        if (layerRefresh.needsRedraw(key)) {
+            GuiGraphicsExtractor layer = PageLayerCache.beginLayer(guiGraphics, getX(), getY(), getWidth(), getHeight());
+            if (backgroundPainter != null) backgroundPainter.accept(layer);
+            layer.nextStratum();
+            int noMouse = PageLayerCache.OFFSCREEN_MOUSE;
+            extractCells(layer, noMouse, noMouse, partialTick, cell -> !live.contains(cell), true);
+            layerRefresh.drawn(key, PageLayerCache.endLayer(layer));
+        }
+
+        guiGraphics.nextStratum();
+        IComponent hovered = hoveredCell(mouseX, mouseY, live);
+        Rect gap = hovered == null ? null : hoverGap(guiGraphics, hovered, mouseX, mouseY);
+        if (gap == null) {
+            PageLayerCache.blit(guiGraphics, getX(), getY(), getX() + getWidth(), getY() + getHeight());
+        } else {
+            extractHovered(guiGraphics, hovered, gap, mouseX, mouseY, partialTick);
+        }
+        extractCells(guiGraphics, mouseX, mouseY, partialTick, live::contains, false);
+        guiGraphics.nextStratum();
+    }
+
+    /** The part of the hovered cell that hovering changes: the whole cell, or a {@link PartialHoverCell}'s area. */
+    private static @Nullable Rect hoverGap(GuiGraphicsExtractor guiGraphics, IComponent hovered, int mouseX, int mouseY) {
+        if (hovered instanceof PartialHoverCell partial) {
+            partial.requestHoverCursor(guiGraphics);
+            return partial.hoverArea(mouseX, mouseY);
+        }
+        return new Rect(hovered.getTotalX(), hovered.getTotalY(), hovered.getWidth(), hovered.getHeight());
+    }
+
+    /**
+     * Draws the layer around the gap, then the background and the hovered cell itself live in the gap, clipped to it.
+     * The layer's copy of the gap (drawn without hover) is never shown, so translucent cells aren't drawn twice.
+     */
+    private void extractHovered(GuiGraphicsExtractor guiGraphics, IComponent hovered, Rect area, int mouseX, int mouseY,
+                                float partialTick) {
+        int left = getX();
+        int top = getY();
+        int right = left + getWidth();
+        int bottom = top + getHeight();
+        int holeLeft = Math.clamp(area.x(), left, right);
+        int holeRight = Math.clamp((long) area.right(), left, right);
+        int holeTop = Math.clamp(area.y(), top, bottom);
+        int holeBottom = Math.clamp((long) area.bottom(), top, bottom);
+
+        blitPart(guiGraphics, left, top, right, holeTop);
+        blitPart(guiGraphics, left, holeBottom, right, bottom);
+        blitPart(guiGraphics, left, holeTop, holeLeft, holeBottom);
+        blitPart(guiGraphics, holeRight, holeTop, right, holeBottom);
+
+        guiGraphics.enableScissor(holeLeft, holeTop, holeRight, holeBottom);
+        if (backgroundPainter != null) backgroundPainter.accept(guiGraphics);
+        guiGraphics.nextStratum();
+        extractCells(guiGraphics, mouseX, mouseY, partialTick, cell -> cell == hovered, false);
+        guiGraphics.disableScissor();
+    }
+
+    private static void blitPart(GuiGraphicsExtractor guiGraphics, int x0, int y0, int x1, int y1) {
+        if (x1 > x0 && y1 > y0) PageLayerCache.blit(guiGraphics, x0, y0, x1, y1);
+    }
+
+    private boolean isRowVisible(IComponent row) {
+        int rowY = row.getY();
+        return rowY + row.getHeight() > 0 && rowY < this.getHeight();
+    }
+
+    /** The visible cells: the cells of grouping rows (plain {@link EmptyComponent}s), or the row itself otherwise. */
+    private List<IComponent> visibleCells() {
+        List<IComponent> cells = new ArrayList<>();
+        for (IComponent row : getComponents()) {
+            if (!isRowVisible(row)) continue;
+            if (row instanceof EmptyComponent container) cells.addAll(container.getComponents());
+            else cells.add(row);
+        }
+        return cells;
+    }
+
+    /** Cells drawn every frame instead of from the layer: {@link LiveCell}s that ask to be. */
+    private List<IComponent> collectLiveCells() {
+        List<IComponent> live = new ArrayList<>(2);
+        for (IComponent cell : visibleCells()) {
+            if (isLive(cell)) live.add(cell);
+        }
+        return live;
+    }
+
+    private static boolean isLive(IComponent cell) {
+        return cell instanceof LiveCell liveCell && liveCell.drawsLive();
+    }
+
+    /** The visible cell under the mouse, unless it is drawn live anyway. */
+    private @Nullable IComponent hoveredCell(int mouseX, int mouseY, List<IComponent> live) {
+        // A clipped-off part of a cell can't be hovered: hover and tooltip checks require the point inside the scissor.
+        if (mouseX < getX() || mouseX >= getX() + getWidth() || mouseY < getY() || mouseY >= getY() + getHeight()) {
+            return null;
+        }
+        for (IComponent cell : visibleCells()) {
+            if (contains(cell, mouseX, mouseY)) return live.contains(cell) ? null : cell;
+        }
+        return null;
+    }
+
+    private static boolean contains(IComponent cell, int mouseX, int mouseY) {
+        int x = cell.getTotalX();
+        int y = cell.getTotalY();
+        return mouseX >= x && mouseX < x + cell.getWidth() && mouseY >= y && mouseY < y + cell.getHeight();
+    }
+
+    /**
+     * Extracts the visible rows' cells accepted by {@code include}, in draw order. {@code withRows} also draws the
+     * grouping rows themselves. Mirrors UI Lib's {@code AbstractComponent.extractRenderStateBase} for grouping rows.
+     */
+    private void extractCells(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick,
+                              Predicate<IComponent> include, boolean withRows) {
+        for (IComponent row : getComponents()) {
+            if (!isRowVisible(row)) continue;
+            if (row instanceof EmptyComponent container) {
+                for (IComponent cell : container.getComponents()) {
+                    if (cell.isRenderBeforeParent() && include.test(cell)) {
+                        cell.extractRenderStateBase(graphics, mouseX, mouseY, partialTick, container.getWidth(), container.getHeight());
+                    }
+                }
+                if (withRows) {
+                    container.extractRenderState(graphics, mouseX, mouseY, partialTick, this.getWidth(), this.getHeight());
+                }
+                for (IComponent cell : container.getComponents()) {
+                    if (!cell.isRenderBeforeParent() && include.test(cell)) {
+                        cell.extractRenderStateBase(graphics, mouseX, mouseY, partialTick, container.getWidth(), container.getHeight());
+                    }
+                }
+                if (withRows) {
+                    for (IWidget widget : container.getWidgets()) {
+                        widget.extractRenderState(graphics, mouseX, mouseY, partialTick);
+                    }
+                }
+            } else if (include.test(row)) {
+                row.extractRenderStateBase(graphics, mouseX, mouseY, partialTick, this.getWidth(), this.getHeight());
+            }
+        }
     }
 
     /**

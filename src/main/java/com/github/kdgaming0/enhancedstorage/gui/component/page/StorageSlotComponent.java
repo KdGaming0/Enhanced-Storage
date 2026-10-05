@@ -5,7 +5,9 @@ import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.CopyHighlight;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.SearchHighlight;
+import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
@@ -74,6 +76,12 @@ public class StorageSlotComponent extends AbstractComponent {
         return x >= getTotalX() && x < getTotalX() + getWidth() && y >= getTotalY() && y < getTotalY() + getHeight();
     }
 
+    public Rect hoverBounds() {
+        int offset = itemInset - ITEM_INSET;
+        int size = ITEM_SIZE + ITEM_INSET * 2;
+        return new Rect(getTotalX() + offset, getTotalY() + offset, size, size);
+    }
+
     protected boolean isHovered(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY) {
         return mouseX >= getTotalX() && mouseX < getTotalX() + getWidth()
                 && mouseY >= getTotalY() && mouseY < getTotalY() + getHeight()
@@ -84,12 +92,11 @@ public class StorageSlotComponent extends AbstractComponent {
     // (The slot background itself is drawn by the card as one tiled sprite.)
     @Override
     public void extractRenderStateBase(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int parentWidth, int parentHeight) {
-        // Scissor only clips GPU output — skip the CPU-side extraction entirely for slots
-        // scrolled outside the viewport (cards straddling the viewport edge).
         int totalX = getTotalX();
         int totalY = getTotalY();
-        if (!guiGraphics.containsPointInScissor(totalX, totalY)
-                && !guiGraphics.containsPointInScissor(totalX, totalY + getHeight() - 1)) {
+        ScreenRectangle scissor = guiGraphics.scissorStack.peek();
+        if (scissor != null && !scissor.intersects(
+                new ScreenRectangle(totalX, totalY, getWidth(), getHeight()).transformAxisAligned(guiGraphics.pose()))) {
             return;
         }
 

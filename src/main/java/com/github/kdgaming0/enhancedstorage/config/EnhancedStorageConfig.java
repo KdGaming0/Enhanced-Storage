@@ -249,6 +249,12 @@ public class EnhancedStorageConfig extends MidnightConfig {
     @Entry(category = CATEGORY_MISC)
     public static boolean fastCachedItemDecorations = true;
 
+    @Entry(category = CATEGORY_MISC)
+    public static AnimatedItemRefreshRate animatedItemRefreshRate = AnimatedItemRefreshRate.FPS_30;
+
+    @Entry(category = CATEGORY_MISC)
+    public static boolean cachePageRendering = true;
+
     /**
      * Sets Page Titles from code while the config screen may be open: updates the screen's pending value too (the
      * screen writes it back to the field every tick) and rebuilds the list so the button shows the new style.
@@ -324,5 +330,15 @@ public class EnhancedStorageConfig extends MidnightConfig {
 
     public enum HighlightCopiesMode {
         OFF, HOLD_KEY, ALWAYS
+    }
+
+    public enum AnimatedItemRefreshRate {
+        SMOOTH(0), FPS_30(1000 / 30), FPS_20(1000 / 20);
+
+        public final int intervalMillis;
+
+        AnimatedItemRefreshRate(int intervalMillis) {
+            this.intervalMillis = intervalMillis;
+        }
     }
 }

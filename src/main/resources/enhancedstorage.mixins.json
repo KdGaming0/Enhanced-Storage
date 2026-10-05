@@ -20,6 +20,8 @@
     "AbstractContainerScreenAccessor",
     "ClientPacketListenerMixin",
     "ContainerScreenHighlightClipMixin",
+    "GuiItemAtlasMixin",
+    "GuiRendererMixin",
     "MouseHandlerMixin",
     "ScreenSwapMixin"
   ]
