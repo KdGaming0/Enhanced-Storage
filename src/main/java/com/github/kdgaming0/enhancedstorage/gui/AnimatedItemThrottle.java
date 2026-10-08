@@ -25,7 +25,7 @@ public final class AnimatedItemThrottle {
 
     /**
      * The atlas's "free this slot after the frame" flag for an item, throttled while a storage screen is open. The
-     * page layer's renderer keeps vanilla behaviour: it only runs when its layer is redrawn, which is throttled there.
+     * page layer's renderer keeps vanilla behaviour: it only runs when its layer is redrawn.
      */
     public static boolean discardAfterFrame(boolean animated) {
         if (PageLayerCache.isRendering()) return animated;
@@ -36,14 +36,19 @@ public final class AnimatedItemThrottle {
     public static void endFrame() {
         // The page layer's atlas ends its own frame too; only the main GUI's counts.
         if (PageLayerCache.isRendering()) return;
-        int interval = EnhancedStorageConfig.animatedItemRefreshRate.intervalMillis;
-        if (interval <= 0 || !isStorageScreen(Minecraft.getInstance().screen)) {
+        if (!isLimiting()) {
             refreshThisFrame = true;
             return;
         }
         long now = Util.getMillis();
         refreshThisFrame = now >= nextRefreshAt;
-        if (refreshThisFrame) nextRefreshAt = now + interval;
+        if (refreshThisFrame) nextRefreshAt = now + EnhancedStorageConfig.animatedItemRefreshRate.intervalMillis;
+    }
+
+    /** True while animated items are redrawn less often than every frame. */
+    public static boolean isLimiting() {
+        return EnhancedStorageConfig.animatedItemRefreshRate.intervalMillis > 0
+                && isStorageScreen(Minecraft.getInstance().screen);
     }
 
     private static boolean isStorageScreen(Screen screen) {

@@ -5,6 +5,7 @@ import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig.Backgro
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
+import net.minecraft.util.ARGB;
 
 import static com.github.kdgaming0.enhancedstorage.EnhancedStorage.MOD_ID;
 
@@ -67,14 +68,22 @@ public final class OverlayStyle {
         RESET_ICON(fixed("icons/reset_icon")),
         THEME_ICON(variants("icons/icon_light", "icons/icon_dark", "icons/icon_transparent"));
 
-        private final Identifier[] byTheme;
+        private final Identifier light;
+        private final Identifier dark;
+        private final Identifier transparent;
 
-        Sprite(Identifier[] byTheme) {
-            this.byTheme = byTheme;
+        Sprite(Identifier[] variants) {
+            this.light = variants[0];
+            this.dark = variants[1];
+            this.transparent = variants[2];
         }
 
         public Identifier id() {
-            return byTheme[current().ordinal()];
+            return switch (current()) {
+                case LIGHT -> light;
+                case DARK -> dark;
+                case TRANSPARENT -> transparent;
+            };
         }
 
         private static Identifier[] themed(String name) {
@@ -122,7 +131,7 @@ public final class OverlayStyle {
     }
 
     public static int accentColor(int alpha) {
-        return (alpha << 24) | (accentColor() & 0x00FFFFFF);
+        return ARGB.color(alpha, accentColor());
     }
 
     public static int dangerColor() {
@@ -174,7 +183,7 @@ public final class OverlayStyle {
     }
 
     public static int iconColor(float alpha) {
-        return ((int) (alpha * 255.0F) << 24) | (iconColor() & 0x00FFFFFF);
+        return ARGB.color(alpha, iconColor());
     }
 
     public static int iconHoverColor() {
@@ -187,10 +196,6 @@ public final class OverlayStyle {
 
     public static int titleHoverFill() {
         return byTheme(LIGHT_HOVER_FILL, DARK_HOVER_FILL);
-    }
-
-    public static void blitIcon(GuiGraphicsExtractor graphics, Identifier sprite, int x, int y, int width, int height) {
-        blitIcon(graphics, sprite, x, y, width, height, iconColor());
     }
 
     public static void blitIcon(GuiGraphicsExtractor graphics, Identifier sprite, int x, int y, int width, int height, int color) {

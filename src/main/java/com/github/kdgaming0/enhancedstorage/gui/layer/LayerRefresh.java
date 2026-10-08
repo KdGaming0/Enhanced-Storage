@@ -17,20 +17,11 @@ public final class LayerRefresh {
     private long drawnAt;
     private boolean animated;
 
-    /**
-     * True when the owner should draw directly this frame instead of from its layer. Smooth glint redraws a layer
-     * holding animated items every frame, which costs more than not caching at all. The layer is tried again after
-     * the safety refresh in case they're gone.
-     */
-    public boolean prefersDirect() {
-        return drawnFrom != null && animated && EnhancedStorageConfig.animatedItemRefreshRate.intervalMillis <= 0
-                && Util.getMillis() - drawnAt < SAFETY_REFRESH_MS;
-    }
-
-    /** True when the layer no longer matches {@code key}, or is due for a glint or safety redraw. */
+    /** True when the layer no longer matches {@code key}, or is due for a safety redraw. */
     public boolean needsRedraw(Object key) {
         long age = Util.getMillis() - drawnAt;
-        // Enchant glint inside the layer only moves when the layer is redrawn; keep it at the configured rate.
+        // Animated items are drawn live on top of the layer (LayerItems). Should one still end up inside it, keep it
+        // moving at the glint rate rather than freezing it until the safety refresh.
         return !key.equals(drawnFrom) || age >= SAFETY_REFRESH_MS
                 || (animated && age >= EnhancedStorageConfig.animatedItemRefreshRate.intervalMillis);
     }

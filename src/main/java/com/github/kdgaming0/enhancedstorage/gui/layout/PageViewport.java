@@ -5,6 +5,7 @@ import com.daqem.uilib.api.widget.IWidget;
 import com.daqem.uilib.gui.component.EmptyComponent;
 import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
+import com.github.kdgaming0.enhancedstorage.gui.layer.LayerItems;
 import com.github.kdgaming0.enhancedstorage.gui.layer.LayerRefresh;
 import com.github.kdgaming0.enhancedstorage.gui.layer.PageLayerCache;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -26,7 +27,8 @@ import java.util.function.*;
  * {@link LiveCell}s that ask for it (the open page, a title being renamed) are left out and extracted every frame.
  * The cell under the mouse is extracted every frame too, into a gap left in the layer's blit, so hovering never
  * redraws the layer; a cell must therefore not draw outside its own bounds. For a {@link PartialHoverCell} the gap
- * is only the part that hovering changes, such as one slot of a page card.
+ * is only the part that hovering changes, such as one slot of a page card. Animated items are left out of the layer
+ * and drawn every frame on top of it (see {@link LayerItems}).
  */
 public class PageViewport extends ScrollContainerWidget {
 
@@ -36,6 +38,8 @@ public class PageViewport extends ScrollContainerWidget {
     private Supplier<?> layerInputs = () -> null;
 
     private final LayerRefresh layerRefresh = new LayerRefresh();
+    // The animated items left out of the current layer.
+    private LayerItems layerItems = LayerItems.NONE;
 
     // Everything the layer shows. The pose is part of it because the layer's pixels sit where the pose put them when it was drawn.
     private record LayerKey(int generation, List<IComponent> rows, int scroll, int x, int y, int width, int height,
@@ -138,30 +142,27 @@ public class PageViewport extends ScrollContainerWidget {
 
     private void extractLayered(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         List<IComponent> live = collectLiveCells();
-        LayerKey key = new LayerKey(PageLayerCache.sync(guiGraphics), List.copyOf(getComponents()), (int) scrollAmount(),
+        PageLayerCache pages = PageLayerCache.PAGES;
+        LayerKey key = new LayerKey(pages.sync(guiGraphics), List.copyOf(getComponents()), (int) scrollAmount(),
                 getX(), getY(), getWidth(), getHeight(), new Matrix3x2f(guiGraphics.pose()), live, layerInputs.get());
-        if (layerRefresh.prefersDirect()) {
-            extractDirect(guiGraphics, mouseX, mouseY, partialTick);
-            return;
-        }
-
         if (layerRefresh.needsRedraw(key)) {
-            GuiGraphicsExtractor layer = PageLayerCache.beginLayer(guiGraphics, getX(), getY(), getWidth(), getHeight());
+            GuiGraphicsExtractor layer = pages.beginLayer(guiGraphics, getX(), getY(), getWidth(), getHeight());
             if (backgroundPainter != null) backgroundPainter.accept(layer);
             layer.nextStratum();
             int noMouse = PageLayerCache.OFFSCREEN_MOUSE;
-            extractCells(layer, noMouse, noMouse, partialTick, cell -> !live.contains(cell), true);
-            layerRefresh.drawn(key, PageLayerCache.endLayer(layer));
+            layerItems = LayerItems.collect(null,
+                    () -> extractCells(layer, noMouse, noMouse, partialTick, cell -> !live.contains(cell), true));
+            layerRefresh.drawn(key, pages.endLayer(layer));
         }
 
         guiGraphics.nextStratum();
         IComponent hovered = hoveredCell(mouseX, mouseY, live);
         Rect gap = hovered == null ? null : hoverGap(guiGraphics, hovered, mouseX, mouseY);
-        if (gap == null) {
-            PageLayerCache.blit(guiGraphics, getX(), getY(), getX() + getWidth(), getY() + getHeight());
-        } else {
-            extractHovered(guiGraphics, hovered, gap, mouseX, mouseY, partialTick);
-        }
+        int right = getX() + getWidth();
+        int bottom = getY() + getHeight();
+        pages.blitAround(guiGraphics, getX(), getY(), right, bottom, gap);
+        if (gap != null) extractHovered(guiGraphics, hovered, gap, mouseX, mouseY, partialTick);
+        layerItems.extract(guiGraphics, getX(), getY(), right, bottom, gap);
         extractCells(guiGraphics, mouseX, mouseY, partialTick, live::contains, false);
         guiGraphics.nextStratum();
     }
@@ -176,8 +177,9 @@ public class PageViewport extends ScrollContainerWidget {
     }
 
     /**
-     * Draws the layer around the gap, then the background and the hovered cell itself live in the gap, clipped to it.
-     * The layer's copy of the gap (drawn without hover) is never shown, so translucent cells aren't drawn twice.
+     * Draws the background and the hovered cell itself live in the gap, clipped to it. The layers leave the gap out
+     * (their copy is drawn without hover), so translucent cells aren't drawn twice. Animated items aren't either: see
+     * {@link LayerItems#extract}.
      */
     private void extractHovered(GuiGraphicsExtractor guiGraphics, IComponent hovered, Rect area, int mouseX, int mouseY,
                                 float partialTick) {
@@ -185,25 +187,18 @@ public class PageViewport extends ScrollContainerWidget {
         int top = getY();
         int right = left + getWidth();
         int bottom = top + getHeight();
-        int holeLeft = Math.clamp(area.x(), left, right);
-        int holeRight = Math.clamp((long) area.right(), left, right);
-        int holeTop = Math.clamp(area.y(), top, bottom);
-        int holeBottom = Math.clamp((long) area.bottom(), top, bottom);
-
-        blitPart(guiGraphics, left, top, right, holeTop);
-        blitPart(guiGraphics, left, holeBottom, right, bottom);
-        blitPart(guiGraphics, left, holeTop, holeLeft, holeBottom);
-        blitPart(guiGraphics, holeRight, holeTop, right, holeBottom);
-
-        guiGraphics.enableScissor(holeLeft, holeTop, holeRight, holeBottom);
+        guiGraphics.enableScissor(Math.clamp(area.x(), left, right), Math.clamp(area.y(), top, bottom),
+                Math.clamp((long) area.right(), left, right), Math.clamp((long) area.bottom(), top, bottom));
         if (backgroundPainter != null) backgroundPainter.accept(guiGraphics);
         guiGraphics.nextStratum();
-        extractCells(guiGraphics, mouseX, mouseY, partialTick, cell -> cell == hovered, false);
+        Runnable cell = () -> extractCells(guiGraphics, mouseX, mouseY, partialTick, c -> c == hovered, false);
+        if (LayerItems.drawnLive()) {
+            // Result unused: items only partly in the gap are drawn by layerItems.extract, which skips the rest.
+            LayerItems.collect(area, cell);
+        } else {
+            cell.run();
+        }
         guiGraphics.disableScissor();
-    }
-
-    private static void blitPart(GuiGraphicsExtractor guiGraphics, int x0, int y0, int x1, int y1) {
-        if (x1 > x0 && y1 > y0) PageLayerCache.blit(guiGraphics, x0, y0, x1, y1);
     }
 
     private boolean isRowVisible(IComponent row) {

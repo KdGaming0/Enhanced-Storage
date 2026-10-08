@@ -1,5 +1,6 @@
 package com.github.kdgaming0.enhancedstorage.gui.layer;
 
+import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.platform.Lighting;
@@ -43,6 +44,10 @@ import com.mojang.blaze3d.buffers.GpuBufferSlice;
  * directly. It runs right before the main GUI renderer (see {@code GuiRendererMixin}), into a window-sized target
  * that {@code GuiRendererMixin} substitutes for the main render target. Owners occupy disjoint screen areas, so each
  * one only clears and redraws its own rectangle of the shared target.
+ * <p>
+ * There are two caches, each with its own renderer and target: {@link #PAGES} for the static content, and
+ * {@link #ANIMATED} for the animated items left out of it, which {@link LayerItems} redraws at the glint rate and
+ * draws over the page layer.
  */
 public final class PageLayerCache {
 
@@ -50,18 +55,25 @@ public final class PageLayerCache {
     public static final int OFFSCREEN_MOUSE = -9999;
     private static final long RELEASE_AFTER_IDLE_MS = 10_000;
 
-    private static final GuiRenderState STATE = new GuiRenderState();
-    private static final List<ScreenRectangle> DIRTY = new ArrayList<>();
-    private static @Nullable GuiRenderer renderer;
-    private static @Nullable RenderTarget target;
-    private static int generation;
-    // The main GUI extractor of the frame the pending layers were extracted in. Vanilla makes a new one per frame.
-    private static @Nullable GuiGraphicsExtractor pendingExtractor;
-    private static int animatedItems;
-    private static boolean rendering;
-    private static long lastUsed;
+    public static final PageLayerCache PAGES = new PageLayerCache("Enhanced Storage page layer");
+    public static final PageLayerCache ANIMATED = new PageLayerCache("Enhanced Storage animated item layer");
+    private static final List<PageLayerCache> ALL = List.of(PAGES, ANIMATED);
 
-    private PageLayerCache() {
+    private static boolean rendering;
+
+    private final String name;
+    private final GuiRenderState state = new GuiRenderState();
+    private final List<ScreenRectangle> dirty = new ArrayList<>();
+    private @Nullable GuiRenderer renderer;
+    private @Nullable RenderTarget target;
+    private int generation;
+    // The main GUI extractor of the frame the pending layers were extracted in. Vanilla makes a new one per frame.
+    private @Nullable GuiGraphicsExtractor pendingExtractor;
+    private int animatedItems;
+    private long lastUsed;
+
+    private PageLayerCache(String name) {
+        this.name = name;
     }
 
     /**
@@ -69,7 +81,7 @@ public final class PageLayerCache {
      * rendered layer pixels may have been lost (target created or resized, or an extraction that never got rendered),
      * and an owner must then redraw its layer. Every owner calls this before deciding whether it is up to date.
      */
-    public static int sync(GuiGraphicsExtractor main) {
+    public int sync(GuiGraphicsExtractor main) {
         lastUsed = Util.getMillis();
         ensureTarget();
         if (pendingExtractor != null && pendingExtractor != main) {
@@ -80,7 +92,7 @@ public final class PageLayerCache {
         return generation;
     }
 
-    /** True while the layer's own renderer is running, so per-frame hooks can tell it apart from the main GUI. */
+    /** True while a layer's own renderer is running, so per-frame hooks can tell it apart from the main GUI. */
     public static boolean isRendering() {
         return rendering;
     }
@@ -90,30 +102,53 @@ public final class PageLayerCache {
      * caller's pose and a scissor to the owner's rectangle applied and the mouse at {@link #OFFSCREEN_MOUSE}. Finish it with
      * {@link #endLayer}. Requires {@link #sync} earlier in the same frame.
      */
-    public static GuiGraphicsExtractor beginLayer(GuiGraphicsExtractor main, int x, int y, int width, int height) {
+    public GuiGraphicsExtractor beginLayer(GuiGraphicsExtractor main, int x, int y, int width, int height) {
         pendingExtractor = main;
-        GuiGraphicsExtractor layer = new GuiGraphicsExtractor(Minecraft.getInstance(), STATE, OFFSCREEN_MOUSE, OFFSCREEN_MOUSE);
+        GuiGraphicsExtractor layer = new GuiGraphicsExtractor(Minecraft.getInstance(), state, OFFSCREEN_MOUSE, OFFSCREEN_MOUSE);
         layer.pose().set(main.pose());
         layer.enableScissor(x, y, x + width, y + height);
         // The scissor stack holds the area already transformed by the pose, i.e. where the pixels land.
-        DIRTY.add(layer.scissorStack.peek());
+        dirty.add(layer.scissorStack.peek());
         return layer;
     }
 
     /** Ends a layer begun by {@link #beginLayer}; true if it drew animated items. */
-    public static boolean endLayer(GuiGraphicsExtractor layer) {
+    public boolean endLayer(GuiGraphicsExtractor layer) {
         while (layer.scissorStack.peek() != null) layer.disableScissor();
         int before = animatedItems;
         int[] count = {0};
-        STATE.forEachItem(item -> {
+        state.forEachItem(item -> {
             if (item.itemStackRenderState().isAnimated()) count[0]++;
         });
         animatedItems = count[0];
         return animatedItems > before;
     }
 
+    /**
+     * Draws the layer's pixels for the given screen rectangle, leaving out {@code hole} (an area drawn live instead)
+     * when it isn't null.
+     */
+    public void blitAround(GuiGraphicsExtractor main, int x0, int y0, int x1, int y1, @Nullable Rect hole) {
+        if (hole == null) {
+            blit(main, x0, y0, x1, y1);
+            return;
+        }
+        int holeLeft = Math.clamp(hole.x(), x0, x1);
+        int holeRight = Math.clamp((long) hole.right(), x0, x1);
+        int holeTop = Math.clamp(hole.y(), y0, y1);
+        int holeBottom = Math.clamp((long) hole.bottom(), y0, y1);
+        blitPart(main, x0, y0, x1, holeTop);
+        blitPart(main, x0, holeBottom, x1, y1);
+        blitPart(main, x0, holeTop, holeLeft, holeBottom);
+        blitPart(main, holeRight, holeTop, x1, holeBottom);
+    }
+
+    private void blitPart(GuiGraphicsExtractor main, int x0, int y0, int x1, int y1) {
+        if (x1 > x0 && y1 > y0) blit(main, x0, y0, x1, y1);
+    }
+
     /** Draws the layer's pixels for the given screen rectangle into the main GUI, clipped to the current scissor. */
-    public static void blit(GuiGraphicsExtractor main, int x0, int y0, int x1, int y1) {
+    public void blit(GuiGraphicsExtractor main, int x0, int y0, int x1, int y1) {
         RenderTarget layer = target;
         if (layer == null) return;
         int scale = Minecraft.getInstance().getWindow().getGuiScale();
@@ -135,13 +170,19 @@ public final class PageLayerCache {
                 main.scissorStack.peek()));
     }
 
-    /** The render target to draw into instead of the main one, when {@code guiRenderer} is the layer renderer. */
+    /** The render target to draw into instead of the main one, when {@code guiRenderer} is a layer renderer. */
     public static @Nullable RenderTarget targetFor(GuiRenderer guiRenderer) {
-        return guiRenderer == renderer ? target : null;
+        for (PageLayerCache cache : ALL) {
+            if (guiRenderer == cache.renderer) return cache.target;
+        }
+        return null;
     }
 
     public static boolean isLayerRenderer(GuiRenderer guiRenderer) {
-        return guiRenderer == renderer;
+        for (PageLayerCache cache : ALL) {
+            if (guiRenderer == cache.renderer) return true;
+        }
+        return false;
     }
 
     /**
@@ -150,8 +191,18 @@ public final class PageLayerCache {
      */
     //? if <26.2 {
     public static void renderPending(Function<GuiRenderState, GuiRenderer> factory, GpuBufferSlice fogBuffer) {
+        for (PageLayerCache cache : ALL) cache.render(factory, fogBuffer);
+    }
     //?} else {
     /*public static void renderPending(Function<GuiRenderState, GuiRenderer> factory) {
+        for (PageLayerCache cache : ALL) cache.render(factory);
+    }
+    *///?}
+
+    //? if <26.2 {
+    private void render(Function<GuiRenderState, GuiRenderer> factory, GpuBufferSlice fogBuffer) {
+    //?} else {
+    /*private void render(Function<GuiRenderState, GuiRenderer> factory) {
     *///?}
         if (pendingExtractor == null) {
             if ((renderer != null || target != null) && Util.getMillis() - lastUsed > RELEASE_AFTER_IDLE_MS) release();
@@ -162,7 +213,7 @@ public final class PageLayerCache {
             discardPending();
             return;
         }
-        if (renderer == null) renderer = factory.apply(STATE);
+        if (renderer == null) renderer = factory.apply(state);
 
         clearDirty(layer);
         pendingExtractor = null;
@@ -185,9 +236,9 @@ public final class PageLayerCache {
          *///?}
     }
 
-    private static void clearDirty(RenderTarget layer) {
+    private void clearDirty(RenderTarget layer) {
         int scale = Minecraft.getInstance().getWindow().getGuiScale();
-        for (ScreenRectangle rect : DIRTY) {
+        for (ScreenRectangle rect : dirty) {
             int left = Math.clamp((long) rect.left() * scale, 0, layer.width);
             int right = Math.clamp((long) rect.right() * scale, 0, layer.width);
             int top = Math.clamp((long) rect.top() * scale, 0, layer.height);
@@ -197,7 +248,7 @@ public final class PageLayerCache {
                     layer.getColorTexture(), GuiRenderer.CLEAR_COLOR, layer.getDepthTexture(), clearDepth(),
                     left, layer.height - bottom, right - left, bottom - top);
         }
-        DIRTY.clear();
+        dirty.clear();
     }
 
     // The value GameRenderer clears the depth buffer to before drawing the GUI (26.2 switched to reverse Z).
@@ -211,16 +262,16 @@ public final class PageLayerCache {
 
     // Sized from the window, not the main render target: during extraction the main target still has last frame's
     // size, and GameRenderer.render only resizes it to the window afterwards, before the layers are rendered.
-    private static void ensureTarget() {
+    private void ensureTarget() {
         Window window = Minecraft.getInstance().getWindow();
         int width = window.getWidth();
         int height = window.getHeight();
         if (width <= 0 || height <= 0) return;
         if (target == null) {
             //? if <26.2 {
-            target = new TextureTarget("Enhanced Storage page layer", width, height, true);
+            target = new TextureTarget(name, width, height, true);
             //?} else {
-            /*target = new TextureTarget("Enhanced Storage page layer", width, height, true, GpuFormat.RGBA8_UNORM);
+            /*target = new TextureTarget(name, width, height, true, GpuFormat.RGBA8_UNORM);
              *///?}
             generation++;
         } else if (target.width != width || target.height != height) {
@@ -229,14 +280,14 @@ public final class PageLayerCache {
         }
     }
 
-    private static void discardPending() {
-        STATE.reset();
-        DIRTY.clear();
+    private void discardPending() {
+        state.reset();
+        dirty.clear();
         pendingExtractor = null;
         animatedItems = 0;
     }
 
-    private static void release() {
+    private void release() {
         if (renderer != null) renderer.close();
         if (target != null) target.destroyBuffers();
         renderer = null;

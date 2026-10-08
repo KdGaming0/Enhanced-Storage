@@ -5,6 +5,7 @@ import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.CopyHighlight;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.SearchHighlight;
+import com.github.kdgaming0.enhancedstorage.gui.layer.LayerItems;
 import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
@@ -117,8 +118,12 @@ public class StorageSlotComponent extends AbstractComponent {
             highlightBack.extractRenderState(guiGraphics, mouseX, mouseY, partialTick, parentWidth, parentHeight);
         }
 
+        // An animated item kept out of a cached layer takes what is drawn over it along (see LayerItems).
+        if (item != null && LayerItems.defer(item, this::extractDeferred)) return;
+
         if (item != null) {
-            item.extractRenderState(guiGraphics, mouseX, mouseY, partialTick, parentWidth, parentHeight);
+            item.extractItem(guiGraphics);
+            item.extractTooltip(guiGraphics, mouseX, mouseY);
         }
 
         if (hovered && highlightFront != null) {
@@ -127,6 +132,14 @@ public class StorageSlotComponent extends AbstractComponent {
 
         if (searchState == SearchState.NO_MATCH) {
             SearchHighlight.drawNoMatch(guiGraphics, itemX, itemY);
+        }
+    }
+
+    // The part of extractRenderStateBase from the item up, for a deferred item. It is never hovered there.
+    private void extractDeferred(GuiGraphicsExtractor guiGraphics) {
+        if (item != null) item.extractItem(guiGraphics);
+        if (searchState == SearchState.NO_MATCH) {
+            SearchHighlight.drawNoMatch(guiGraphics, getTotalX() + itemInset, getTotalY() + itemInset);
         }
     }
 

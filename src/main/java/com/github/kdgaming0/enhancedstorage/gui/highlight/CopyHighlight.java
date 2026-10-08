@@ -84,6 +84,11 @@ public final class CopyHighlight {
         return hovered;
     }
 
+    /** True while there is an item whose copies are highlighted; check it before reading a stack just to test it. */
+    public static boolean hasTarget() {
+        return !target.isEmpty();
+    }
+
     public static boolean isCopy(ItemStack stack) {
         return !target.isEmpty() && !stack.isEmpty() && sameItem(target, stack);
     }

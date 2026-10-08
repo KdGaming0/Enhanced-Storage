@@ -17,7 +17,7 @@ public final class LayoutSpacing {
     }
 
 
-    private static final Preset COMFORTABLE_PRESET = new Preset(15, 15, 25, 6, 3,
+    private static final Preset NORMAL_PRESET = new Preset(15, 15, 25, 6, 3,
             4, 2, 2, 2, EnhancedStorageConfig.PageTitleStyle.NORMAL, EnhancedStorageConfig.SlotSize.NORMAL);
     private static final Preset COMPACT_PRESET = new Preset(8, 8, 14, 4, 1,
             1, 1, 1, 1, EnhancedStorageConfig.PageTitleStyle.COMPACT, EnhancedStorageConfig.SlotSize.NORMAL);
@@ -70,7 +70,7 @@ public final class LayoutSpacing {
     private static @Nullable Preset preset() {
         return switch (EnhancedStorageConfig.layoutDensity) {
             case CUSTOM -> null;
-            case NORMAL -> COMFORTABLE_PRESET;
+            case NORMAL -> NORMAL_PRESET;
             case COMPACT -> COMPACT_PRESET;
             case DENSE -> DENSE_PRESET;
         };

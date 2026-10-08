@@ -3,6 +3,7 @@ package com.github.kdgaming0.enhancedstorage.gui.component.page;
 import com.daqem.uilib.gui.component.item.ItemComponent;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.CopyHighlight;
+import com.github.kdgaming0.enhancedstorage.gui.layer.LayerItems;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -17,6 +18,9 @@ public class TooltipItemComponent extends ItemComponent {
     private boolean tooltipEnabled = true;
     private boolean glintHideable;
     private ItemStack noGlintStack;
+    // The stack isAnimated last checked, and its result.
+    private ItemStack animationChecked;
+    private boolean animated;
     private int shownCount = 1;
     private FormattedCharSequence countText = FormattedCharSequence.EMPTY;
 
@@ -76,27 +80,43 @@ public class TooltipItemComponent extends ItemComponent {
         return noGlintStack.isEmpty() ? null : noGlintStack;
     }
 
+    /**
+     * True if the item is drawn animated (enchant glint, an animated texture), so a cached layer must leave it out
+     * (see {@link LayerItems}). Checked once per drawn stack.
+     */
+    public boolean isAnimated() {
+        ItemStack drawn = drawnStack();
+        if (drawn != animationChecked) {
+            animationChecked = drawn;
+            animated = LayerItems.isAnimated(drawn);
+        }
+        return animated;
+    }
+
     @Override
     public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int parentWidth, int parentHeight) {
-        ItemStack glintless = glintlessStack();
-        if (EnhancedStorageConfig.fastCachedItemDecorations && isDecorated()) {
-            ItemStack stack = getItemStack();
-            int x = getTotalX();
-            int y = getTotalY();
-
-            guiGraphics.fakeItem(glintless != null ? glintless : stack, x, y);
-            extractDecorationsFast(guiGraphics, stack, x, y);
-        } else if (glintless != null) {
-            int x = getTotalX();
-            int y = getTotalY();
-
-            guiGraphics.fakeItem(glintless, x, y);
-            if (isDecorated()) guiGraphics.itemDecorations(Minecraft.getInstance().font, getItemStack(), x, y);
-        } else {
-            super.extractRenderState(guiGraphics, mouseX, mouseY, partialTick, parentWidth, parentHeight);
-        }
-
+        if (!LayerItems.defer(this, this::extractItem)) extractItem(guiGraphics);
         extractTooltip(guiGraphics, mouseX, mouseY);
+    }
+
+    /** Draws the item and its decorations, without the tooltip. */
+    public void extractItem(GuiGraphicsExtractor guiGraphics) {
+        int x = getTotalX();
+        int y = getTotalY();
+        guiGraphics.fakeItem(drawnStack(), x, y);
+        if (!isDecorated()) return;
+        // Decorations follow the real stack: the glintless copy differs only in its glint.
+        if (EnhancedStorageConfig.fastCachedItemDecorations) {
+            extractDecorationsFast(guiGraphics, getItemStack(), x, y);
+        } else {
+            guiGraphics.itemDecorations(Minecraft.getInstance().font, getItemStack(), x, y);
+        }
+    }
+
+    // The stack actually drawn: the glintless copy when the glint is hidden, otherwise the item itself.
+    private ItemStack drawnStack() {
+        ItemStack glintless = glintlessStack();
+        return glintless != null ? glintless : getItemStack();
     }
 
     /** Shows the item's tooltip if the mouse is over it; also used where the item itself is drawn from a cache. */

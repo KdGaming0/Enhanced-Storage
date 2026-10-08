@@ -42,6 +42,8 @@ import java.util.Optional;
 public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> implements IHighlightClipProvider {
 
     private static final long DEFERRED_CLOSE_MS = 2000;
+    private static final int SLOT_ITEM_SIZE = 16;
+    private static final int SLOTS_PER_STRATUM = 9;
     private final StorageKey openKey;
     private final StorageOverlayState state = StorageOverlayState.session();
     private final OverlayActions actions = OverlayActions.create(this, state, this::onPageCardClicked, this::enterEditMode, this::rebuildWidgets);
@@ -58,6 +60,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     private final List<SunkRrvRenderable> sunkRrvWidgets = new ArrayList<>();
     private boolean autoScrolledToOpenCard = false;
     private long deferredCloseAt = 0;
+    private int slotsInStratum;
 
     public StorageContainerScreen(ChestMenu menu, Inventory inventory, Component title, StorageKey openKey) {
         super(menu, inventory, title);
@@ -178,7 +181,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     @Override
     public void extractRenderState(@NonNull GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         CopyHighlight.setTarget(hoveredStack(mouseX, mouseY));
-        ItemTotals.update(layout.isRiftContext(), openKey, liveStacks());
+        ItemTotals.update(layout.isRiftContext(), openKey, () -> liveStacks().iterator());
         layout.updateCopyFilter();
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         if (this.menu.getCarried().isEmpty()) ItemTotals.extractBox(graphics, this.font, mouseX, mouseY);
@@ -201,8 +204,8 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
     private ItemStack hoveredStack(int mouseX, int mouseY) {
         for (Slot slot : this.menu.slots) {
-            if (!LiveSlotPlacer.isParked(slot) && slot.hasItem()
-                    && this.isHovering(slot.x, slot.y, 16, 16, mouseX, mouseY)) {
+            if (!LiveSlotPlacer.isParked(slot) && this.isHovering(slot.x, slot.y, SLOT_ITEM_SIZE, SLOT_ITEM_SIZE, mouseX, mouseY)
+                    && slot.hasItem()) {
                 return slot.getItem();
             }
         }
@@ -439,8 +442,15 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
     @Override
     protected void extractSlots(@NonNull GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
-        graphics.nextStratum();
+        slotsInStratum = SLOTS_PER_STRATUM;
         super.extractSlots(graphics, mouseX, mouseY);
+    }
+
+    private void nextStratumPerRow(GuiGraphicsExtractor graphics) {
+        if (slotsInStratum++ == SLOTS_PER_STRATUM) {
+            graphics.nextStratum();
+            slotsInStratum = 1;
+        }
     }
 
     @Override
@@ -451,11 +461,20 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
         Rect viewport = slotPlacer.viewport();
         if (viewport == null || slot.index >= this.menu.getRowCount() * 9) {
-            if (CopyHighlight.isCopy(slot.getItem())) CopyHighlight.draw(graphics, slot.x, slot.y);
+            nextStratumPerRow(graphics);
+            if (CopyHighlight.hasTarget() && CopyHighlight.isCopy(slot.getItem())) CopyHighlight.draw(graphics, slot.x, slot.y);
             super.extractSlot(graphics, slot, mouseX, mouseY);
             return;
         }
 
+        int slotX = slot.x + this.leftPos;
+        int slotY = slot.y + this.topPos;
+        if (slotY + 2 * SLOT_ITEM_SIZE <= viewport.y() || slotY - SLOT_ITEM_SIZE >= viewport.bottom()
+                || slotX + 2 * SLOT_ITEM_SIZE <= viewport.x() || slotX - SLOT_ITEM_SIZE >= viewport.right()) {
+            return;
+        }
+
+        nextStratumPerRow(graphics);
         graphics.enableScissor(
                 viewport.x() - this.leftPos, viewport.y() - this.topPos,
                 viewport.right() - this.leftPos, viewport.bottom() - this.topPos);
@@ -466,7 +485,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         if (searching && match) {
             SearchHighlight.drawMatch(graphics, slot.x, slot.y);
         }
-        if (CopyHighlight.isCopy(slot.getItem())) {
+        if (CopyHighlight.hasTarget() && CopyHighlight.isCopy(slot.getItem())) {
             CopyHighlight.draw(graphics, slot.x, slot.y);
         }
 
@@ -598,6 +617,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
             }
             return true;
         }
+        if (rrvLoaded && RRVCompat.isSearchBarFocused(this)) return super.keyPressed(event);
         if (CopyHighlight.isSearchKey(event)) {
             layout.searchFor(CopyHighlight.hovered());
             return true;

@@ -31,7 +31,7 @@ A new panel on the side of the overlay makes it easier to navigate your pages an
 #### Highlight Matching Items
 - Hold Left Alt while hovering over an item to highlight every stack of that item across all pages and your inventory.
   - You can change the key in the controls. In the settings, you can also choose to always highlight matching items when you hover over one.
-- A new **Hide Pages Without Copies** setting has been added. When it's on, holding the highlight key shows only pages containing the item you're hovering over. This gives you a quick view of how many of that item you have and which pages contain it.
+- A new **Hide Pages Without Copies** setting (on by default) has been added. When it's on, holding the highlight key shows only pages containing the item you're hovering over. This gives you a quick view of how many of that item you have and which pages contain it.
 - A new **Show Item Totals** setting (on by default) shows how many of the highlighted item you have across your pages and inventory, like `46×`. It appears as a small tooltip next to your cursor.
 
 #### Search Improvements
@@ -66,7 +66,7 @@ A new panel on the side of the overlay makes it easier to navigate your pages an
 <sub>Tested on Hypixel SkyBlock while looking at the void, with Sodium, ImmediatelyFast and Gnetum installed.</sub>
 
 **New settings**
-- **Enchant Glint Refresh Rate** (default: 30 FPS): Updates the enchant shimmer less often while the overlay is open. The shimmer looks slightly less smooth, but you get a lot more FPS. Set it to **Smooth** for the old behavior.
+- **Enchant Glint Refresh Rate** (default: 30 FPS): Updates the enchant shimmer less often while the overlay is open, on every page and in your inventory. The shimmer looks slightly less smooth, but you get a lot more FPS. Set it to **Smooth** for the old behavior.
 - **Cache Page Rendering** (default: on): Pages that aren't changing are drawn once and reused instead of being redrawn every frame. Turn it off if a page looks out of date or another mod's item overlays stop updating.
 
 ### Fixes
