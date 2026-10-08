@@ -46,6 +46,7 @@ A new panel on the side of the overlay makes it easier to navigate your pages an
 - Added an **Invert Scroll Direction** setting for the pages and the navigation panel.
 - Added a **Hide Enchant Glint on Cached Pages** setting that removes the enchant shimmer from items on pages that aren't open.
 - Added keyboard navigation. Use the arrow keys to move to the page above, below, left, or right of the current one. Use Shift + 1–9 to open one of the first nine pages.
+  - Turn on **WASD Page Navigation** to use W, A, S and D the same way as the arrow keys.
 - Each page now shows its number of free slots in the top right corner of its title bar. You can turn this off in the settings.
 - Added the ability to move the Inventory to the left or right of the overlay. 
   - This also comes with the new config option to center the whole overlay on the screen instead of just the storage part. Useful when the inventory is on the side, so the overlay utilizes the whole screen better.

@@ -3,7 +3,8 @@ package com.github.kdgaming0.enhancedstorage.gui.component.navigation;
 import com.daqem.uilib.api.component.IComponent;
 import com.daqem.uilib.gui.component.AbstractComponent;
 import com.daqem.uilib.gui.component.text.TextComponent;
-import com.github.kdgaming0.enhancedstorage.gui.OverlayTheme;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle.Sprite;
 import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
 import com.mojang.blaze3d.platform.cursor.CursorTypes;
 import net.minecraft.client.Minecraft;
@@ -39,14 +40,14 @@ public class NavigationTitleComponent extends AbstractComponent {
 
         // On a narrow panel the toggle matters more than the title.
         if (!hasToggle || TEXT_X + font.width(TITLE) + MIN_GAP <= toggleX) {
-            addText(TEXT_X, TITLE, OverlayTheme.navLabelColor());
+            addText(TEXT_X, TITLE, OverlayStyle.navEmphasisColor());
         }
-        if (toggleLabel != null) addText(toggleX, toggleLabel, OverlayTheme.navEmphasisColor());
+        if (toggleLabel != null) addText(toggleX, toggleLabel, OverlayStyle.navEmphasisColor());
     }
 
     private void addText(int x, String text, int color) {
         TextComponent component = new TextComponent(x, TEXT_Y, Component.literal(text), color);
-        component.setDrawShadow(OverlayTheme.titleShadow());
+        component.setDrawShadow(OverlayStyle.titleShadow());
         addComponent(component);
     }
 
@@ -61,12 +62,12 @@ public class NavigationTitleComponent extends AbstractComponent {
     @Override
     public void extractRenderStateBase(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick,
                                        int parentWidth, int parentHeight) {
-        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(OverlayTheme.SECTION_HEADER),
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, Sprite.SECTION_HEADER.id(),
                 getTotalX(), getTotalY(), getWidth(), HEIGHT);
         if (isOverToggle(mouseX, mouseY)) {
             Rect hover = toggleBounds();
-            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(OverlayTheme.NAV_ROW_HOVER),
-                    hover.x(), hover.y(), hover.width(), hover.height());
+            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, Sprite.NAV_ROW_HOVER.id(),
+                    hover.x(), hover.y(), hover.width(), hover.height(), OverlayStyle.titleHoverFill());
             graphics.requestCursor(CursorTypes.POINTING_HAND);
         }
         for (IComponent component : getComponents()) {

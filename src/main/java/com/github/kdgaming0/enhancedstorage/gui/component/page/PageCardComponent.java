@@ -6,7 +6,8 @@ import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.daqem.uilib.gui.component.text.TextComponent;
 import com.daqem.uilib.gui.widget.EditBoxWidget;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
-import com.github.kdgaming0.enhancedstorage.gui.OverlayTheme;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle.Sprite;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayLayout;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayState;
 import com.github.kdgaming0.enhancedstorage.gui.layout.LiveCell;
@@ -34,7 +35,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-import static com.github.kdgaming0.enhancedstorage.EnhancedStorage.MOD_ID;
 
 /**
  * A clickable storage page card.
@@ -45,10 +45,6 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
     private static final int COMPACT_TITLE_Y = 1;
     private static final int EMPTY_LABEL_GAP = 6;
     private static final String FULL_TEXT = "Full";
-    private static final Identifier SLOT_HIGHLIGHT_BACK =
-            Identifier.fromNamespaceAndPath(MOD_ID, "common/storage_slot_highlight_back");
-    private static final Identifier SLOT_HIGHLIGHT_FRONT =
-            Identifier.fromNamespaceAndPath(MOD_ID, "common/storage_slot_highlight_front");
     private final StorageKey key;
     private final int titleLocalX;
     private final int titleLocalY;
@@ -64,8 +60,8 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
     private final List<StorageSlotComponent> slots = new ArrayList<>();
     private final TextComponent pageTitle;
     private final @Nullable PageCardButtonWidget button;
-    Identifier idle = OverlayTheme.sprite(OverlayTheme.PAGE_CARD_IDLE);
-    Identifier active = OverlayTheme.sprite(OverlayTheme.PAGE_CARD_ACTIVE);
+    Identifier idle = Sprite.PAGE_CARD_IDLE.id();
+    Identifier active = Sprite.PAGE_CARD_ACTIVE.id();
     private @Nullable EditBoxWidget titleEditor;
     private @Nullable TextComponent emptyLabel;
     private @Nullable String shownEmptyText;
@@ -88,7 +84,7 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
         this.items = items;
 
         if (live) {
-            SpriteComponent background = new SpriteComponent(0, 0, width, height, OverlayTheme.sprite(OverlayTheme.PAGE_CARD_ACTIVE));
+            SpriteComponent background = new SpriteComponent(0, 0, width, height, Sprite.PAGE_CARD_ACTIVE.id());
             this.addComponent(background);
             this.button = null;
         } else {
@@ -116,8 +112,8 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
         var font = Minecraft.getInstance().font;
         // Truncate long titles to fit the card width.
         String shownTitle = showTitle ? truncate(font, displayName, width - titleX * 2) : "";
-        this.pageTitle = new TextComponent(titleX, titleY, Component.literal(shownTitle), OverlayTheme.titleColor());
-        pageTitle.setDrawShadow(OverlayTheme.titleShadow());
+        this.pageTitle = new TextComponent(titleX, titleY, Component.literal(shownTitle), OverlayStyle.titleColor());
+        pageTitle.setDrawShadow(OverlayStyle.titleShadow());
 
         int textWidth = font.width(shownTitle);
         this.titleLocalX = titleX;
@@ -141,8 +137,8 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
                         slotGridX + slotCol * slotSize,
                         slotGridY + slotRow * slotSize,
                         slotSize, slotSize,
-                        live ? null : SLOT_HIGHLIGHT_BACK,
-                        live ? null : SLOT_HIGHLIGHT_FRONT,
+                        live ? null : Sprite.SLOT_HIGHLIGHT_BACK.id(),
+                        live ? null : Sprite.SLOT_HIGHLIGHT_FRONT.id(),
                         stack);
                 if (live) slotComponent.setHoverEnabled(false);
                 this.slots.add(slotComponent);
@@ -151,16 +147,16 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
             applySearch(state.getSearchQuery());
 
             if (EnhancedStorageConfig.showEmptySlotCount && showTitle) {
-                this.emptyLabel = new TextComponent(width - titleX, titleY, Component.empty(), OverlayTheme.secondaryTextColor());
-                emptyLabel.setDrawShadow(OverlayTheme.titleShadow());
+                this.emptyLabel = new TextComponent(width - titleX, titleY, Component.empty(), OverlayStyle.secondaryTextColor());
+                emptyLabel.setDrawShadow(OverlayStyle.titleShadow());
                 this.addComponent(emptyLabel);
             }
         } else {
             Component label = Component.literal(clickable ? "Click To Open" : "Not Cached");
             int textX = (width - font.width(label)) / 2;
             int textY = (height - font.lineHeight) / 2;
-            TextComponent pageInfo = new TextComponent(textX, textY, label, OverlayTheme.titleColor());
-            pageInfo.setDrawShadow(OverlayTheme.titleShadow());
+            TextComponent pageInfo = new TextComponent(textX, textY, label, OverlayStyle.titleColor());
+            pageInfo.setDrawShadow(OverlayStyle.titleShadow());
             this.addComponent(pageInfo);
         }
 
@@ -189,8 +185,8 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
     }
 
     private void addSlotGrid(int x, int y, int width, int height) {
-        String sprite = slotSize == StorageOverlayLayout.SLOT_SIZE ? OverlayTheme.STORAGE_SLOT : OverlayTheme.STORAGE_SLOT_SMALL;
-        this.addComponent(new SpriteComponent(x, y, width, height, OverlayTheme.sprite(sprite)));
+        Identifier sprite = slotSize == StorageOverlayLayout.SLOT_SIZE ? Sprite.STORAGE_SLOT.id() : Sprite.STORAGE_SLOT_SMALL.id();
+        this.addComponent(new SpriteComponent(x, y, width, height, sprite));
     }
 
     @Override
@@ -296,7 +292,7 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
         // A long custom title wins; the navigation panel's tooltip still shows the count.
         boolean fits = titleLocalX + titleLocalWidth + EMPTY_LABEL_GAP <= labelX;
         MutableComponent label = Component.literal(text);
-        if (text.equals(FULL_TEXT)) label = label.withColor(OverlayTheme.fullTextColor() & 0xFFFFFF);
+        if (text.equals(FULL_TEXT)) label = label.withColor(OverlayStyle.fullTextColor() & 0xFFFFFF);
         emptyLabel.setText(fits ? label : Component.empty());
         emptyLabel.setX(labelX);
     }
@@ -320,7 +316,7 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
                 getWidth() - titleLocalX * 2, font.lineHeight, Component.literal("Page name"));
         box.setBordered(false);
         box.setMaxLength(PageNames.MAX_NAME_LENGTH);
-        box.setTextColor(OverlayTheme.titleColor());
+        box.setTextColor(OverlayStyle.titleColor());
         box.setResponder(text -> box.setSuggestion(text.isEmpty() ? defaultName : null));
         box.setValue(PageNames.getInstance().get(key).orElse(""));
         box.setSuggestion(box.getValue().isEmpty() ? defaultName : null);

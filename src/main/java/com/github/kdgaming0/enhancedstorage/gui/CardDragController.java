@@ -1,6 +1,7 @@
 package com.github.kdgaming0.enhancedstorage.gui;
 
 import com.daqem.uilib.gui.component.text.TextComponent;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle.Sprite;
 import com.github.kdgaming0.enhancedstorage.gui.component.page.GridCellComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.page.PageCardComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.page.SpacerCardComponent;
@@ -8,15 +9,12 @@ import com.github.kdgaming0.enhancedstorage.gui.component.section.SectionEndComp
 import com.github.kdgaming0.enhancedstorage.gui.component.section.SectionHeaderComponent;
 import com.github.kdgaming0.enhancedstorage.gui.layout.PageViewport;
 import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
-import com.github.kdgaming0.enhancedstorage.storage.data.LayoutEntry;
-import com.github.kdgaming0.enhancedstorage.storage.data.LayoutOps;
-import com.github.kdgaming0.enhancedstorage.storage.data.PageWidths;
-import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
-import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
+import com.github.kdgaming0.enhancedstorage.storage.data.*;
 import com.github.kdgaming0.enhancedstorage.util.TextUtils;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.ARGB;
 import net.minecraft.util.Util;
 import org.jspecify.annotations.Nullable;
@@ -40,9 +38,6 @@ final class CardDragController {
     private static final int SCROLL_EDGE = 24;
     private static final double MAX_SCROLL_SPEED = 400; // pixels per second
     private static final long SPRING_DELAY_MS = 600;
-    private static final int INDICATOR_COLOR = 0xFFFFD24A;
-    private static final int INDICATOR_FILL = 0x40FFD24A;
-    private static final int INDICATOR_HINT = 0x18FFD24A;
     private static final int INDICATOR_WIDTH = 2;
     private static final int STACK_BAND = 14;
 
@@ -134,8 +129,8 @@ final class CardDragController {
             layout.setDraggedSection(header);
         }
         if (name != null) {
-            TextComponent title = new TextComponent(0, 0, Component.literal(TextUtils.colorCodes(name)), OverlayTheme.titleColor());
-            title.setDrawShadow(OverlayTheme.titleShadow());
+            TextComponent title = new TextComponent(0, 0, Component.literal(TextUtils.colorCodes(name)), OverlayStyle.titleColor());
+            title.setDrawShadow(OverlayStyle.titleShadow());
             title.updateParentPosition(0, 0, screenWidth, screenHeight);
             this.ghostTitle = title;
         }
@@ -364,11 +359,11 @@ final class CardDragController {
         // The dragged card already sits in its landing slot; cover it with an empty active card to mark the drop spot.
         graphics.enableScissor(viewport.x(), viewport.y(), viewport.right(), viewport.bottom());
         Rect slot = cell.bounds();
-        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(OverlayTheme.PAGE_CARD_ACTIVE),
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, Sprite.PAGE_CARD_ACTIVE.id(),
                 slot.x(), slot.y(), slot.right() - slot.x(), slot.bottom() - slot.y());
         if (springTarget != null) {
             Rect bar = springTarget.bounds();
-            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(OverlayTheme.PAGE_CARD_HOVER),
+            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, Sprite.PAGE_CARD_HOVER.id(),
                     bar.x(), bar.y(), bar.width(), bar.height());
         }
         paintIndicator(graphics, viewport, cell, mouseX, mouseY);
@@ -379,13 +374,13 @@ final class CardDragController {
         int ghostColor = ARGB.white(GHOST_ALPHA);
         if (cell instanceof SectionHeaderComponent) {
             // Frame plus the strip inside its 2 px border, as the collapsed bar draws it.
-            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(OverlayTheme.SECTION_FRAME),
+            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, Sprite.SECTION_FRAME.id(),
                     ghostX, ghostY, slot.width(), slot.height(), ghostColor);
-            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(OverlayTheme.SECTION_HEADER),
+            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, Sprite.SECTION_HEADER.id(),
                     ghostX + 2, ghostY + 2, slot.width() - 4, slot.height() - 4, ghostColor);
         } else {
-            String ghostSprite = cell instanceof SpacerCardComponent ? OverlayTheme.PAGE_SPACER : OverlayTheme.PAGE_CARD_IDLE;
-            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(ghostSprite),
+            Identifier ghostSprite = cell instanceof SpacerCardComponent ? Sprite.PAGE_SPACER.id() : Sprite.PAGE_CARD_IDLE.id();
+            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, ghostSprite,
                     ghostX, ghostY, slot.width(), slot.height(), ghostColor);
         }
         if (ghostTitle != null) {
@@ -420,14 +415,17 @@ final class CardDragController {
         Zone zone = zoneAt(hovered, cell, mouseX, mouseY);
         if (cell instanceof PageCardComponent && hovered instanceof PageCardComponent) {
             int band = stackBand(bounds);
-            graphics.fill(bounds.x(), bounds.y(), bounds.right(), bounds.y() + band, zone == Zone.ABOVE ? INDICATOR_FILL : INDICATOR_HINT);
-            graphics.fill(bounds.x(), bounds.bottom() - band, bounds.right(), bounds.bottom(), zone == Zone.BELOW ? INDICATOR_FILL : INDICATOR_HINT);
+            int fill = OverlayStyle.accentColor(0x40);
+            int hint = OverlayStyle.accentColor(0x18);
+            graphics.fill(bounds.x(), bounds.y(), bounds.right(), bounds.y() + band, zone == Zone.ABOVE ? fill : hint);
+            graphics.fill(bounds.x(), bounds.bottom() - band, bounds.right(), bounds.bottom(), zone == Zone.BELOW ? fill : hint);
         }
+        int indicator = OverlayStyle.accentColor();
         switch (zone) {
-            case BEFORE -> graphics.fill(column.x(), column.y(), column.x() + INDICATOR_WIDTH, column.bottom(), INDICATOR_COLOR);
-            case AFTER -> graphics.fill(column.right() - INDICATOR_WIDTH, column.y(), column.right(), column.bottom(), INDICATOR_COLOR);
-            case ABOVE -> graphics.fill(bounds.x(), bounds.y(), bounds.right(), bounds.y() + INDICATOR_WIDTH, INDICATOR_COLOR);
-            case BELOW -> graphics.fill(bounds.x(), bounds.bottom() - INDICATOR_WIDTH, bounds.right(), bounds.bottom(), INDICATOR_COLOR);
+            case BEFORE -> graphics.fill(column.x(), column.y(), column.x() + INDICATOR_WIDTH, column.bottom(), indicator);
+            case AFTER -> graphics.fill(column.right() - INDICATOR_WIDTH, column.y(), column.right(), column.bottom(), indicator);
+            case ABOVE -> graphics.fill(bounds.x(), bounds.y(), bounds.right(), bounds.y() + INDICATOR_WIDTH, indicator);
+            case BELOW -> graphics.fill(bounds.x(), bounds.bottom() - INDICATOR_WIDTH, bounds.right(), bounds.bottom(), indicator);
         }
     }
 
@@ -447,10 +445,11 @@ final class CardDragController {
     }
 
     private static void outline(GuiGraphicsExtractor graphics, Rect r) {
-        graphics.fill(r.x(), r.y(), r.right(), r.y() + 1, INDICATOR_COLOR);
-        graphics.fill(r.x(), r.bottom() - 1, r.right(), r.bottom(), INDICATOR_COLOR);
-        graphics.fill(r.x(), r.y(), r.x() + 1, r.bottom(), INDICATOR_COLOR);
-        graphics.fill(r.right() - 1, r.y(), r.right(), r.bottom(), INDICATOR_COLOR);
+        int color = OverlayStyle.accentColor();
+        graphics.fill(r.x(), r.y(), r.right(), r.y() + 1, color);
+        graphics.fill(r.x(), r.bottom() - 1, r.right(), r.bottom(), color);
+        graphics.fill(r.x(), r.y(), r.x() + 1, r.bottom(), color);
+        graphics.fill(r.right() - 1, r.y(), r.right(), r.bottom(), color);
     }
 
     /**

@@ -2,7 +2,7 @@ package com.github.kdgaming0.enhancedstorage.gui.component.common;
 
 import com.daqem.uilib.gui.component.AbstractComponent;
 import com.daqem.uilib.gui.component.sprite.SpriteComponent;
-import com.github.kdgaming0.enhancedstorage.gui.OverlayTheme;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle.Sprite;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
@@ -22,7 +22,7 @@ public class IconButtonComponent extends AbstractComponent {
         this.tooltip = tooltip;
 
         // Nine-slice background, scaled to the button size (matches ItemButtonComponent).
-        SpriteComponent background = new SpriteComponent(0, 0, width, height, OverlayTheme.sprite(OverlayTheme.PAGE_CARD_IDLE));
+        SpriteComponent background = new SpriteComponent(0, 0, width, height, Sprite.PAGE_CARD_IDLE.id());
         this.addComponent(background);
 
         // Center the icon on the background.

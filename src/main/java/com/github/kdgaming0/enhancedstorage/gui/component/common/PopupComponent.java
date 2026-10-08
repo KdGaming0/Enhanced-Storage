@@ -4,7 +4,8 @@ import com.daqem.uilib.api.component.IComponent;
 import com.daqem.uilib.api.widget.IWidget;
 import com.daqem.uilib.gui.component.AbstractComponent;
 import com.daqem.uilib.gui.component.text.TextComponent;
-import com.github.kdgaming0.enhancedstorage.gui.OverlayTheme;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle.Sprite;
 import com.github.kdgaming0.enhancedstorage.gui.component.page.PageCardButtonWidget;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -170,14 +171,14 @@ public class PopupComponent extends AbstractComponent {
     // A line styled with its own colour (e.g. a red warning) keeps it; plain lines follow the theme.
     private static int lineColor(Component line) {
         TextColor color = line.getStyle().getColor();
-        return color != null ? 0xFF000000 | color.getValue() : OverlayTheme.titleColor();
+        return color != null ? 0xFF000000 | color.getValue() : OverlayStyle.titleColor();
     }
 
     private int addLines(Font font, List<Component> lines) {
         int cursorY = panelY + PADDING;
         for (Component line : lines) {
             TextComponent text = new TextComponent(panelX + PADDING, cursorY, line, lineColor(line));
-            text.setDrawShadow(OverlayTheme.titleShadow());
+            text.setDrawShadow(OverlayStyle.titleShadow());
             addComponent(text);
             cursorY += font.lineHeight + LINE_GAP;
         }
@@ -185,10 +186,10 @@ public class PopupComponent extends AbstractComponent {
     }
 
     private void addButton(Option option, int x, int y, int width) {
-        Identifier idle = OverlayTheme.sprite(OverlayTheme.PAGE_CARD_IDLE);
-        Identifier active = OverlayTheme.sprite(OverlayTheme.PAGE_CARD_ACTIVE);
+        Identifier idle = Sprite.PAGE_CARD_IDLE.id();
+        Identifier active = Sprite.PAGE_CARD_ACTIVE.id();
         WidgetSprites sprites = new WidgetSprites(idle, idle, active);
-        int color = (option.enabled() ? OverlayTheme.titleColor() : OverlayTheme.secondaryTextColor()) & 0xFFFFFF;
+        int color = (option.enabled() ? OverlayStyle.titleColor() : OverlayStyle.secondaryTextColor()) & 0xFFFFFF;
         Component label = Component.literal(option.label()).withStyle(s -> s.withColor(color));
         PageCardButtonWidget button = new PageCardButtonWidget(x, y, width, BUTTON_HEIGHT, label,
                 () -> sprites, b -> option.action().run());
@@ -218,10 +219,10 @@ public class PopupComponent extends AbstractComponent {
         if (modal) {
             guiGraphics.fill(0, 0, getWidth(), getHeight(), SCRIM_COLOR);
         }
-        guiGraphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(OverlayTheme.PAGE_CARD_IDLE),
+        guiGraphics.blitSprite(RenderPipelines.GUI_TEXTURED, Sprite.PAGE_CARD_IDLE.id(),
                 panelX, panelY, panelWidth, panelHeight);
         if (dividerY >= 0) {
-            int color = (OverlayTheme.secondaryTextColor() & 0xFFFFFF) | 0x60000000;
+            int color = (OverlayStyle.secondaryTextColor() & 0xFFFFFF) | 0x60000000;
             guiGraphics.fill(panelX + PADDING, dividerY, panelX + panelWidth - PADDING, dividerY + 1, color);
         }
     }

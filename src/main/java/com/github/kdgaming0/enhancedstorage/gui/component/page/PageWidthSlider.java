@@ -1,7 +1,8 @@
 package com.github.kdgaming0.enhancedstorage.gui.component.page;
 
 import com.daqem.uilib.api.widget.IWidget;
-import com.github.kdgaming0.enhancedstorage.gui.OverlayTheme;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle.Sprite;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageWidths;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -71,17 +72,17 @@ public class PageWidthSlider extends AbstractSliderButton implements IWidget {
     @Override
     public void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         int color = ARGB.white(this.alpha);
-        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(OverlayTheme.SLIDER_BUTTON),
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, Sprite.SLIDER_BUTTON.id(),
                 getX(), getY(), getWidth(), getHeight(), color);
         int handleX = getX() + (int) (value * (getWidth() - HANDLE_WIDTH));
-        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(OverlayTheme.PAGE_CARD_ACTIVE),
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, Sprite.PAGE_CARD_ACTIVE.id(),
                 handleX, getY(), HANDLE_WIDTH, getHeight(), color);
 
         Font font = Minecraft.getInstance().font;
         Component message = getMessage();
         int textX = getX() + (getWidth() - font.width(message)) / 2;
         int textY = getY() + (getHeight() - font.lineHeight) / 2 + 1;
-        graphics.text(font, message, textX, textY, OverlayTheme.titleColor(), OverlayTheme.titleShadow());
+        graphics.text(font, message, textX, textY, OverlayStyle.titleColor(), OverlayStyle.titleShadow());
         handleCursor(graphics);
     }
 }

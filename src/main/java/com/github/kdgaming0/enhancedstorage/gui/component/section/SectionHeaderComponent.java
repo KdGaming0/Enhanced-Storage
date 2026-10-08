@@ -5,7 +5,8 @@ import com.daqem.uilib.api.widget.IWidget;
 import com.daqem.uilib.gui.component.text.TextComponent;
 import com.daqem.uilib.gui.component.text.TruncatedTextComponent;
 import com.daqem.uilib.gui.widget.EditBoxWidget;
-import com.github.kdgaming0.enhancedstorage.gui.OverlayTheme;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle.Sprite;
 import com.github.kdgaming0.enhancedstorage.gui.component.page.GridCellComponent;
 import com.github.kdgaming0.enhancedstorage.gui.layout.LiveCell;
 import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
@@ -17,6 +18,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -69,16 +71,16 @@ public class SectionHeaderComponent extends GridCellComponent implements LiveCel
         String stats = pages + (pages == 1 ? " page" : " pages") + " · " + freeSlots
                 + (freeSlots == 1 ? " empty slot" : " empty slots");
         int statsX = statsRight - font.width(stats);
-        TextComponent statsText = new TextComponent(statsX, TEXT_Y, Component.literal(stats), OverlayTheme.titleColor());
-        statsText.setDrawShadow(OverlayTheme.titleShadow());
+        TextComponent statsText = new TextComponent(statsX, TEXT_Y, Component.literal(stats), OverlayStyle.titleColor());
+        statsText.setDrawShadow(OverlayStyle.titleShadow());
         addComponent(statsText);
 
         this.nameMaxWidth = Math.max(0, statsX - NAME_STATS_GAP - nameX);
         String name = TextUtils.colorCodes(entry.name());
         this.nameWidth = Math.min(font.width(name), nameMaxWidth);
         this.nameText = new TruncatedTextComponent(nameX, TEXT_Y, nameMaxWidth,
-                Component.literal(name), OverlayTheme.titleColor());
-        nameText.setDrawShadow(OverlayTheme.titleShadow());
+                Component.literal(name), OverlayStyle.titleColor());
+        nameText.setDrawShadow(OverlayStyle.titleShadow());
         addComponent(nameText);
     }
 
@@ -145,7 +147,7 @@ public class SectionHeaderComponent extends GridCellComponent implements LiveCel
                 Component.literal("Section name | Click to edit"));
         box.setBordered(false);
         box.setMaxLength(PageNames.MAX_NAME_LENGTH);
-        box.setTextColor(OverlayTheme.titleColor());
+        box.setTextColor(OverlayStyle.titleColor());
         box.setResponder(text -> box.setSuggestion(text.isEmpty() ? defaultName : null));
         box.setValue(entry.name().equals(defaultName) ? "" : entry.name());
         box.setSuggestion(box.getValue().isEmpty() ? defaultName : null);
@@ -169,15 +171,18 @@ public class SectionHeaderComponent extends GridCellComponent implements LiveCel
 
         int x = getTotalX();
         int y = getTotalY();
-        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(OverlayTheme.SECTION_HEADER),
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, Sprite.SECTION_HEADER.id(),
                 x + BORDER, y + BORDER, getWidth() - BORDER * 2, open ? STRIP_OPEN : STRIP_CLOSED);
         if (editMode) {
-            drawIcon(graphics, isOverGrip(mouseX, mouseY) ? OverlayTheme.SECTION_GRIP_HOVER : OverlayTheme.SECTION_GRIP, gripX);
-            drawIcon(graphics, isOverTrash(mouseX, mouseY) ? OverlayTheme.SECTION_TRASH_HOVER : OverlayTheme.SECTION_TRASH, trashX);
+            drawIcon(graphics, Sprite.SECTION_GRIP.id(), gripX,
+                    isOverGrip(mouseX, mouseY) ? OverlayStyle.iconHoverColor() : OverlayStyle.iconColor());
+            drawIcon(graphics, Sprite.SECTION_TRASH.id(), trashX,
+                    isOverTrash(mouseX, mouseY) ? OverlayStyle.dangerColor() : OverlayStyle.iconColor());
         }
         // Update the arrow icon based on the current state.
         boolean showCollapsed = entry.collapsed() && !openForDrag;
-        drawIcon(graphics, showCollapsed ? OverlayTheme.SECTION_COLLAPSE_ARROW : OverlayTheme.SECTION_EXPAND_ARROW, arrowX);
+        drawIcon(graphics, showCollapsed ? Sprite.SECTION_COLLAPSE_ARROW.id() : Sprite.SECTION_EXPAND_ARROW.id(), arrowX,
+                OverlayStyle.iconColor());
 
         for (IComponent component : getComponents()) {
             if (component == nameText && nameEditor != null) continue;
@@ -188,9 +193,9 @@ public class SectionHeaderComponent extends GridCellComponent implements LiveCel
         }
     }
 
-    private void drawIcon(GuiGraphicsExtractor graphics, String sprite, int localX) {
-        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(sprite),
-                getTotalX() + localX, getTotalY() + ICON_Y, ICON_SIZE, ICON_SIZE);
+    private void drawIcon(GuiGraphicsExtractor graphics, Identifier sprite, int localX, int color) {
+        OverlayStyle.blitIcon(graphics, sprite,
+                getTotalX() + localX, getTotalY() + ICON_Y, ICON_SIZE, ICON_SIZE, color);
     }
 
     @Override

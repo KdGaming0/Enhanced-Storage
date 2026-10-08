@@ -11,6 +11,7 @@ import com.daqem.uilib.gui.widget.EditBoxWidget;
 import com.github.kdgaming0.enhancedstorage.compat.ModWidgetSpace;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.config.LayoutSpacing;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle.Sprite;
 import com.github.kdgaming0.enhancedstorage.gui.component.common.CachedPanelComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.common.IconButtonComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.common.ItemButtonComponent;
@@ -46,8 +47,6 @@ import org.jetbrains.annotations.Nullable;
 import java.util.*;
 import java.util.stream.Stream;
 
-import static com.github.kdgaming0.enhancedstorage.EnhancedStorage.MOD_ID;
-
 
 public class StorageOverlayLayout {
 
@@ -67,7 +66,6 @@ public class StorageOverlayLayout {
             InputConstants.KEY_9};
     private static final int PANEL_TOP = 3;
     private static final long WARMUP_BUDGET_MS = 3;
-    private static final int EDIT_MODE_TITLE_COLOR = 0xFFFFD24A;
     private static final List<Hint> EDIT_MODE_HINTS = List.of(
             new Hint("Click title", "Rename"),
             new Hint("Drag page", "Move it"),
@@ -241,18 +239,6 @@ public class StorageOverlayLayout {
         return result;
     }
 
-    private static Identifier getSettingsIcon() {
-        return Identifier.fromNamespaceAndPath(MOD_ID, "icons/gear_icon");
-    }
-
-    private static Identifier getEditIcon() {
-        return Identifier.fromNamespaceAndPath(MOD_ID, "icons/edit_icon");
-    }
-
-    private static Identifier getResetIcon() {
-        return Identifier.fromNamespaceAndPath(MOD_ID, "icons/reset_icon");
-    }
-
     private static ItemStack buildToolkitIcon() {
         ItemStack stack = new ItemStack(Items.PAPER);
         stack.set(DataComponents.ITEM_MODEL,
@@ -358,7 +344,7 @@ public class StorageOverlayLayout {
     private void addPanelText(SpriteComponent panel, int x, int y, String text, int color) {
         TextComponent component = new TextComponent(x, y + panelTop, Component.literal(text), color);
         component.updateParentPosition(panel.getTotalX(), panel.getTotalY(), panel.getWidth(), panel.getHeight());
-        component.setDrawShadow(OverlayTheme.titleShadow());
+        component.setDrawShadow(OverlayStyle.titleShadow());
         panel.addComponent(component);
     }
 
@@ -447,9 +433,16 @@ public class StorageOverlayLayout {
         return 0;
     }
 
-    private static boolean isArrow(int key) {
-        return key == InputConstants.KEY_UP || key == InputConstants.KEY_DOWN
-                || key == InputConstants.KEY_LEFT || key == InputConstants.KEY_RIGHT;
+    // The arrow key this key navigates as (WASD only when enabled), or -1.
+    private static int navigationArrow(int key) {
+        return switch (key) {
+            case InputConstants.KEY_UP, InputConstants.KEY_DOWN, InputConstants.KEY_LEFT, InputConstants.KEY_RIGHT -> key;
+            case InputConstants.KEY_W -> EnhancedStorageConfig.wasdPageNavigation ? InputConstants.KEY_UP : -1;
+            case InputConstants.KEY_A -> EnhancedStorageConfig.wasdPageNavigation ? InputConstants.KEY_LEFT : -1;
+            case InputConstants.KEY_S -> EnhancedStorageConfig.wasdPageNavigation ? InputConstants.KEY_DOWN : -1;
+            case InputConstants.KEY_D -> EnhancedStorageConfig.wasdPageNavigation ? InputConstants.KEY_RIGHT : -1;
+            default -> -1;
+        };
     }
 
     private static String emptySlotsDescription(StorageKey key) {
@@ -595,14 +588,14 @@ public class StorageOverlayLayout {
         buildBottomPanels(screen, width, mainBackground);
         addOverviewIndexItems(liveKey);
         if (editMode) {
-            addPanelTitle(inventoryPanel, "Edit Mode", EDIT_MODE_TITLE_COLOR);
+            addPanelTitle(inventoryPanel, "Edit Mode", OverlayStyle.accentColor());
             addEditModeHints(inventoryPanel);
         } else {
-            addPanelTitle(inventoryPanel, "Inventory", OverlayTheme.titleColor());
+            addPanelTitle(inventoryPanel, "Inventory", OverlayStyle.titleColor());
         }
         if (overviewPanel != null) {
             boolean overviewActive = liveKey != null && liveKey.type() == StorageKey.Type.STORAGE_INDEX;
-            addPanelTitle(overviewPanel, "Storage Overview", overviewActive ? 0xFFFFD24A : OverlayTheme.titleColor());
+            addPanelTitle(overviewPanel, "Storage Overview", overviewActive ? OverlayStyle.accentColor() : OverlayStyle.titleColor());
         }
 
         ensureWarmupQueue();
@@ -805,7 +798,7 @@ public class StorageOverlayLayout {
     private SpriteComponent buildMainPanel(IScreen screen) {
         SpriteComponent mainBackground = new SpriteComponent(mainBackgroundX, mainBackgroundY,
                 mainBackgroundWidth, mainBackgroundHeight,
-                OverlayTheme.sprite(OverlayTheme.MAIN_PANEL));
+                Sprite.MAIN_PANEL.id());
         screen.addComponent(mainBackground);
         return mainBackground;
     }
@@ -821,7 +814,7 @@ public class StorageOverlayLayout {
         }
 
         SpriteComponent panel = new SpriteComponent(x, mainBackgroundY, navigationWidth, height,
-                OverlayTheme.sprite(OverlayTheme.PAGE_CARD_IDLE));
+                Sprite.PAGE_CARD_IDLE.id());
         screen.addComponent(panel);
         this.navigationBounds = new Rect(x, mainBackgroundY, navigationWidth, height);
 
@@ -1234,11 +1227,11 @@ public class StorageOverlayLayout {
         }
 
         boolean withTop = panelTop > 0;
-        String inventorySprite = editMode
-                ? (withTop ? OverlayTheme.STORAGE_INVENTORY_FILLED_TOP : OverlayTheme.STORAGE_INVENTORY_FILLED)
-                : (withTop ? OverlayTheme.STORAGE_INVENTORY_TOP : OverlayTheme.STORAGE_INVENTORY);
+        Identifier inventorySprite = editMode
+                ? (withTop ? Sprite.STORAGE_INVENTORY_FILLED_TOP.id() : Sprite.STORAGE_INVENTORY_FILLED.id())
+                : (withTop ? Sprite.STORAGE_INVENTORY_TOP.id() : Sprite.STORAGE_INVENTORY.id());
         SpriteComponent inventory = new SpriteComponent(inventoryX, inventoryY, INVENTORY_WIDTH, INVENTORY_HEIGHT + panelTop,
-                OverlayTheme.sprite(inventorySprite));
+                inventorySprite);
         screen.addComponent(inventory);
         this.inventoryPanel = inventory;
         this.inventoryBounds = new Rect(inventory.getTotalX(), inventory.getTotalY(),
@@ -1247,7 +1240,7 @@ public class StorageOverlayLayout {
         SpriteComponent overview = null;
         if (showOverview) {
             overview = new CachedPanelComponent(overviewX, overviewY, OVERVIEW_WIDTH, OVERVIEW_HEIGHT + panelTop,
-                    OverlayTheme.sprite(withTop ? OverlayTheme.STORAGE_OVERVIEW_TOP : OverlayTheme.STORAGE_OVERVIEW),
+                    withTop ? Sprite.STORAGE_OVERVIEW_TOP.id() : Sprite.STORAGE_OVERVIEW.id(),
                     this::pageLayerEnabled);
             screen.addComponent(overview);
         }
@@ -1286,8 +1279,8 @@ public class StorageOverlayLayout {
         int resultX = 7 + actionWidth + 8;
         int y = 17;
         for (Hint hint : EDIT_MODE_HINTS) {
-            addPanelText(panel, 7, y, hint.action(), OverlayTheme.titleColor());
-            addPanelText(panel, resultX, y, hint.result(), OverlayTheme.secondaryTextColor());
+            addPanelText(panel, 7, y, hint.action(), OverlayStyle.titleColor());
+            addPanelText(panel, resultX, y, hint.result(), OverlayStyle.secondaryTextColor());
             y += font.lineHeight + 2;
         }
     }
@@ -1341,7 +1334,7 @@ public class StorageOverlayLayout {
         if (EnhancedStorageConfig.showSettingsButton && !riftContext) {
             IconButtonComponent settings = new IconButtonComponent(
                     btnX, btnY, btnSize, btnSize,
-                    getSettingsIcon(), iconSize,
+                    Sprite.SETTINGS_ICON.id(), iconSize,
                     List.of(Component.literal("Settings").withStyle(s -> s.withColor(0x55FF55).withItalic(false))));
             this.settingsButtonBounds = placeButton(screen, settings, btnX, btnY, btnSize, width, height);
             btnX += btnSize + btnGap;
@@ -1350,9 +1343,9 @@ public class StorageOverlayLayout {
         if (EnhancedStorageConfig.showThemeButton && !riftContext) {
             IconButtonComponent theme = new IconButtonComponent(
                     btnX, btnY, btnSize, btnSize,
-                    OverlayTheme.icon(), iconSize,
+                    Sprite.THEME_ICON.id(), iconSize,
                     List.of(
-                            Component.literal("Theme: " + OverlayTheme.displayName())
+                            Component.literal("Theme: " + OverlayStyle.displayName())
                                     .withStyle(s -> s.withColor(0x55FF55).withItalic(false)),
                             Component.literal("Click to cycle")
                                     .withStyle(s -> s.withColor(0xFFAA00).withItalic(false))));
@@ -1364,7 +1357,7 @@ public class StorageOverlayLayout {
         if (EnhancedStorageConfig.showEditButton || editMode) {
             IconButtonComponent edit = new IconButtonComponent(
                     btnX, btnY, btnSize, btnSize,
-                    getEditIcon(), iconSize,
+                    Sprite.EDIT_ICON.id(), iconSize,
                     List.of(Component.literal(editMode ? "Exit Edit Mode" : "Edit Layout")
                             .withStyle(s -> s.withColor(0x55FF55).withItalic(false))));
             this.editButtonBounds = placeButton(screen, edit, btnX, btnY, btnSize, width, height);
@@ -1377,7 +1370,7 @@ public class StorageOverlayLayout {
             int resetY = beside ? btnY : btnY + btnSize + btnGap;
             IconButtonComponent reset = new IconButtonComponent(
                     resetX, resetY, btnSize, btnSize,
-                    getResetIcon(), iconSize,
+                    Sprite.RESET_ICON.id(), iconSize,
                     List.of(Component.literal("Reset Layout").withStyle(s -> s.withColor(0x55FF55).withItalic(false)),
                             Component.literal("Choose what to restore to default")
                                     .withStyle(s -> s.withColor(0xFFAA00).withItalic(false))));
@@ -1434,7 +1427,7 @@ public class StorageOverlayLayout {
             return true;
         }
         if (Rect.contains(themeButtonBounds, x, y)) {
-            OverlayTheme.cycle();
+            OverlayStyle.cycle();
             actions.rebuild().run();
             return true;
         }
@@ -1704,7 +1697,7 @@ public class StorageOverlayLayout {
     private void paintSectionFrames(GuiGraphicsExtractor graphics) {
         for (SectionFrame frame : sectionFrames) {
             Rect r = frame.bounds();
-            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(OverlayTheme.SECTION_FRAME),
+            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, Sprite.SECTION_FRAME.id(),
                     r.x(), r.y(), r.width(), r.height());
         }
     }
@@ -1833,7 +1826,7 @@ public class StorageOverlayLayout {
     }
 
     /**
-     * Arrow keys open the neighbouring page as shown; Shift+1–9 opens that page in layout order.
+     * Arrow keys (and WASD, if enabled) open the neighbouring page as shown; Shift+1–9 opens that page in layout order.
      * Returns true when the key is a navigation key, even if there was nothing to open.
      */
     public boolean handleNavigationKey(KeyEvent event) {
@@ -1845,9 +1838,9 @@ public class StorageOverlayLayout {
         if (mods == InputConstants.MOD_SHIFT && digitKey(key) > 0) {
             // Consumed even without a page, so vanilla doesn't also swap the hovered slot with the hotbar.
             target = pageByNumber(digitKey(key));
-        } else if ((mods & ~InputConstants.MOD_ALT) == 0 && isArrow(key)) {
+        } else if ((mods & ~InputConstants.MOD_ALT) == 0 && navigationArrow(key) != -1) {
             // Alt is allowed, so arrows also step through pages filtered by a held item.
-            target = pageInDirection(key);
+            target = pageInDirection(navigationArrow(key));
         } else {
             return false;
         }
@@ -1943,8 +1936,8 @@ public class StorageOverlayLayout {
         int textY = (rowHeight - font.lineHeight) / 2 + 20;
 
         TruncatedTextComponent emptyText = new TruncatedTextComponent(
-                textX, textY, rowContentWidth - textX, message, OverlayTheme.titleColor());
-        emptyText.setDrawShadow(OverlayTheme.titleShadow());
+                textX, textY, rowContentWidth - textX, message, OverlayStyle.titleColor());
+        emptyText.setDrawShadow(OverlayStyle.titleShadow());
 
         EmptyComponent emptyRow = new EmptyComponent(0, 0, rowContentWidth, rowHeight);
         emptyRow.addComponent(emptyText);

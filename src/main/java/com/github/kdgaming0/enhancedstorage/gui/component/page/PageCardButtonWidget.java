@@ -1,7 +1,7 @@
 package com.github.kdgaming0.enhancedstorage.gui.component.page;
 
 import com.daqem.uilib.gui.widget.ButtonWidget;
-import com.github.kdgaming0.enhancedstorage.gui.OverlayTheme;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -45,6 +45,6 @@ public class PageCardButtonWidget extends ButtonWidget {
         Component message = this.getMessage();
         int textX = this.getX() + (this.getWidth() - font.width(message)) / 2;
         int textY = this.getY() + (this.getHeight() - font.lineHeight) / 2 + 1;
-        guiGraphics.text(font, message, textX, textY, ARGB.white(this.alpha), OverlayTheme.titleShadow());
+        guiGraphics.text(font, message, textX, textY, ARGB.white(this.alpha), OverlayStyle.titleShadow());
     }
 }

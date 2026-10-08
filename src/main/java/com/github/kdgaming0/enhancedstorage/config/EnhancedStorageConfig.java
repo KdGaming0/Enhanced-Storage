@@ -207,7 +207,7 @@ public class EnhancedStorageConfig extends MidnightConfig {
     public static HighlightCopiesMode highlightCopies = HighlightCopiesMode.HOLD_KEY;
 
     @Entry(category = CATEGORY_SEARCH)
-    public static boolean hidePagesWithoutCopies = false;
+    public static boolean hidePagesWithoutCopies = true;
 
     @Entry(category = CATEGORY_SEARCH)
     public static boolean showItemTotals = true;
@@ -228,6 +228,9 @@ public class EnhancedStorageConfig extends MidnightConfig {
 
     @Entry(category = CATEGORY_NAVIGATION)
     public static boolean invertScrollDirection = false;
+
+    @Entry(category = CATEGORY_NAVIGATION)
+    public static boolean wasdPageNavigation = false;
 
     @Entry(category = CATEGORY_NAVIGATION)
     public static boolean rememberScrollOnReopen = false;
@@ -317,7 +320,7 @@ public class EnhancedStorageConfig extends MidnightConfig {
     }
 
     public enum LayoutDensity {
-        CUSTOM, COMFORTABLE, COMPACT, DENSE
+        CUSTOM, NORMAL, COMPACT, DENSE
     }
 
     public enum ModWidgetSpacing {

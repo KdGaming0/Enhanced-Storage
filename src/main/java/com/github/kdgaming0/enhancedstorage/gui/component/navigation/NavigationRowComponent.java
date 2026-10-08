@@ -3,7 +3,8 @@ package com.github.kdgaming0.enhancedstorage.gui.component.navigation;
 import com.daqem.uilib.api.component.IComponent;
 import com.daqem.uilib.gui.component.AbstractComponent;
 import com.daqem.uilib.gui.component.text.TruncatedTextComponent;
-import com.github.kdgaming0.enhancedstorage.gui.OverlayTheme;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle.Sprite;
 import com.github.kdgaming0.enhancedstorage.gui.component.page.GridCellComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.page.PageCardComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.section.SectionHeaderComponent;
@@ -18,6 +19,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -35,6 +37,7 @@ public class NavigationRowComponent extends AbstractComponent {
     private static final int INDENT = GUIDE_X + 1 + TEXT_GAP - ICON_X;
     private static final int GUIDE_END_GAP = 2;
     private static final int LINE_GAP = 4;
+    private static final int SECTION_LINE_Y = 5;
     private static final int RIGHT_PAD = 0;
     private static final float CACHED_ALPHA = 0.7F;
     private static final float UNCACHED_ALPHA = 0.4F;
@@ -72,13 +75,13 @@ public class NavigationRowComponent extends AbstractComponent {
         int textWidth = width - textX - RIGHT_PAD;
         this.truncated = font.width(name) > textWidth;
         this.textEnd = textX + Math.min(font.width(name), textWidth);
-        int color = open ? OverlayTheme.navActiveTitleColor()
-                : dimmed ? OverlayTheme.navUncachedColor()
-                : section ? OverlayTheme.navEmphasisColor()
-                : cached ? OverlayTheme.navPageColor()
-                : OverlayTheme.navUncachedColor();
+        int color = open ? OverlayStyle.navActiveTitleColor()
+                : dimmed ? OverlayStyle.navUncachedColor()
+                : section ? OverlayStyle.navEmphasisColor()
+                : cached ? OverlayStyle.navPageColor()
+                : OverlayStyle.navUncachedColor();
         TruncatedTextComponent text = new TruncatedTextComponent(textX, TEXT_Y, textWidth, Component.literal(name), color);
-        text.setDrawShadow(OverlayTheme.titleShadow());
+        text.setDrawShadow(OverlayStyle.titleShadow());
         addComponent(text);
     }
 
@@ -106,8 +109,12 @@ public class NavigationRowComponent extends AbstractComponent {
                 continues, dimmed);
     }
 
-    private static void blit(GuiGraphicsExtractor graphics, String sprite, int x, int y, int width, int height) {
-        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(sprite), x, y, width, height);
+    private static void blit(GuiGraphicsExtractor graphics, Identifier sprite, int x, int y, int width, int height, int color) {
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x, y, width, height, color);
+    }
+
+    private static void guide(GuiGraphicsExtractor graphics, int x, int top, int bottom) {
+        graphics.fill(x + GUIDE_X, top, x + GUIDE_X + 1, bottom, OverlayStyle.navLineColor());
     }
 
     public GridCellComponent target() {
@@ -135,28 +142,30 @@ public class NavigationRowComponent extends AbstractComponent {
                                        int parentWidth, int parentHeight) {
         int x = getTotalX();
         int y = getTotalY();
-        if (open) blit(graphics, OverlayTheme.NAV_ROW_ACTIVE, x, y, getWidth(), HEIGHT);
+        if (open) blit(graphics, Sprite.NAV_ROW_ACTIVE.id(), x, y, getWidth(), HEIGHT, OverlayStyle.navActiveRowColor());
         // Rows half outside the list are clipped, so only count hover inside the visible part.
         if (bounds().contains(mouseX, mouseY) && graphics.containsPointInScissor(mouseX, mouseY)) {
-            blit(graphics, OverlayTheme.NAV_ROW_HOVER, x, y, getWidth(), HEIGHT);
+            blit(graphics, Sprite.NAV_ROW_HOVER.id(), x, y, getWidth(), HEIGHT, OverlayStyle.titleHoverFill());
             graphics.requestCursor(CursorTypes.POINTING_HAND);
         }
 
         if (section) {
-            graphics.blitSprite(RenderPipelines.GUI_TEXTURED,
-                    OverlayTheme.sprite(collapsed ? OverlayTheme.NAV_SECTION_COLLAPSED : OverlayTheme.NAV_SECTION_EXPANDED),
-                    x + ICON_X, y + ICON_Y, ICON_SIZE, ICON_SIZE, dimmed ? UNCACHED_ALPHA : 1.0F);
+            OverlayStyle.blitIcon(graphics,
+                    collapsed ? Sprite.NAV_SECTION_COLLAPSED.id() : Sprite.NAV_SECTION_EXPANDED.id(),
+                    x + ICON_X, y + ICON_Y, ICON_SIZE, ICON_SIZE, OverlayStyle.iconColor(dimmed ? UNCACHED_ALPHA : 1.0F));
             // Joins the triangle to the guide line of the pages below.
             int belowIcon = ICON_Y + ICON_SIZE;
-            if (continues) blit(graphics, OverlayTheme.NAV_GUIDE, x + GUIDE_X, y + belowIcon, 1, HEIGHT - belowIcon);
+            if (continues) guide(graphics, x, y + belowIcon, y + HEIGHT);
             int lineX = textEnd + LINE_GAP;
-            if (lineX < getWidth()) blit(graphics, OverlayTheme.NAV_SECTION, x + lineX, y, getWidth() - lineX, HEIGHT);
+            if (lineX < getWidth()) {
+                graphics.fill(x + lineX, y + SECTION_LINE_Y, x + getWidth(), y + SECTION_LINE_Y + 1, OverlayStyle.navLineColor());
+            }
         } else {
             // The last page's line stops short so it doesn't run into the next group.
             if (indented) {
-                blit(graphics, OverlayTheme.NAV_GUIDE, x + GUIDE_X, y, 1, continues ? HEIGHT : HEIGHT - GUIDE_END_GAP);
+                guide(graphics, x, y, y + (continues ? HEIGHT : HEIGHT - GUIDE_END_GAP));
             }
-            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(OverlayTheme.NAV_PAGE),
+            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, Sprite.NAV_PAGE.id(),
                     x + iconX, y + ICON_Y, ICON_SIZE, ICON_SIZE, cached && !dimmed ? CACHED_ALPHA : UNCACHED_ALPHA);
         }
 

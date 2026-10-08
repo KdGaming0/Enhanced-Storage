@@ -7,6 +7,7 @@ import com.daqem.uilib.gui.widget.EditBoxWidget;
 import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle.Sprite;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayLayout.ResetPart;
 import com.github.kdgaming0.enhancedstorage.gui.component.common.PaintLayerComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.common.PopupComponent;
@@ -44,7 +45,6 @@ import java.util.function.Consumer;
 public class StorageOverlay extends AbstractScreen {
 
     static final int DRAG_THRESHOLD = 4;
-    private static final int SECTION_LINE_COLOR = 0xFFFFD24A;
     private static final int SECTION_LABEL_BACKGROUND = 0xC0000000;
     private static final String ADD_SECTION_TEXT = "+ Add section here";
     private static final String FILL_SPACER_TEXT = "Fills the row";
@@ -117,7 +117,7 @@ public class StorageOverlay extends AbstractScreen {
         layout.build(this, this.font, this.width, this.height, state, null, 0, actions);
 
         if (editMode) {
-            sectionLabel = new TextComponent(0, 0, Component.literal(ADD_SECTION_TEXT), SECTION_LINE_COLOR);
+            sectionLabel = new TextComponent(0, 0, Component.literal(ADD_SECTION_TEXT), OverlayStyle.accentColor());
             sectionLabel.setDrawShadow(true);
             sectionLabel.updateParentPosition(0, 0, this.width, this.height);
 
@@ -444,7 +444,7 @@ public class StorageOverlay extends AbstractScreen {
     private void paintSectionSlot(GuiGraphicsExtractor graphics, StorageOverlayLayout.SectionSlot slot) {
         Rect area = layout.boundaryArea();
         graphics.enableScissor(area.x(), area.y(), area.right(), area.bottom());
-        graphics.fill(slot.x(), slot.lineY(), slot.x() + slot.width(), slot.lineY() + 1, SECTION_LINE_COLOR);
+        graphics.fill(slot.x(), slot.lineY(), slot.x() + slot.width(), slot.lineY() + 1, OverlayStyle.accentColor());
 
         TextComponent label = sectionLabel;
         if (label != null) {
@@ -473,7 +473,7 @@ public class StorageOverlay extends AbstractScreen {
         if (!header.isOverName(mouseX, mouseY)) return;
         Rect name = header.nameBounds();
         graphics.enableScissor(viewport.x(), viewport.y(), viewport.right(), viewport.bottom());
-        graphics.fill(name.x(), name.y(), name.right(), name.bottom(), OverlayTheme.titleHoverFill());
+        graphics.fill(name.x(), name.y(), name.right(), name.bottom(), OverlayStyle.titleHoverFill());
         graphics.disableScissor();
         graphics.requestCursor(CursorTypes.IBEAM);
     }
@@ -485,13 +485,13 @@ public class StorageOverlay extends AbstractScreen {
             if (cell instanceof SpacerCardComponent spacer && cell.getWidth() > 0) {
                 Rect r = cell.bounds();
                 boolean fill = spacer.isFill();
-                graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(OverlayTheme.PAGE_SPACER),
+                graphics.blitSprite(RenderPipelines.GUI_TEXTURED, Sprite.PAGE_SPACER.id(),
                         r.x(), r.y(), r.width(), r.height(), fill ? ARGB.white(FILL_SPACER_ALPHA) : -1);
                 int textWidth = this.font.width(FILL_SPACER_TEXT);
                 if (fill && textWidth + 8 <= r.width()) {
                     graphics.text(this.font, Component.literal(FILL_SPACER_TEXT),
                             r.x() + (r.width() - textWidth) / 2, r.y() + (r.height() - this.font.lineHeight) / 2 + 1,
-                            OverlayTheme.secondaryTextColor(), OverlayTheme.titleShadow());
+                            OverlayStyle.secondaryTextColor(), OverlayStyle.titleShadow());
                 }
             }
         }
@@ -536,10 +536,10 @@ public class StorageOverlay extends AbstractScreen {
 
         // Hover cues: the frame says "draggable", the title wash says "click to rename".
         graphics.enableScissor(viewport.x(), viewport.y(), viewport.right(), viewport.bottom());
-        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(OverlayTheme.PAGE_CARD_HOVER),
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, Sprite.PAGE_CARD_HOVER.id(),
                 bounds.x(), bounds.y(), bounds.width(), bounds.height());
         if (title != null) {
-            graphics.fill(title.x() + 2, title.y(), title.right() - 2, title.bottom(), OverlayTheme.titleHoverFill());
+            graphics.fill(title.x() + 2, title.y(), title.right() - 2, title.bottom(), OverlayStyle.titleHoverFill());
         }
         graphics.disableScissor();
 

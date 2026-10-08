@@ -2,7 +2,7 @@ package com.github.kdgaming0.enhancedstorage.gui.component.common;
 
 import com.daqem.uilib.gui.component.AbstractComponent;
 import com.daqem.uilib.gui.component.sprite.SpriteComponent;
-import com.github.kdgaming0.enhancedstorage.gui.OverlayTheme;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle.Sprite;
 import com.github.kdgaming0.enhancedstorage.gui.component.page.TooltipItemComponent;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -21,7 +21,7 @@ public class ItemButtonComponent extends AbstractComponent {
         super(x, y, width, height);
 
         // Nine-slice background, scaled to the button size.
-        SpriteComponent background = new SpriteComponent(0, 0, width, height, OverlayTheme.sprite(OverlayTheme.PAGE_CARD_IDLE));
+        SpriteComponent background = new SpriteComponent(0, 0, width, height, Sprite.PAGE_CARD_IDLE.id());
         this.addComponent(background);
 
         // Center the 16x16 item on the background.

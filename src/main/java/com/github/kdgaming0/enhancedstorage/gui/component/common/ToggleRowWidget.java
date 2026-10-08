@@ -1,12 +1,14 @@
 package com.github.kdgaming0.enhancedstorage.gui.component.common;
 
 import com.daqem.uilib.gui.widget.ButtonWidget;
-import com.github.kdgaming0.enhancedstorage.gui.OverlayTheme;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle.Sprite;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.ARGB;
 import org.jetbrains.annotations.NotNull;
 
@@ -49,17 +51,17 @@ public class ToggleRowWidget extends ButtonWidget {
 
     @Override
     protected void extractContents(@NotNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
-        String sprite = checked ? OverlayTheme.PAGE_CARD_ACTIVE
-                : active && isHoveredOrFocused() ? OverlayTheme.PAGE_CARD_HOVER
-                : OverlayTheme.PAGE_CARD_IDLE;
+        Identifier sprite = checked ? Sprite.PAGE_CARD_ACTIVE.id()
+                : active && isHoveredOrFocused() ? Sprite.PAGE_CARD_HOVER.id()
+                : Sprite.PAGE_CARD_IDLE.id();
         float spriteAlpha = active ? alpha : alpha * 0.5f;
-        guiGraphics.blitSprite(RenderPipelines.GUI_TEXTURED, OverlayTheme.sprite(sprite),
+        guiGraphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite,
                 getX(), getY(), getWidth(), getHeight(), ARGB.white(spriteAlpha));
 
         Font font = Minecraft.getInstance().font;
-        int textColor = active ? OverlayTheme.titleColor() : dim(OverlayTheme.secondaryTextColor());
-        int detailColor = active ? OverlayTheme.secondaryTextColor() : textColor;
-        boolean shadow = OverlayTheme.titleShadow();
+        int textColor = active ? OverlayStyle.titleColor() : dim(OverlayStyle.secondaryTextColor());
+        int detailColor = active ? OverlayStyle.secondaryTextColor() : textColor;
+        boolean shadow = OverlayStyle.titleShadow();
 
         int boxX = getX() + INSET;
         int boxY = getY() + (getHeight() - BOX) / 2;

@@ -70,7 +70,7 @@ public final class LayoutSpacing {
     private static @Nullable Preset preset() {
         return switch (EnhancedStorageConfig.layoutDensity) {
             case CUSTOM -> null;
-            case COMFORTABLE -> COMFORTABLE_PRESET;
+            case NORMAL -> COMFORTABLE_PRESET;
             case COMPACT -> COMPACT_PRESET;
             case DENSE -> DENSE_PRESET;
         };
