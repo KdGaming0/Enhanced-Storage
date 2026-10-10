@@ -137,7 +137,7 @@ public class StorageOverlay extends AbstractScreen {
     private void onPageCardClicked(StorageKey key) {
         if (Objects.equals(key, state.getOpenKey())) return;
 
-        EnhancedStorage.LOGGER.info("Storage page card clicked: {} (type={}, cached={})",
+        EnhancedStorage.LOGGER.debug("Storage page card clicked: {} (type={}, cached={})",
                 key.displayName(), key.type(), PageCache.getInstance().get(key).isPresent());
         state.setOpenKey(key);
     }
@@ -169,6 +169,7 @@ public class StorageOverlay extends AbstractScreen {
         OverlayScale.restoreGameScale(Minecraft.getInstance());
     }
 
+    @Override
     public boolean mouseClicked(@NonNull MouseButtonEvent event, boolean doubleClick) {
         if (popup != null) {
             for (IWidget widget : popup.getWidgets()) {

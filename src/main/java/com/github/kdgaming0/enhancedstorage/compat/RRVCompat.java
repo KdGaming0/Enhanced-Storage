@@ -16,8 +16,8 @@ import java.lang.reflect.Method;
 public final class RRVCompat {
     private static final MethodType HIGHLIGHT_TYPE = MethodType.methodType(void.class, ItemViewOverlay.class, Screen.class, GuiGraphicsExtractor.class, int.class, int.class, float.class);
     private static final MethodHandle RENDER_ITEM_HIGHLIGHTING = bindRenderItemHighlighting();
-    private static boolean renderingEarly = false;
     private static final boolean RENDER_ALL_BACKGROUND_AVAILABLE = hasRenderAllBackground();
+    private static boolean renderingEarly = false;
     private static boolean renderingHighlightLate = false;
 
     private RRVCompat() {
@@ -35,7 +35,9 @@ public final class RRVCompat {
         return screen.getFocused() instanceof SearchBar;
     }
 
-    /** Gives RRV's search bar focus again, e.g. after a rebuild took it away while the player was typing. */
+    /**
+     * Gives RRV's search bar focus again, e.g. after a rebuild took it away while the player was typing.
+     */
     public static void focusSearchBar(Screen screen) {
         SearchBar searchBar = ItemViewOverlay.INSTANCE.getSearchbar();
         if (searchBar == null || !searchBar.isVisible()) return;

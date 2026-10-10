@@ -27,9 +27,6 @@ public class CachedPanelComponent extends SpriteComponent {
     // The animated items left out of the current layer.
     private LayerItems layerItems = LayerItems.NONE;
 
-    private record LayerKey(int generation, List<IComponent> children, int x, int y, int width, int height, Matrix3x2f pose) {
-    }
-
     public CachedPanelComponent(int x, int y, int width, int height, Identifier spriteLocation, BooleanSupplier enabled) {
         super(x, y, width, height, spriteLocation);
         this.enabled = enabled;
@@ -64,5 +61,9 @@ public class CachedPanelComponent extends SpriteComponent {
                 if (component instanceof TooltipItemComponent item) item.extractTooltip(graphics, mouseX, mouseY);
             }
         }
+    }
+
+    private record LayerKey(int generation, List<IComponent> children, int x, int y, int width, int height,
+                            Matrix3x2f pose) {
     }
 }

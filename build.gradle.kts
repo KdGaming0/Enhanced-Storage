@@ -91,8 +91,6 @@ dependencies {
     implementation("net.azureaaron:hm-api:${property("deps.hm_api_version")}")
     include("net.azureaaron:hm-api:${property("deps.hm_api_version")}")
 
-    implementation("org.msgpack:msgpack-core:0.9.12")
-
     modCompileOnly("maven.modrinth:skyblocker-liap:${property("deps.skyblocker_version")}")
     modCompileOnly("maven.modrinth:rrv:${property("deps.rrv_version")}")
 

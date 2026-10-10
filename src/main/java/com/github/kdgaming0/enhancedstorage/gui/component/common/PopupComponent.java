@@ -14,7 +14,7 @@ import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.resources.Identifier;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import java.util.List;
@@ -40,6 +40,7 @@ public class PopupComponent extends AbstractComponent {
     private final int panelWidth;
     private final int panelHeight;
     private int dividerY = -1;
+
     // Spans the whole screen so the scrim covers everything; children use screen coordinates.
     private PopupComponent(int screenWidth, int screenHeight, int x, int y, int width, int height, boolean modal) {
         super(0, 0, screenWidth, screenHeight);
@@ -49,6 +50,7 @@ public class PopupComponent extends AbstractComponent {
         this.panelWidth = width;
         this.panelHeight = height;
     }
+
     private PopupComponent(int screenWidth, int screenHeight, Font font, int x, int y, int width,
                            boolean modal, List<Component> lines, @Nullable WidgetFactory header, List<Option> options) {
         this(screenWidth, screenHeight, x, y, width,
@@ -66,17 +68,6 @@ public class PopupComponent extends AbstractComponent {
             addButton(option, panelX + PADDING, cursorY, panelWidth - PADDING * 2);
             cursorY += BUTTON_HEIGHT + BUTTON_GAP;
         }
-    }
-
-    /**
-     * Centred over a dimming scrim. The first line is drawn as the title.
-     */
-    public static PopupComponent confirm(int screenWidth, int screenHeight, Font font,
-                                         List<Component> lines, List<Option> options) {
-        int height = panelHeight(font, lines.size(), options.size());
-        return new PopupComponent(screenWidth, screenHeight, font,
-                (screenWidth - CONFIRM_WIDTH) / 2, (screenHeight - height) / 2,
-                CONFIRM_WIDTH, true, lines, null, options);
     }
 
     /**
@@ -214,7 +205,7 @@ public class PopupComponent extends AbstractComponent {
     }
 
     @Override
-    public void extractRenderState(@NotNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY,
+    public void extractRenderState(@NonNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY,
                                    float partialTick, int parentWidth, int parentHeight) {
         if (modal) {
             guiGraphics.fill(0, 0, getWidth(), getHeight(), SCRIM_COLOR);

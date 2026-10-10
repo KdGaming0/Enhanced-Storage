@@ -3,7 +3,7 @@ package com.github.kdgaming0.enhancedstorage.gui.component.page;
 import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
 import com.github.kdgaming0.enhancedstorage.storage.data.LayoutEntry;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
 
 /**
  * An empty grid cell, fixed in width or filling the rest of its row. It draws nothing, so it is invisible outside edit mode;
@@ -42,7 +42,7 @@ public class SpacerCardComponent extends GridCellComponent {
     }
 
     @Override
-    public void extractRenderState(@NotNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY,
+    public void extractRenderState(@NonNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY,
                                    float partialTick, int parentWidth, int parentHeight) {
     }
 }

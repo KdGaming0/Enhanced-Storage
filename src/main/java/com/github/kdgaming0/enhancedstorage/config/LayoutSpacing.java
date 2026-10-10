@@ -2,7 +2,9 @@ package com.github.kdgaming0.enhancedstorage.config;
 
 import eu.midnightdust.lib.config.MidnightConfigScreen;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
+
+import java.util.function.ToIntFunction;
 
 /**
  * Spacing the overlay layout uses: the density preset's values, or the individual settings when the preset is Custom.
@@ -11,19 +13,12 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class LayoutSpacing {
 
-    private record Preset(int horizontalMargin, int topMargin, int bottomMargin, int innerPadding, int cardSpacing,
-                          int scrollbarGap, int modWidgetGap, int panelGap, int columnGap,
-                          EnhancedStorageConfig.PageTitleStyle titleStyle, EnhancedStorageConfig.SlotSize slotSize) {
-    }
-
-
     private static final Preset NORMAL_PRESET = new Preset(15, 15, 25, 6, 3,
             4, 2, 2, 2, EnhancedStorageConfig.PageTitleStyle.NORMAL, EnhancedStorageConfig.SlotSize.NORMAL);
     private static final Preset COMPACT_PRESET = new Preset(8, 8, 14, 4, 1,
             1, 1, 1, 1, EnhancedStorageConfig.PageTitleStyle.COMPACT, EnhancedStorageConfig.SlotSize.NORMAL);
     private static final Preset DENSE_PRESET = new Preset(4, 4, 6, 3, 0,
             0, 0, 0, 0, EnhancedStorageConfig.PageTitleStyle.COMPACT, EnhancedStorageConfig.SlotSize.COMPACT);
-
     // Density last seen by the open config screen, to catch the moment the user picks a different preset.
     private static EnhancedStorageConfig.LayoutDensity lastDensity;
 
@@ -76,49 +71,45 @@ public final class LayoutSpacing {
         };
     }
 
-    public static int horizontalMargin() {
+    private static int pick(ToIntFunction<Preset> fromPreset, int custom) {
         Preset preset = preset();
-        return preset != null ? preset.horizontalMargin() : EnhancedStorageConfig.horizontalMargin;
+        return preset != null ? fromPreset.applyAsInt(preset) : custom;
+    }
+
+    public static int horizontalMargin() {
+        return pick(Preset::horizontalMargin, EnhancedStorageConfig.horizontalMargin);
     }
 
     public static int topMargin() {
-        Preset preset = preset();
-        return preset != null ? preset.topMargin() : EnhancedStorageConfig.overviewTopMargin;
+        return pick(Preset::topMargin, EnhancedStorageConfig.overviewTopMargin);
     }
 
     public static int bottomMargin() {
-        Preset preset = preset();
-        return preset != null ? preset.bottomMargin() : EnhancedStorageConfig.overviewBottomMargin;
+        return pick(Preset::bottomMargin, EnhancedStorageConfig.overviewBottomMargin);
     }
 
     public static int innerPadding() {
-        Preset preset = preset();
-        return preset != null ? preset.innerPadding() : EnhancedStorageConfig.innerPadding;
+        return pick(Preset::innerPadding, EnhancedStorageConfig.innerPadding);
     }
 
     public static int cardSpacing() {
-        Preset preset = preset();
-        return preset != null ? preset.cardSpacing() : EnhancedStorageConfig.cardSpacing;
+        return pick(Preset::cardSpacing, EnhancedStorageConfig.cardSpacing);
     }
 
     public static int scrollbarGap() {
-        Preset preset = preset();
-        return preset != null ? preset.scrollbarGap() : EnhancedStorageConfig.scrollbarGap;
+        return pick(Preset::scrollbarGap, EnhancedStorageConfig.scrollbarGap);
     }
 
     public static int modWidgetGap() {
-        Preset preset = preset();
-        return preset != null ? preset.modWidgetGap() : EnhancedStorageConfig.modWidgetGap;
+        return pick(Preset::modWidgetGap, EnhancedStorageConfig.modWidgetGap);
     }
 
     public static int panelGap() {
-        Preset preset = preset();
-        return preset != null ? preset.panelGap() : EnhancedStorageConfig.panelGap;
+        return pick(Preset::panelGap, EnhancedStorageConfig.panelGap);
     }
 
     public static int columnGap() {
-        Preset preset = preset();
-        return preset != null ? preset.columnGap() : EnhancedStorageConfig.columnGap;
+        return pick(Preset::columnGap, EnhancedStorageConfig.columnGap);
     }
 
     public static EnhancedStorageConfig.PageTitleStyle pageTitleStyle() {
@@ -127,5 +118,10 @@ public final class LayoutSpacing {
 
     public static int slotSize() {
         return EnhancedStorageConfig.slotSize == EnhancedStorageConfig.SlotSize.COMPACT ? 16 : 18;
+    }
+
+    private record Preset(int horizontalMargin, int topMargin, int bottomMargin, int innerPadding, int cardSpacing,
+                          int scrollbarGap, int modWidgetGap, int panelGap, int columnGap,
+                          EnhancedStorageConfig.PageTitleStyle titleStyle, EnhancedStorageConfig.SlotSize slotSize) {
     }
 }

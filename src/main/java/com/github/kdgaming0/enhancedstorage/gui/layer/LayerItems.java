@@ -3,6 +3,7 @@ package com.github.kdgaming0.enhancedstorage.gui.layer;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.gui.component.page.TooltipItemComponent;
 import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.item.ItemStackRenderState;
@@ -43,25 +44,27 @@ public final class LayerItems {
     private static @Nullable LayerItems collecting;
     private static @Nullable Rect drawnHere;
 
+    private static int ticks;
+    private static int frameTicks;
+    private static @Nullable GuiGraphicsExtractor frame;
+    private static long frameStartedAt;
+    private static long lastFrameMillis;
+    private static boolean tickThisFrame;
+
     private final List<Entry> entries = new ArrayList<>();
     // When these items were last drawn into the animated layer, and that layer's generation then.
     private boolean inLayer;
     private int layerGeneration;
     private long layerDrawnAt;
-
-    /** Draws a deferred item and everything its cell draws over it. It is never hovered when drawn this way. */
-    @FunctionalInterface
-    public interface Drawer {
-        void extract(GuiGraphicsExtractor graphics);
-    }
-
-    private record Entry(Rect bounds, Drawer drawer) {
-    }
+    // A due refresh was put off by one frame (see postponeForTick).
+    private boolean postponed;
 
     private LayerItems() {
     }
 
-    /** True when animated items are drawn live every frame (Smooth) rather than from the animated layer. */
+    /**
+     * True when animated items are drawn live every frame (Smooth) rather than from the animated layer.
+     */
     public static boolean drawnLive() {
         return EnhancedStorageConfig.animatedItemRefreshRate.intervalMillis <= 0;
     }
@@ -98,7 +101,9 @@ public final class LayerItems {
         return true;
     }
 
-    /** True if {@code stack} is drawn animated in a GUI, i.e. the item atlas redraws it every frame. */
+    /**
+     * True if {@code stack} is drawn animated in a GUI, i.e. the item atlas redraws it every frame.
+     */
     public static boolean isAnimated(ItemStack stack) {
         Minecraft minecraft = Minecraft.getInstance();
         minecraft.getItemModelResolver().updateForTopItem(PROBE, stack, ItemDisplayContext.GUI, minecraft.level, null, 0);
@@ -117,6 +122,29 @@ public final class LayerItems {
     }
 
     /**
+     * Counts client ticks, so {@link #extract} can tell whether the current frame ran one.
+     */
+    public static void register() {
+        ClientTickEvents.START_CLIENT_TICK.register(client -> ticks++);
+    }
+
+    // Vanilla makes a new main extractor every frame, so a different one means a new frame. Ticks run before the
+    // frame is extracted, so a changed tick count means this frame ran one.
+    private static void syncFrame(GuiGraphicsExtractor main, long now) {
+        if (main == frame) return;
+        frame = main;
+        lastFrameMillis = now - frameStartedAt;
+        frameStartedAt = now;
+        tickThisFrame = ticks != frameTicks;
+        frameTicks = ticks;
+    }
+
+    private static boolean inside(Rect outer, Rect inner) {
+        return inner.x() >= outer.x() && inner.y() >= outer.y()
+                && inner.right() <= outer.right() && inner.bottom() <= outer.bottom();
+    }
+
+    /**
      * Draws the collected items over the owner's page layer, which covers the given screen rectangle.
      * {@code gap} is an area of it drawn live this frame, or null. When the items are {@linkplain #drawnLive drawn
      * live}, the gap's owner collects with it as {@code drawnHere}, and items lying fully inside it are skipped here.
@@ -132,8 +160,11 @@ public final class LayerItems {
         PageLayerCache layer = PageLayerCache.ANIMATED;
         int generation = layer.sync(graphics);
         long now = Util.getMillis();
-        if (!inLayer || generation != layerGeneration
-                || now - layerDrawnAt >= EnhancedStorageConfig.animatedItemRefreshRate.intervalMillis) {
+        syncFrame(graphics, now);
+        long interval = EnhancedStorageConfig.animatedItemRefreshRate.intervalMillis;
+        boolean missing = !inLayer || generation != layerGeneration;
+        if (missing || (now - layerDrawnAt >= interval && !postponeForTick(interval))) {
+            postponed = false;
             GuiGraphicsExtractor layerGraphics = layer.beginLayer(graphics, x0, y0, x1 - x0, y1 - y0);
             extractEntries(layerGraphics, null);
             layer.endLayer(layerGraphics);
@@ -143,6 +174,17 @@ public final class LayerItems {
         }
         graphics.nextStratum();
         layer.blitAround(graphics, x0, y0, x1, y1, gap);
+    }
+
+    /**
+     * True if a refresh that is due should wait one frame, because this frame already ran a client tick. Both are
+     * among the slowest things a frame does, so letting them share a frame makes the worst frames worse. Only done
+     * when frames are short next to the glint interval, so the one-frame delay can't be seen, and never twice in a row.
+     */
+    private boolean postponeForTick(long interval) {
+        if (postponed || !tickThisFrame || lastFrameMillis > interval / 4) return false;
+        postponed = true;
+        return true;
     }
 
     private void extractEntries(GuiGraphicsExtractor graphics, @Nullable Rect skip) {
@@ -157,8 +199,14 @@ public final class LayerItems {
         }
     }
 
-    private static boolean inside(Rect outer, Rect inner) {
-        return inner.x() >= outer.x() && inner.y() >= outer.y()
-                && inner.right() <= outer.right() && inner.bottom() <= outer.bottom();
+    /**
+     * Draws a deferred item and everything its cell draws over it. It is never hovered when drawn this way.
+     */
+    @FunctionalInterface
+    public interface Drawer {
+        void extract(GuiGraphicsExtractor graphics);
+    }
+
+    private record Entry(Rect bounds, Drawer drawer) {
     }
 }

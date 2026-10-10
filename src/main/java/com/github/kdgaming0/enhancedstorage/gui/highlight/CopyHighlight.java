@@ -14,7 +14,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -84,7 +84,9 @@ public final class CopyHighlight {
         return hovered;
     }
 
-    /** True while there is an item whose copies are highlighted; check it before reading a stack just to test it. */
+    /**
+     * True while there is an item whose copies are highlighted; check it before reading a stack just to test it.
+     */
     public static boolean hasTarget() {
         return !target.isEmpty();
     }

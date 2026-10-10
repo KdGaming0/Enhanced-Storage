@@ -70,12 +70,13 @@ public final class SkyHanniCompat {
     }
 
     /**
-     * Logs a hook failure once per session instead of spamming or crashing.
+     * Logs a hook failure once per session instead of spamming or crashing. The hook keeps falling back to
+     * SkyHanni's own behavior each time it fails.
      */
     public static void reportFailure(String hook, Throwable t) {
         if (reportedFailures.add(hook)) {
             EnhancedStorage.LOGGER.warn(
-                    "SkyHanni compat hook '{}' failed; disabling it for this session. "
+                    "SkyHanni compat hook '{}' failed; falling back to SkyHanni's own behavior. "
                             + "SkyHanni chest features may not show on Enhanced Storage screens. "
                             + "This usually means a SkyHanni update changed its internals.",
                     hook, t);

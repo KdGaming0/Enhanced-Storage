@@ -46,6 +46,8 @@ When adding a compat mixin, also add its injection-target method names to `REQUI
 
 Your training data may predate MC 26.x and the current versions of the compat mods. Don't rely on memory for Minecraft, Fabric or third-party class names, signatures, mapping names or injection targets. Verify them against the actual bytecode or source (`javap` on the Loom Minecraft jar or the dependency jar in `~/.gradle/caches`). For compat work, check the version I actually run, not just the `modCompileOnly` pin.
 
+Nullability annotations are jspecify (`org.jspecify.annotations.Nullable`/`NonNull`), not JetBrains. They're TYPE_USE-only, so a nested type is written `Outer.@Nullable Inner`.
+
 Minecraft 26.3 replaces GLFW with SDL. Use `InputConstants` for keys and modifiers, not `org.lwjgl.glfw.GLFW`, and don't do arithmetic or range checks on key codes (SDL's differ); use explicit sets or tables. Text inputs must report focus changes through `Minecraft.onTextInputFocusChange` (vanilla `EditBox.setFocused` already does). `MouseHandlerMixin`'s `glfwSetCursorPos` is a deliberate exception for now.
 
 # Workflow

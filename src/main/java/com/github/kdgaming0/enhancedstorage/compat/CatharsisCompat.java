@@ -3,7 +3,7 @@ package com.github.kdgaming0.enhancedstorage.compat;
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.resources.Identifier;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.lang.reflect.Method;
 

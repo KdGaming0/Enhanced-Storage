@@ -9,7 +9,7 @@ import net.minecraft.client.gui.components.WidgetSprites;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.ARGB;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
 
 import java.util.function.Supplier;
 
@@ -30,7 +30,7 @@ public class PageCardButtonWidget extends ButtonWidget {
     }
 
     @Override
-    protected void extractContents(@NotNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
+    protected void extractContents(@NonNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         WidgetSprites sprites = spriteSupplier.get();
         guiGraphics.blitSprite(
                 RenderPipelines.GUI_TEXTURED,

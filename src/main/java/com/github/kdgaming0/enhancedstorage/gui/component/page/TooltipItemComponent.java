@@ -24,14 +24,6 @@ public class TooltipItemComponent extends ItemComponent {
     private int shownCount = 1;
     private FormattedCharSequence countText = FormattedCharSequence.EMPTY;
 
-    public TooltipItemComponent(ItemStack itemStack) {
-        super(itemStack);
-    }
-
-    public TooltipItemComponent(int x, int y, ItemStack itemStack) {
-        super(x, y, itemStack);
-    }
-
     public TooltipItemComponent(int x, int y, ItemStack itemStack, boolean decorated) {
         super(x, y, itemStack, decorated);
     }
@@ -99,7 +91,9 @@ public class TooltipItemComponent extends ItemComponent {
         extractTooltip(guiGraphics, mouseX, mouseY);
     }
 
-    /** Draws the item and its decorations, without the tooltip. */
+    /**
+     * Draws the item and its decorations, without the tooltip.
+     */
     public void extractItem(GuiGraphicsExtractor guiGraphics) {
         int x = getTotalX();
         int y = getTotalY();
@@ -119,7 +113,9 @@ public class TooltipItemComponent extends ItemComponent {
         return glintless != null ? glintless : getItemStack();
     }
 
-    /** Shows the item's tooltip if the mouse is over it; also used where the item itself is drawn from a cache. */
+    /**
+     * Shows the item's tooltip if the mouse is over it; also used where the item itself is drawn from a cache.
+     */
     public void extractTooltip(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY) {
         if (tooltipEnabled && !CopyHighlight.hidesTooltips() && isHovered(guiGraphics, mouseX, mouseY)) {
             guiGraphics.setTooltipForNextFrame(

@@ -3,13 +3,14 @@
   "id": "${id}",
   "version": "${version}",
   "name": "${name}",
-  "description": "A unified overlay for Hypixel SkyBlock storage — all your Ender Chests and Backpacks in one searchable view.",
+  "description": "A unified overlay for Hypixel SkyBlock storage — all your Ender Chests, Backpacks and Rift Storage in one searchable view.",
   "authors": [
     "Kd_Gaming1"
   ],
   "contact": {
     "homepage": "https://modrinth.com/project/ICyROmSc",
-    "sources": "https://github.com/kdgaming0/Enhanced-Storage"
+    "sources": "https://github.com/kdgaming0/Enhanced-Storage",
+    "issues": "https://github.com/KdGaming0/Enhanced-Storage/issues"
   },
   "license": "GPL-3.0-only",
   "icon": "assets/enhanced_storage/enhanced_storage_icon.png",

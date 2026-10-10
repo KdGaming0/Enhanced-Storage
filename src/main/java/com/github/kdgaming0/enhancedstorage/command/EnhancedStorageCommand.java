@@ -12,16 +12,17 @@ import com.github.kdgaming0.enhancedstorage.storage.profile.ProfileSession;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
-import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import eu.midnightdust.lib.config.MidnightConfig;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.Style;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,10 +42,7 @@ public class EnhancedStorageCommand {
 
     private static LiteralArgumentBuilder<FabricClientCommandSource> commandRoot(String name) {
         return literal(name)
-                .then(literal("ecs")
-                        .executes(EnhancedStorageCommand::executeStorageOpen)
-                        .then(argument("search_query", StringArgumentType.greedyString())
-                                .executes(EnhancedStorageCommand::executeStorageSearch)))
+                .then(searchCommand())
                 .then(literal("config")
                         .executes(EnhancedStorageCommand::executeOpenConfig))
                 .then(literal("edit")
@@ -59,35 +57,20 @@ public class EnhancedStorageCommand {
 
     private static LiteralArgumentBuilder<FabricClientCommandSource> searchCommand() {
         return literal("ecs")
-                .executes(EnhancedStorageCommand::executeStorageOpen)
+                .executes(ctx -> openStorage(null))
                 .then(argument("search_query", StringArgumentType.greedyString())
-                        .executes(EnhancedStorageCommand::executeStorageSearch));
+                        .executes(ctx -> openStorage(StringArgumentType.getString(ctx, "search_query"))));
     }
 
-    private static int executeStorageSearch(CommandContext<FabricClientCommandSource> ctx) throws CommandSyntaxException {
-        String searchQuery = StringArgumentType.getString(ctx, "search_query");
+    private static int openStorage(@Nullable String searchQuery) {
         Minecraft client = Minecraft.getInstance();
 
         client.schedule(() -> {
             try {
-                StorageOverlayState.session().setSearchQuery(searchQuery);
-                assert client.player != null;
-                client.player.connection.sendCommand("storage");
-            } catch (Exception e) {
-                EnhancedStorage.LOGGER.error("Failed to open storage overlay", e);
-            }
-        });
-
-        return 1;
-    }
-
-    private static int executeStorageOpen(CommandContext<FabricClientCommandSource> ctx) {
-        Minecraft client = Minecraft.getInstance();
-
-        client.schedule(() -> {
-            try {
-                assert client.player != null;
-                client.player.connection.sendCommand("storage");
+                LocalPlayer player = client.player;
+                if (player == null) return;
+                if (searchQuery != null) StorageOverlayState.session().setSearchQuery(searchQuery);
+                player.connection.sendCommand("storage");
             } catch (Exception e) {
                 EnhancedStorage.LOGGER.error("Failed to open storage overlay", e);
             }

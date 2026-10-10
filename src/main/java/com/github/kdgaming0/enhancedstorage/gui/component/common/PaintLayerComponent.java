@@ -2,7 +2,7 @@ package com.github.kdgaming0.enhancedstorage.gui.component.common;
 
 import com.daqem.uilib.gui.component.AbstractComponent;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
 
 /**
  * Full-screen component that paints on top of everything added before it, such as drag visuals.
@@ -24,7 +24,7 @@ public class PaintLayerComponent extends AbstractComponent {
     }
 
     @Override
-    public void extractRenderState(@NotNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY,
+    public void extractRenderState(@NonNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY,
                                    float partialTick, int parentWidth, int parentHeight) {
     }
 

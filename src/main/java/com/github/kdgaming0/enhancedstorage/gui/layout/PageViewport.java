@@ -33,22 +33,37 @@ import java.util.function.*;
 public class PageViewport extends ScrollContainerWidget {
 
     private final DoubleConsumer scrollListener;
+    private final LayerRefresh layerRefresh = new LayerRefresh();
     private @Nullable Consumer<GuiGraphicsExtractor> backgroundPainter;
     private @Nullable BooleanSupplier layerEnabled;
     private Supplier<?> layerInputs = () -> null;
-
-    private final LayerRefresh layerRefresh = new LayerRefresh();
     // The animated items left out of the current layer.
     private LayerItems layerItems = LayerItems.NONE;
-
-    // Everything the layer shows. The pose is part of it because the layer's pixels sit where the pose put them when it was drawn.
-    private record LayerKey(int generation, List<IComponent> rows, int scroll, int x, int y, int width, int height,
-                            Matrix3x2f pose, List<IComponent> liveCells, @Nullable Object inputs) {
-    }
 
     public PageViewport(int width, int height, int rowSpacing, DoubleConsumer scrollListener) {
         super(width, height, rowSpacing);
         this.scrollListener = scrollListener;
+    }
+
+    /**
+     * The part of the hovered cell that hovering changes: the whole cell, or a {@link PartialHoverCell}'s area.
+     */
+    private static @Nullable Rect hoverGap(GuiGraphicsExtractor guiGraphics, IComponent hovered, int mouseX, int mouseY) {
+        if (hovered instanceof PartialHoverCell partial) {
+            partial.requestHoverCursor(guiGraphics);
+            return partial.hoverArea(mouseX, mouseY);
+        }
+        return new Rect(hovered.getTotalX(), hovered.getTotalY(), hovered.getWidth(), hovered.getHeight());
+    }
+
+    private static boolean isLive(IComponent cell) {
+        return cell instanceof LiveCell liveCell && liveCell.drawsLive();
+    }
+
+    private static boolean contains(IComponent cell, int mouseX, int mouseY) {
+        int x = cell.getTotalX();
+        int y = cell.getTotalY();
+        return mouseX >= x && mouseX < x + cell.getWidth() && mouseY >= y && mouseY < y + cell.getHeight();
     }
 
     /**
@@ -167,15 +182,6 @@ public class PageViewport extends ScrollContainerWidget {
         guiGraphics.nextStratum();
     }
 
-    /** The part of the hovered cell that hovering changes: the whole cell, or a {@link PartialHoverCell}'s area. */
-    private static @Nullable Rect hoverGap(GuiGraphicsExtractor guiGraphics, IComponent hovered, int mouseX, int mouseY) {
-        if (hovered instanceof PartialHoverCell partial) {
-            partial.requestHoverCursor(guiGraphics);
-            return partial.hoverArea(mouseX, mouseY);
-        }
-        return new Rect(hovered.getTotalX(), hovered.getTotalY(), hovered.getWidth(), hovered.getHeight());
-    }
-
     /**
      * Draws the background and the hovered cell itself live in the gap, clipped to it. The layers leave the gap out
      * (their copy is drawn without hover), so translucent cells aren't drawn twice. Animated items aren't either: see
@@ -188,7 +194,7 @@ public class PageViewport extends ScrollContainerWidget {
         int right = left + getWidth();
         int bottom = top + getHeight();
         guiGraphics.enableScissor(Math.clamp(area.x(), left, right), Math.clamp(area.y(), top, bottom),
-                Math.clamp((long) area.right(), left, right), Math.clamp((long) area.bottom(), top, bottom));
+                Math.clamp(area.right(), left, right), Math.clamp(area.bottom(), top, bottom));
         if (backgroundPainter != null) backgroundPainter.accept(guiGraphics);
         guiGraphics.nextStratum();
         Runnable cell = () -> extractCells(guiGraphics, mouseX, mouseY, partialTick, c -> c == hovered, false);
@@ -206,7 +212,9 @@ public class PageViewport extends ScrollContainerWidget {
         return rowY + row.getHeight() > 0 && rowY < this.getHeight();
     }
 
-    /** The visible cells: the cells of grouping rows (plain {@link EmptyComponent}s), or the row itself otherwise. */
+    /**
+     * The visible cells: the cells of grouping rows (plain {@link EmptyComponent}s), or the row itself otherwise.
+     */
     private List<IComponent> visibleCells() {
         List<IComponent> cells = new ArrayList<>();
         for (IComponent row : getComponents()) {
@@ -217,7 +225,9 @@ public class PageViewport extends ScrollContainerWidget {
         return cells;
     }
 
-    /** Cells drawn every frame instead of from the layer: {@link LiveCell}s that ask to be. */
+    /**
+     * Cells drawn every frame instead of from the layer: {@link LiveCell}s that ask to be.
+     */
     private List<IComponent> collectLiveCells() {
         List<IComponent> live = new ArrayList<>(2);
         for (IComponent cell : visibleCells()) {
@@ -226,11 +236,9 @@ public class PageViewport extends ScrollContainerWidget {
         return live;
     }
 
-    private static boolean isLive(IComponent cell) {
-        return cell instanceof LiveCell liveCell && liveCell.drawsLive();
-    }
-
-    /** The visible cell under the mouse, unless it is drawn live anyway. */
+    /**
+     * The visible cell under the mouse, unless it is drawn live anyway.
+     */
     private @Nullable IComponent hoveredCell(int mouseX, int mouseY, List<IComponent> live) {
         // A clipped-off part of a cell can't be hovered: hover and tooltip checks require the point inside the scissor.
         if (mouseX < getX() || mouseX >= getX() + getWidth() || mouseY < getY() || mouseY >= getY() + getHeight()) {
@@ -240,12 +248,6 @@ public class PageViewport extends ScrollContainerWidget {
             if (contains(cell, mouseX, mouseY)) return live.contains(cell) ? null : cell;
         }
         return null;
-    }
-
-    private static boolean contains(IComponent cell, int mouseX, int mouseY) {
-        int x = cell.getTotalX();
-        int y = cell.getTotalY();
-        return mouseX >= x && mouseX < x + cell.getWidth() && mouseY >= y && mouseY < y + cell.getHeight();
     }
 
     /**
@@ -300,5 +302,10 @@ public class PageViewport extends ScrollContainerWidget {
                 currentY += getContentSpacing();
             }
         }
+    }
+
+    // Everything the layer shows. The pose is part of it because the layer's pixels sit where the pose put them when it was drawn.
+    private record LayerKey(int generation, List<IComponent> rows, int scroll, int x, int y, int width, int height,
+                            Matrix3x2f pose, List<IComponent> liveCells, @Nullable Object inputs) {
     }
 }

@@ -51,12 +51,13 @@ import com.mojang.blaze3d.buffers.GpuBufferSlice;
  */
 public final class PageLayerCache {
 
-    /** Mouse position layer content is extracted with, so nothing in it draws as hovered. */
+    /**
+     * Mouse position layer content is extracted with, so nothing in it draws as hovered.
+     */
     public static final int OFFSCREEN_MOUSE = -9999;
-    private static final long RELEASE_AFTER_IDLE_MS = 10_000;
-
     public static final PageLayerCache PAGES = new PageLayerCache("Enhanced Storage page layer");
     public static final PageLayerCache ANIMATED = new PageLayerCache("Enhanced Storage animated item layer");
+    private static final long RELEASE_AFTER_IDLE_MS = 10_000;
     private static final List<PageLayerCache> ALL = List.of(PAGES, ANIMATED);
 
     private static boolean rendering;
@@ -77,100 +78,15 @@ public final class PageLayerCache {
     }
 
     /**
-     * Prepares the shared target for this frame and returns the layer generation. It changes whenever previously
-     * rendered layer pixels may have been lost (target created or resized, or an extraction that never got rendered),
-     * and an owner must then redraw its layer. Every owner calls this before deciding whether it is up to date.
+     * True while a layer's own renderer is running, so per-frame hooks can tell it apart from the main GUI.
      */
-    public int sync(GuiGraphicsExtractor main) {
-        lastUsed = Util.getMillis();
-        ensureTarget();
-        if (pendingExtractor != null && pendingExtractor != main) {
-            // Extracted on an earlier frame but never rendered (that frame had no GUI render): those layers are missing.
-            discardPending();
-            generation++;
-        }
-        return generation;
-    }
-
-    /** True while a layer's own renderer is running, so per-frame hooks can tell it apart from the main GUI. */
     public static boolean isRendering() {
         return rendering;
     }
 
     /**
-     * Starts redrawing an owner's layer: returns an extractor that writes into the offscreen state, with the
-     * caller's pose and a scissor to the owner's rectangle applied and the mouse at {@link #OFFSCREEN_MOUSE}. Finish it with
-     * {@link #endLayer}. Requires {@link #sync} earlier in the same frame.
+     * The render target to draw into instead of the main one, when {@code guiRenderer} is a layer renderer.
      */
-    public GuiGraphicsExtractor beginLayer(GuiGraphicsExtractor main, int x, int y, int width, int height) {
-        pendingExtractor = main;
-        GuiGraphicsExtractor layer = new GuiGraphicsExtractor(Minecraft.getInstance(), state, OFFSCREEN_MOUSE, OFFSCREEN_MOUSE);
-        layer.pose().set(main.pose());
-        layer.enableScissor(x, y, x + width, y + height);
-        // The scissor stack holds the area already transformed by the pose, i.e. where the pixels land.
-        dirty.add(layer.scissorStack.peek());
-        return layer;
-    }
-
-    /** Ends a layer begun by {@link #beginLayer}; true if it drew animated items. */
-    public boolean endLayer(GuiGraphicsExtractor layer) {
-        while (layer.scissorStack.peek() != null) layer.disableScissor();
-        int before = animatedItems;
-        int[] count = {0};
-        state.forEachItem(item -> {
-            if (item.itemStackRenderState().isAnimated()) count[0]++;
-        });
-        animatedItems = count[0];
-        return animatedItems > before;
-    }
-
-    /**
-     * Draws the layer's pixels for the given screen rectangle, leaving out {@code hole} (an area drawn live instead)
-     * when it isn't null.
-     */
-    public void blitAround(GuiGraphicsExtractor main, int x0, int y0, int x1, int y1, @Nullable Rect hole) {
-        if (hole == null) {
-            blit(main, x0, y0, x1, y1);
-            return;
-        }
-        int holeLeft = Math.clamp(hole.x(), x0, x1);
-        int holeRight = Math.clamp((long) hole.right(), x0, x1);
-        int holeTop = Math.clamp(hole.y(), y0, y1);
-        int holeBottom = Math.clamp((long) hole.bottom(), y0, y1);
-        blitPart(main, x0, y0, x1, holeTop);
-        blitPart(main, x0, holeBottom, x1, y1);
-        blitPart(main, x0, holeTop, holeLeft, holeBottom);
-        blitPart(main, holeRight, holeTop, x1, holeBottom);
-    }
-
-    private void blitPart(GuiGraphicsExtractor main, int x0, int y0, int x1, int y1) {
-        if (x1 > x0 && y1 > y0) blit(main, x0, y0, x1, y1);
-    }
-
-    /** Draws the layer's pixels for the given screen rectangle into the main GUI, clipped to the current scissor. */
-    public void blit(GuiGraphicsExtractor main, int x0, int y0, int x1, int y1) {
-        RenderTarget layer = target;
-        if (layer == null) return;
-        int scale = Minecraft.getInstance().getWindow().getGuiScale();
-        // The layer was drawn with the same pose, so sample where the pose put these corners.
-        Vector2f from = main.pose().transformPosition(x0, y0, new Vector2f());
-        Vector2f to = main.pose().transformPosition(x1, y1, new Vector2f());
-        float u0 = from.x * scale / layer.width;
-        float u1 = to.x * scale / layer.width;
-        // Render targets are stored bottom-up.
-        float v0 = 1.0F - from.y * scale / layer.height;
-        float v1 = 1.0F - to.y * scale / layer.height;
-        main.guiRenderState.addGuiElement(new BlitRenderState(
-                RenderPipelines.GUI_TEXTURED_PREMULTIPLIED_ALPHA,
-                TextureSetup.singleTexture(layer.getColorTextureView(), RenderSystem.getSamplerCache().getRepeat(FilterMode.NEAREST)),
-                new Matrix3x2f(main.pose()),
-                x0, y0, x1, y1,
-                u0, u1, v0, v1,
-                -1,
-                main.scissorStack.peek()));
-    }
-
-    /** The render target to draw into instead of the main one, when {@code guiRenderer} is a layer renderer. */
     public static @Nullable RenderTarget targetFor(GuiRenderer guiRenderer) {
         for (PageLayerCache cache : ALL) {
             if (guiRenderer == cache.renderer) return cache.target;
@@ -199,11 +115,113 @@ public final class PageLayerCache {
     }
     *///?}
 
+    // The value GameRenderer clears the depth buffer to before drawing the GUI (26.2 switched to reverse Z).
+    private static double clearDepth() {
+        //? if <26.2 {
+        return 1.0;
+        //?} else {
+        /*return 0.0;
+         *///?}
+    }
+
+    /**
+     * Prepares the shared target for this frame and returns the layer generation. It changes whenever previously
+     * rendered layer pixels may have been lost (target created or resized, or an extraction that never got rendered),
+     * and an owner must then redraw its layer. Every owner calls this before deciding whether it is up to date.
+     */
+    public int sync(GuiGraphicsExtractor main) {
+        lastUsed = Util.getMillis();
+        ensureTarget();
+        if (pendingExtractor != null && pendingExtractor != main) {
+            // Extracted on an earlier frame but never rendered (that frame had no GUI render): those layers are missing.
+            discardPending();
+            generation++;
+        }
+        return generation;
+    }
+
+    /**
+     * Starts redrawing an owner's layer: returns an extractor that writes into the offscreen state, with the
+     * caller's pose and a scissor to the owner's rectangle applied and the mouse at {@link #OFFSCREEN_MOUSE}. Finish it with
+     * {@link #endLayer}. Requires {@link #sync} earlier in the same frame.
+     */
+    public GuiGraphicsExtractor beginLayer(GuiGraphicsExtractor main, int x, int y, int width, int height) {
+        pendingExtractor = main;
+        GuiGraphicsExtractor layer = new GuiGraphicsExtractor(Minecraft.getInstance(), state, OFFSCREEN_MOUSE, OFFSCREEN_MOUSE);
+        layer.pose().set(main.pose());
+        layer.enableScissor(x, y, x + width, y + height);
+        // The scissor stack holds the area already transformed by the pose, i.e. where the pixels land.
+        dirty.add(layer.scissorStack.peek());
+        return layer;
+    }
+
+    /**
+     * Ends a layer begun by {@link #beginLayer}; true if it drew animated items.
+     */
+    public boolean endLayer(GuiGraphicsExtractor layer) {
+        while (layer.scissorStack.peek() != null) layer.disableScissor();
+        int before = animatedItems;
+        int[] count = {0};
+        state.forEachItem(item -> {
+            if (item.itemStackRenderState().isAnimated()) count[0]++;
+        });
+        animatedItems = count[0];
+        return animatedItems > before;
+    }
+
+    /**
+     * Draws the layer's pixels for the given screen rectangle, leaving out {@code hole} (an area drawn live instead)
+     * when it isn't null.
+     */
+    public void blitAround(GuiGraphicsExtractor main, int x0, int y0, int x1, int y1, @Nullable Rect hole) {
+        if (hole == null) {
+            blit(main, x0, y0, x1, y1);
+            return;
+        }
+        int holeLeft = Math.clamp(hole.x(), x0, x1);
+        int holeRight = Math.clamp(hole.right(), x0, x1);
+        int holeTop = Math.clamp(hole.y(), y0, y1);
+        int holeBottom = Math.clamp(hole.bottom(), y0, y1);
+        blitPart(main, x0, y0, x1, holeTop);
+        blitPart(main, x0, holeBottom, x1, y1);
+        blitPart(main, x0, holeTop, holeLeft, holeBottom);
+        blitPart(main, holeRight, holeTop, x1, holeBottom);
+    }
+
+    private void blitPart(GuiGraphicsExtractor main, int x0, int y0, int x1, int y1) {
+        if (x1 > x0 && y1 > y0) blit(main, x0, y0, x1, y1);
+    }
+
+    /**
+     * Draws the layer's pixels for the given screen rectangle into the main GUI, clipped to the current scissor.
+     */
+    public void blit(GuiGraphicsExtractor main, int x0, int y0, int x1, int y1) {
+        RenderTarget layer = target;
+        if (layer == null) return;
+        int scale = Minecraft.getInstance().getWindow().getGuiScale();
+        // The layer was drawn with the same pose, so sample where the pose put these corners.
+        Vector2f from = main.pose().transformPosition(x0, y0, new Vector2f());
+        Vector2f to = main.pose().transformPosition(x1, y1, new Vector2f());
+        float u0 = from.x * scale / layer.width;
+        float u1 = to.x * scale / layer.width;
+        // Render targets are stored bottom-up.
+        float v0 = 1.0F - from.y * scale / layer.height;
+        float v1 = 1.0F - to.y * scale / layer.height;
+        main.guiRenderState.addGuiElement(new BlitRenderState(
+                RenderPipelines.GUI_TEXTURED_PREMULTIPLIED_ALPHA,
+                TextureSetup.singleTexture(layer.getColorTextureView(), RenderSystem.getSamplerCache().getRepeat(FilterMode.NEAREST)),
+                new Matrix3x2f(main.pose()),
+                x0, y0, x1, y1,
+                u0, u1, v0, v1,
+                -1,
+                main.scissorStack.peek()));
+    }
+
     //? if <26.2 {
     private void render(Function<GuiRenderState, GuiRenderer> factory, GpuBufferSlice fogBuffer) {
-    //?} else {
-    /*private void render(Function<GuiRenderState, GuiRenderer> factory) {
-    *///?}
+        //?} else {
+        /*private void render(Function<GuiRenderState, GuiRenderer> factory) {
+         *///?}
         if (pendingExtractor == null) {
             if ((renderer != null || target != null) && Util.getMillis() - lastUsed > RELEASE_AFTER_IDLE_MS) release();
             return;
@@ -249,15 +267,6 @@ public final class PageLayerCache {
                     left, layer.height - bottom, right - left, bottom - top);
         }
         dirty.clear();
-    }
-
-    // The value GameRenderer clears the depth buffer to before drawing the GUI (26.2 switched to reverse Z).
-    private static double clearDepth() {
-        //? if <26.2 {
-        return 1.0;
-        //?} else {
-        /*return 0.0;
-         *///?}
     }
 
     // Sized from the window, not the main render target: during extraction the main target still has last frame's

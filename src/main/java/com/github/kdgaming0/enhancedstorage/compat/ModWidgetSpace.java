@@ -53,7 +53,9 @@ public final class ModWidgetSpace {
     private ModWidgetSpace() {
     }
 
-    /** The top margin, given the margin the layout density asks for. */
+    /**
+     * The top margin, given the margin the layout density asks for.
+     */
     public static int topMargin(int margin) {
         if (!quickNavEnabled()) return margin;
         if (automatic()) {
@@ -105,7 +107,9 @@ public final class ModWidgetSpace {
         }
     }
 
-    /** Whether any tab of the top row (buttons 1-7) or bottom row (buttons 8-14) is shown; button N gets row position N - 1. */
+    /**
+     * Whether any tab of the top row (buttons 1-7) or bottom row (buttons 8-14) is shown; button N gets row position N - 1.
+     */
     private static boolean quickNavRowShown(boolean top) {
         var quickNav = de.hysky.skyblocker.config.SkyblockerConfigManager.get().quickNav;
         if (top) {

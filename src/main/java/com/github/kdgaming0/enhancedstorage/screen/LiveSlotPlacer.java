@@ -74,6 +74,11 @@ final class LiveSlotPlacer {
         return viewport;
     }
 
+    // The menu's own slots come first, then the player's inventory.
+    private int containerSlotCount() {
+        return menu.getRowCount() * 9;
+    }
+
     void sync(int offX, int offY) {
         clipRects.clear();
         viewport = null;
@@ -94,7 +99,7 @@ final class LiveSlotPlacer {
 
         PageCardComponent openCard = layout.getOpenCard();
         if (openCard == null) {
-            int containerSlots = menu.getRowCount() * 9;
+            int containerSlots = containerSlotCount();
             for (int i = 0; i < containerSlots; i++) {
                 park(menu.slots.get(i));
             }
@@ -107,7 +112,7 @@ final class LiveSlotPlacer {
         int originY = openCard.slotGridScreenY() + inset;
         int pageWidth = openCard.slotsAcross();
 
-        int containerSlots = menu.getRowCount() * 9;
+        int containerSlots = containerSlotCount();
         for (int i = 0; i < containerSlots; i++) {
             Slot slot = menu.slots.get(i);
 
@@ -133,7 +138,7 @@ final class LiveSlotPlacer {
     }
 
     private void placeIndexSlots(int offX, int offY) {
-        int containerSlots = menu.getRowCount() * 9;
+        int containerSlots = containerSlotCount();
         SpriteComponent overview = layout.getOverviewPanel();
 
         if (overview == null) {

@@ -34,6 +34,7 @@ public final class ProfileSession {
     private volatile State state = State.UNKNOWN;
     private volatile String profileId;
     private long saveDueAt = Long.MAX_VALUE;
+
     private ProfileSession() {
     }
 

@@ -4,7 +4,6 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Util;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.component.ItemLore;
@@ -97,18 +96,16 @@ public class ItemSearch {
     /**
      * Precomputes search text for pending stacks within roughly {@code timeBudgetMillis},
      * so the first search execution doesn't have to generate every tooltip at once.
-     * Always processes a small minimum per call to guarantee the queue drains.
+     * Always processes at least one stack per call, so the queue drains.
      */
     public static void warmUp(Deque<ItemStack> pending, long timeBudgetMillis) {
-        long start = Util.getMillis();
-        int processed = 0;
+        long deadline = System.nanoTime() + timeBudgetMillis * 1_000_000L;
         while (!pending.isEmpty()) {
             ItemStack stack = pending.poll();
             if (stack != null && !stack.isEmpty()) {
                 searchText(stack);
             }
-            processed++;
-            if (processed >= 10 && Util.getMillis() - start >= timeBudgetMillis) break;
+            if (System.nanoTime() >= deadline) break;
         }
     }
 

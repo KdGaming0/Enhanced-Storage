@@ -45,7 +45,6 @@ final class CardDragController {
     private final Consumer<List<LayoutEntry>> onDrop;
     private final List<SectionHeaderComponent> springOpened = new ArrayList<>();
     private @Nullable GridCellComponent dragged;
-    private List<GridCellComponent> originalOrder = List.of();
     private @Nullable TextComponent ghostTitle;
     private double grabOffsetX;
     private double grabOffsetY;
@@ -97,13 +96,71 @@ final class CardDragController {
         return null;
     }
 
+    private static Zone zoneAt(GridCellComponent hovered, GridCellComponent dragged, double mouseX, double mouseY) {
+        Rect bounds = hovered.bounds();
+        if (dragged instanceof PageCardComponent && hovered instanceof PageCardComponent) {
+            int band = stackBand(bounds);
+            if (mouseY < bounds.y() + band) return Zone.ABOVE;
+            if (mouseY >= bounds.bottom() - band) return Zone.BELOW;
+        }
+        return mouseX < bounds.x() + bounds.width() / 2.0 ? Zone.BEFORE : Zone.AFTER;
+    }
+
+    private static int stackBand(Rect bounds) {
+        return Math.min(STACK_BAND, bounds.height() / 4);
+    }
+
+    private static LayoutOps.Target targetOf(GridCellComponent hovered, Zone zone) {
+        return switch (zone) {
+            case BEFORE -> new LayoutOps.Target.Before(hovered.entry());
+            case AFTER -> new LayoutOps.Target.After(hovered.entry());
+            case ABOVE -> new LayoutOps.Target.Stack(((PageCardComponent) hovered).getKey(), true);
+            case BELOW -> new LayoutOps.Target.Stack(((PageCardComponent) hovered).getKey(), false);
+        };
+    }
+
+    /**
+     * A page dropped into a stack takes the stack's width, so the whole stack stays one column.
+     */
+    private static void joinStackWidth(List<LayoutEntry> entries, StorageKey key) {
+        int at = LayoutOps.indexOfKey(entries, key);
+        if (at < 0 || !(entries.get(at) instanceof LayoutEntry.Stack(List<StorageKey> keys))) return;
+        StorageKey mate = keys.stream().filter(k -> !k.equals(key)).findFirst().orElse(null);
+        if (mate == null) return;
+        Optional<Integer> width = PageWidths.getInstance().get(mate);
+        if (width.isPresent()) PageWidths.getInstance().set(key, width.get());
+        else PageWidths.getInstance().clear(key);
+    }
+
+    private static Rect union(List<GridCellComponent> cells, int from, int to) {
+        int left = Integer.MAX_VALUE;
+        int top = Integer.MAX_VALUE;
+        int right = Integer.MIN_VALUE;
+        int bottom = Integer.MIN_VALUE;
+        for (int i = from; i < to; i++) {
+            Rect r = cells.get(i).bounds();
+            left = Math.min(left, r.x());
+            top = Math.min(top, r.y());
+            right = Math.max(right, r.right());
+            bottom = Math.max(bottom, r.bottom());
+        }
+        return new Rect(left, top, right - left, bottom - top);
+    }
+
+    private static void outline(GuiGraphicsExtractor graphics, Rect r) {
+        int color = OverlayStyle.accentColor();
+        graphics.fill(r.x(), r.y(), r.right(), r.y() + 1, color);
+        graphics.fill(r.x(), r.bottom() - 1, r.right(), r.bottom(), color);
+        graphics.fill(r.x(), r.y(), r.x() + 1, r.bottom(), color);
+        graphics.fill(r.right() - 1, r.y(), r.right(), r.bottom(), color);
+    }
+
     boolean isActive() {
         return dragged != null;
     }
 
     void start(GridCellComponent cell, double pressX, double pressY, int screenWidth, int screenHeight) {
         this.dragged = cell;
-        this.originalOrder = List.copyOf(layout.getCells());
         this.originalEntries = layout.currentEntries();
         this.item = cell instanceof PageCardComponent card ? new LayoutEntry.Page(card.getKey())
                 : cell instanceof SpacerCardComponent ? cell.entry() : null;
@@ -198,34 +255,10 @@ final class CardDragController {
         }
         if (section == null) return false;
         for (GridCellComponent c : layout.getCells()) {
-            if (c instanceof SectionHeaderComponent header && header.entry().equals(section)) return header.isCollapsed();
+            if (c instanceof SectionHeaderComponent header && header.entry().equals(section))
+                return header.isCollapsed();
         }
         return false;
-    }
-
-    private enum Zone {BEFORE, AFTER, ABOVE, BELOW}
-
-    private static Zone zoneAt(GridCellComponent hovered, GridCellComponent dragged, double mouseX, double mouseY) {
-        Rect bounds = hovered.bounds();
-        if (dragged instanceof PageCardComponent && hovered instanceof PageCardComponent) {
-            int band = stackBand(bounds);
-            if (mouseY < bounds.y() + band) return Zone.ABOVE;
-            if (mouseY >= bounds.bottom() - band) return Zone.BELOW;
-        }
-        return mouseX < bounds.x() + bounds.width() / 2.0 ? Zone.BEFORE : Zone.AFTER;
-    }
-
-    private static int stackBand(Rect bounds) {
-        return Math.min(STACK_BAND, bounds.height() / 4);
-    }
-
-    private static LayoutOps.Target targetOf(GridCellComponent hovered, Zone zone) {
-        return switch (zone) {
-            case BEFORE -> new LayoutOps.Target.Before(hovered.entry());
-            case AFTER -> new LayoutOps.Target.After(hovered.entry());
-            case ABOVE -> new LayoutOps.Target.Stack(((PageCardComponent) hovered).getKey(), true);
-            case BELOW -> new LayoutOps.Target.Stack(((PageCardComponent) hovered).getKey(), false);
-        };
     }
 
     private int insertionInEmptySpace(List<GridCellComponent> order, double mouseX, double mouseY) {
@@ -289,7 +322,6 @@ final class CardDragController {
         dragged = null;
         item = null;
         ghostTitle = null;
-        originalOrder = List.of();
         originalEntries = List.of();
         springTarget = null;
         undoEntries = null;
@@ -321,21 +353,6 @@ final class CardDragController {
         if (cell instanceof PageCardComponent card) joinStackWidth(entries, card.getKey());
         onDrop.accept(entries);
     }
-
-    /**
-     * A page dropped into a stack takes the stack's width, so the whole stack stays one column.
-     */
-    private static void joinStackWidth(List<LayoutEntry> entries, StorageKey key) {
-        int at = LayoutOps.indexOfKey(entries, key);
-        if (at < 0 || !(entries.get(at) instanceof LayoutEntry.Stack(List<StorageKey> keys))) return;
-        StorageKey mate = keys.stream().filter(k -> !k.equals(key)).findFirst().orElse(null);
-        if (mate == null) return;
-        Optional<Integer> width = PageWidths.getInstance().get(mate);
-        if (width.isPresent()) PageWidths.getInstance().set(key, width.get());
-        else PageWidths.getInstance().clear(key);
-    }
-
-    // Scrolls the page overview when the cursor is near the top or bottom edge of the viewport.
 
     void paint(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         GridCellComponent cell = dragged;
@@ -422,38 +439,20 @@ final class CardDragController {
         }
         int indicator = OverlayStyle.accentColor();
         switch (zone) {
-            case BEFORE -> graphics.fill(column.x(), column.y(), column.x() + INDICATOR_WIDTH, column.bottom(), indicator);
-            case AFTER -> graphics.fill(column.right() - INDICATOR_WIDTH, column.y(), column.right(), column.bottom(), indicator);
-            case ABOVE -> graphics.fill(bounds.x(), bounds.y(), bounds.right(), bounds.y() + INDICATOR_WIDTH, indicator);
-            case BELOW -> graphics.fill(bounds.x(), bounds.bottom() - INDICATOR_WIDTH, bounds.right(), bounds.bottom(), indicator);
+            case BEFORE ->
+                    graphics.fill(column.x(), column.y(), column.x() + INDICATOR_WIDTH, column.bottom(), indicator);
+            case AFTER ->
+                    graphics.fill(column.right() - INDICATOR_WIDTH, column.y(), column.right(), column.bottom(), indicator);
+            case ABOVE ->
+                    graphics.fill(bounds.x(), bounds.y(), bounds.right(), bounds.y() + INDICATOR_WIDTH, indicator);
+            case BELOW ->
+                    graphics.fill(bounds.x(), bounds.bottom() - INDICATOR_WIDTH, bounds.right(), bounds.bottom(), indicator);
         }
-    }
-
-    private static Rect union(List<GridCellComponent> cells, int from, int to) {
-        int left = Integer.MAX_VALUE;
-        int top = Integer.MAX_VALUE;
-        int right = Integer.MIN_VALUE;
-        int bottom = Integer.MIN_VALUE;
-        for (int i = from; i < to; i++) {
-            Rect r = cells.get(i).bounds();
-            left = Math.min(left, r.x());
-            top = Math.min(top, r.y());
-            right = Math.max(right, r.right());
-            bottom = Math.max(bottom, r.bottom());
-        }
-        return new Rect(left, top, right - left, bottom - top);
-    }
-
-    private static void outline(GuiGraphicsExtractor graphics, Rect r) {
-        int color = OverlayStyle.accentColor();
-        graphics.fill(r.x(), r.y(), r.right(), r.y() + 1, color);
-        graphics.fill(r.x(), r.bottom() - 1, r.right(), r.bottom(), color);
-        graphics.fill(r.x(), r.y(), r.x() + 1, r.bottom(), color);
-        graphics.fill(r.right() - 1, r.y(), r.right(), r.bottom(), color);
     }
 
     /**
-     * Time-based, so speed doesn't depend on frame rate. Returns true if the content moved.
+     * Scrolls the page overview while the cursor is near its top or bottom edge. Time-based, so speed doesn't depend
+     * on frame rate. Returns true if the content moved.
      */
     private boolean autoScroll(Rect viewport, int mouseY) {
         long now = Util.getMillis();
@@ -475,4 +474,6 @@ final class CardDragController {
         scroller.setScrollAmount(before + speed * seconds);
         return scroller.scrollAmount() != before;
     }
+
+    private enum Zone {BEFORE, AFTER, ABOVE, BELOW}
 }

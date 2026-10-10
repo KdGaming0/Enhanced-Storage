@@ -13,8 +13,7 @@ import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.config.LayoutSpacing;
 import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle.Sprite;
 import com.github.kdgaming0.enhancedstorage.gui.component.common.CachedPanelComponent;
-import com.github.kdgaming0.enhancedstorage.gui.component.common.IconButtonComponent;
-import com.github.kdgaming0.enhancedstorage.gui.component.common.ItemButtonComponent;
+import com.github.kdgaming0.enhancedstorage.gui.component.common.ToolbarButtonComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.navigation.NavigationRowComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.navigation.NavigationTitleComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.page.*;
@@ -42,10 +41,13 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 import java.util.stream.Stream;
+
+import static com.github.kdgaming0.enhancedstorage.gui.component.common.ToolbarButtonComponent.hint;
+import static com.github.kdgaming0.enhancedstorage.gui.component.common.ToolbarButtonComponent.title;
 
 
 public class StorageOverlayLayout {
@@ -83,7 +85,6 @@ public class StorageOverlayLayout {
     private static final int BUTTON_SIZE = 24;
     private static final int BUTTON_GAP = 2;
     private final boolean editMode;
-    private int nextStackTag;
     private final boolean editRiftContext;
     private final List<GridCellComponent> cells = new ArrayList<>();
     private final List<GridCellComponent> visibleCells = new ArrayList<>();
@@ -92,6 +93,7 @@ public class StorageOverlayLayout {
     private final List<PlacedRow> rows = new ArrayList<>();
     private final Map<StorageKey, Boolean> pageMatchCache = new HashMap<>();
     private final Set<GridCellComponent> searchMisses = new HashSet<>();
+    private int nextStackTag;
     private ItemStack copyFilterTarget = ItemStack.EMPTY;
     private String pageMatchQuery = "";
     private int contentInset;
@@ -142,6 +144,7 @@ public class StorageOverlayLayout {
     private @Nullable Rect resetButtonBounds;
     private @Nullable Rect inventoryBounds;
     private @Nullable Rect overviewBounds;
+
     public StorageOverlayLayout() {
         this(false, false);
     }
@@ -168,19 +171,6 @@ public class StorageOverlayLayout {
                 .orElse(pageWidth());
     }
 
-    private int computeMainBackgroundHeight(int height, boolean inventoryBelow) {
-        return height - computeTopMargin() - computeBottomMargin(inventoryBelow);
-    }
-
-    // Returns true if the bottom margin for the mod widget space has changed since the last build, which may require a rebuild of the overlay.
-    public boolean modWidgetSpaceChanged() {
-        return ModWidgetSpace.bottomMargin(LayoutSpacing.bottomMargin(), quickNavBottomTabSelected) != builtModWidgetMargin;
-    }
-
-    public void setQuickNavBottomTabSelected(boolean selected) {
-        this.quickNavBottomTabSelected = selected;
-    }
-
     public static int computeMainBackgroundY() {
         return computeTopMargin();
     }
@@ -188,13 +178,6 @@ public class StorageOverlayLayout {
     private static int computeTopMargin() {
         // Skyblocker's Quick Nav tabs sit just above the overlay.
         return ModWidgetSpace.topMargin(LayoutSpacing.topMargin());
-    }
-
-    private int computeBottomMargin(boolean inventoryBelow) {
-        // Reserve room for the inventory panel when it sits directly below the page overview,
-        // plus room below it for Quick Nav tabs and RRV's search bar.
-        return ModWidgetSpace.bottomMargin(LayoutSpacing.bottomMargin(), quickNavBottomTabSelected)
-                + (inventoryBelow ? INVENTORY_HEIGHT : 0);
     }
 
     private static List<StorageKey> applyCustomOrder(List<StorageKey> defaultOrder) {
@@ -337,17 +320,6 @@ public class StorageOverlayLayout {
         return PageCache.getInstance().get(key).map(PageCache.CachedPage::emptySlots).orElse(0);
     }
 
-    private void addPanelTitle(SpriteComponent panel, String text, int color) {
-        addPanelText(panel, 7, 3, text, color);
-    }
-
-    private void addPanelText(SpriteComponent panel, int x, int y, String text, int color) {
-        TextComponent component = new TextComponent(x, y + panelTop, Component.literal(text), color);
-        component.updateParentPosition(panel.getTotalX(), panel.getTotalY(), panel.getWidth(), panel.getHeight());
-        component.setDrawShadow(OverlayStyle.titleShadow());
-        panel.addComponent(component);
-    }
-
     private static Rect placeButton(IScreen screen, AbstractComponent button, int x, int y, int size,
                                     int screenWidth, int screenHeight) {
         button.updateParentPosition(0, 0, screenWidth, screenHeight);
@@ -436,7 +408,8 @@ public class StorageOverlayLayout {
     // The arrow key this key navigates as (WASD only when enabled), or -1.
     private static int navigationArrow(int key) {
         return switch (key) {
-            case InputConstants.KEY_UP, InputConstants.KEY_DOWN, InputConstants.KEY_LEFT, InputConstants.KEY_RIGHT -> key;
+            case InputConstants.KEY_UP, InputConstants.KEY_DOWN, InputConstants.KEY_LEFT, InputConstants.KEY_RIGHT ->
+                    key;
             case InputConstants.KEY_W -> EnhancedStorageConfig.wasdPageNavigation ? InputConstants.KEY_UP : -1;
             case InputConstants.KEY_A -> EnhancedStorageConfig.wasdPageNavigation ? InputConstants.KEY_LEFT : -1;
             case InputConstants.KEY_S -> EnhancedStorageConfig.wasdPageNavigation ? InputConstants.KEY_DOWN : -1;
@@ -450,6 +423,63 @@ public class StorageOverlayLayout {
             int empty = page.emptySlots();
             return empty == 0 ? "Full: no empty slots" : empty == 1 ? "1 empty slot" : empty + " empty slots";
         }).orElse("Not cached yet: open it once to see it here");
+    }
+
+    private static boolean navigationSharesSide(EnhancedStorageConfig.InventoryPosition position) {
+        return switch (EnhancedStorageConfig.navigationPanel) {
+            case LEFT -> position == EnhancedStorageConfig.InventoryPosition.LEFT;
+            case RIGHT -> position == EnhancedStorageConfig.InventoryPosition.RIGHT;
+            case DISABLED -> false;
+        };
+    }
+
+    private static void addCard(List<GridCellComponent> into, Map<StorageKey, GridCellComponent> pages,
+                                StorageKey key, int tag) {
+        GridCellComponent card = pages.get(key);
+        if (card == null) return;
+        card.setStackTag(tag);
+        into.add(card);
+    }
+
+    private static ItemStack pageItemAt(PageCardComponent card, double x, double y) {
+        int index = card.slotIndexAt(x, y);
+        if (index < 0) return ItemStack.EMPTY;
+        return PageCache.getInstance().get(card.getKey())
+                .map(PageCache.CachedPage::items)
+                .filter(items -> index < items.size())
+                .map(items -> items.get(index))
+                .orElse(ItemStack.EMPTY);
+    }
+
+    private int computeMainBackgroundHeight(int height, boolean inventoryBelow) {
+        return height - computeTopMargin() - computeBottomMargin(inventoryBelow);
+    }
+
+    // Returns true if the bottom margin for the mod widget space has changed since the last build, which may require a rebuild of the overlay.
+    public boolean modWidgetSpaceChanged() {
+        return ModWidgetSpace.bottomMargin(LayoutSpacing.bottomMargin(), quickNavBottomTabSelected) != builtModWidgetMargin;
+    }
+
+    public void setQuickNavBottomTabSelected(boolean selected) {
+        this.quickNavBottomTabSelected = selected;
+    }
+
+    private int computeBottomMargin(boolean inventoryBelow) {
+        // Reserve room for the inventory panel when it sits directly below the page overview,
+        // plus room below it for Quick Nav tabs and RRV's search bar.
+        return ModWidgetSpace.bottomMargin(LayoutSpacing.bottomMargin(), quickNavBottomTabSelected)
+                + (inventoryBelow ? INVENTORY_HEIGHT : 0);
+    }
+
+    private void addPanelTitle(SpriteComponent panel, String text, int color) {
+        addPanelText(panel, 7, 3, text, color);
+    }
+
+    private void addPanelText(SpriteComponent panel, int x, int y, String text, int color) {
+        TextComponent component = new TextComponent(x, y + panelTop, Component.literal(text), color);
+        component.updateParentPosition(panel.getTotalX(), panel.getTotalY(), panel.getWidth(), panel.getHeight());
+        component.setDrawShadow(OverlayStyle.titleShadow());
+        panel.addComponent(component);
     }
 
     private int slotCount(StorageKey key) {
@@ -475,7 +505,7 @@ public class StorageOverlayLayout {
     }
 
     private EnhancedStorageConfig.PageTitleStyle titleStyle() {
-        // Edit mode keeps a title so pages stay can be renamed.
+        // Edit mode keeps a title so pages can still be renamed.
         EnhancedStorageConfig.PageTitleStyle style = LayoutSpacing.pageTitleStyle();
         return editMode && style == EnhancedStorageConfig.PageTitleStyle.HIDDEN
                 ? EnhancedStorageConfig.PageTitleStyle.COMPACT
@@ -777,14 +807,6 @@ public class StorageOverlayLayout {
         };
     }
 
-    private static boolean navigationSharesSide(EnhancedStorageConfig.InventoryPosition position) {
-        return switch (EnhancedStorageConfig.navigationPanel) {
-            case LEFT -> position == EnhancedStorageConfig.InventoryPosition.LEFT;
-            case RIGHT -> position == EnhancedStorageConfig.InventoryPosition.RIGHT;
-            case DISABLED -> false;
-        };
-    }
-
     private boolean showOverview() {
         return EnhancedStorageConfig.showStorageOverviewCard && !riftContext;
     }
@@ -913,14 +935,6 @@ public class StorageOverlayLayout {
             }
         }
         previewOrder(next);
-    }
-
-    private static void addCard(List<GridCellComponent> into, Map<StorageKey, GridCellComponent> pages,
-                                StorageKey key, int tag) {
-        GridCellComponent card = pages.get(key);
-        if (card == null) return;
-        card.setStackTag(tag);
-        into.add(card);
     }
 
     /**
@@ -1063,7 +1077,8 @@ public class StorageOverlayLayout {
 
     public void resetLayout(Set<ResetPart> parts) {
         List<LayoutEntry> entries = currentEntries();
-        if (parts.contains(ResetPart.ORDER) || parts.contains(ResetPart.STACKS)) entries = LayoutOps.unstackAll(entries);
+        if (parts.contains(ResetPart.ORDER) || parts.contains(ResetPart.STACKS))
+            entries = LayoutOps.unstackAll(entries);
         if (parts.contains(ResetPart.ORDER)) {
             Iterator<StorageKey> sorted = pageKeys(entries).stream().sorted(StorageKey.DISPLAY_ORDER).iterator();
             entries.replaceAll(entry -> entry instanceof LayoutEntry.Page ? new LayoutEntry.Page(sorted.next()) : entry);
@@ -1315,7 +1330,6 @@ public class StorageOverlayLayout {
     private void buildButtons(IScreen screen, int width, int height) {
         final int btnSize = BUTTON_SIZE;
         final int btnGap = BUTTON_GAP;
-        final int iconSize = 16;
         boolean beside = inventoryPosition != EnhancedStorageConfig.InventoryPosition.BOTTOM;
         final int btnY = beside
                 ? mainBackgroundY + mainBackgroundHeight - btnSize
@@ -1326,40 +1340,32 @@ public class StorageOverlayLayout {
         int btnX = rowStartX;
 
         if (EnhancedStorageConfig.showToolkitButton && !riftContext && !editMode) {
-            ItemButtonComponent toolkit = new ItemButtonComponent(btnX, btnY, btnSize, btnSize, buildToolkitIcon());
+            ToolbarButtonComponent toolkit = ToolbarButtonComponent.item(btnX, btnY, btnSize, buildToolkitIcon(),
+                    List.of(title("Open Toolkits"),
+                            hint("Left-click: Farming Toolkit"),
+                            hint("Right-click: Hunting Toolkit")));
             this.toolkitButtonBounds = placeButton(screen, toolkit, btnX, btnY, btnSize, width, height);
             btnX += btnSize + btnGap;
         }
 
         if (EnhancedStorageConfig.showSettingsButton && !riftContext) {
-            IconButtonComponent settings = new IconButtonComponent(
-                    btnX, btnY, btnSize, btnSize,
-                    Sprite.SETTINGS_ICON.id(), iconSize,
-                    List.of(Component.literal("Settings").withStyle(s -> s.withColor(0x55FF55).withItalic(false))));
+            ToolbarButtonComponent settings = ToolbarButtonComponent.icon(btnX, btnY, btnSize, Sprite.SETTINGS_ICON.id(),
+                    List.of(title("Settings")));
             this.settingsButtonBounds = placeButton(screen, settings, btnX, btnY, btnSize, width, height);
             btnX += btnSize + btnGap;
         }
 
         if (EnhancedStorageConfig.showThemeButton && !riftContext) {
-            IconButtonComponent theme = new IconButtonComponent(
-                    btnX, btnY, btnSize, btnSize,
-                    Sprite.THEME_ICON.id(), iconSize,
-                    List.of(
-                            Component.literal("Theme: " + OverlayStyle.displayName())
-                                    .withStyle(s -> s.withColor(0x55FF55).withItalic(false)),
-                            Component.literal("Click to cycle")
-                                    .withStyle(s -> s.withColor(0xFFAA00).withItalic(false))));
+            ToolbarButtonComponent theme = ToolbarButtonComponent.icon(btnX, btnY, btnSize, Sprite.THEME_ICON.id(),
+                    List.of(title("Theme: " + OverlayStyle.displayName()), hint("Click to cycle")));
             this.themeButtonBounds = placeButton(screen, theme, btnX, btnY, btnSize, width, height);
             btnX += btnSize + btnGap;
         }
 
         // We always show the edit button in edit mode, so the player can exit it. Otherwise, only show it if the config allows.
         if (EnhancedStorageConfig.showEditButton || editMode) {
-            IconButtonComponent edit = new IconButtonComponent(
-                    btnX, btnY, btnSize, btnSize,
-                    Sprite.EDIT_ICON.id(), iconSize,
-                    List.of(Component.literal(editMode ? "Exit Edit Mode" : "Edit Layout")
-                            .withStyle(s -> s.withColor(0x55FF55).withItalic(false))));
+            ToolbarButtonComponent edit = ToolbarButtonComponent.icon(btnX, btnY, btnSize, Sprite.EDIT_ICON.id(),
+                    List.of(title(editMode ? "Exit Edit Mode" : "Edit Layout")));
             this.editButtonBounds = placeButton(screen, edit, btnX, btnY, btnSize, width, height);
             btnX += btnSize + btnGap;
         }
@@ -1368,12 +1374,8 @@ public class StorageOverlayLayout {
             // The column has one button row, so Reset joins it instead of going below.
             int resetX = beside ? btnX : rowStartX;
             int resetY = beside ? btnY : btnY + btnSize + btnGap;
-            IconButtonComponent reset = new IconButtonComponent(
-                    resetX, resetY, btnSize, btnSize,
-                    Sprite.RESET_ICON.id(), iconSize,
-                    List.of(Component.literal("Reset Layout").withStyle(s -> s.withColor(0x55FF55).withItalic(false)),
-                            Component.literal("Choose what to restore to default")
-                                    .withStyle(s -> s.withColor(0xFFAA00).withItalic(false))));
+            ToolbarButtonComponent reset = ToolbarButtonComponent.icon(resetX, resetY, btnSize, Sprite.RESET_ICON.id(),
+                    List.of(title("Reset Layout"), hint("Choose what to restore to default")));
             this.resetButtonBounds = placeButton(screen, reset, resetX, resetY, btnSize, width, height);
         }
     }
@@ -1520,7 +1522,7 @@ public class StorageOverlayLayout {
             }
 
             if (isFillSpacer(first)) {
-                ((SpacerCardComponent) first).setWidth(0);
+                first.setWidth(0);
                 start++;
                 continue;
             }
@@ -1740,7 +1742,7 @@ public class StorageOverlayLayout {
         return false;
     }
 
-    private void replaceSection(LayoutEntry.Section section, @Nullable LayoutEntry.Section replacement) {
+    private void replaceSection(LayoutEntry.Section section, LayoutEntry.@Nullable Section replacement) {
         List<LayoutEntry> entries = currentEntries();
         int index = entries.indexOf(section);
         if (index < 0) return;
@@ -1807,16 +1809,6 @@ public class StorageOverlayLayout {
         }
     }
 
-    private static ItemStack pageItemAt(PageCardComponent card, double x, double y) {
-        int index = card.slotIndexAt(x, y);
-        if (index < 0) return ItemStack.EMPTY;
-        return PageCache.getInstance().get(card.getKey())
-                .map(PageCache.CachedPage::items)
-                .filter(items -> index < items.size())
-                .map(items -> items.get(index))
-                .orElse(ItemStack.EMPTY);
-    }
-
     public ItemStack hoveredCachedStack(double x, double y) {
         if (!Rect.contains(getPageOverviewBounds(), x, y)) return ItemStack.EMPTY;
         for (PageCardComponent card : visibleCards) {
@@ -1864,7 +1856,8 @@ public class StorageOverlayLayout {
         int index = visibleCards.indexOf(current);
         return switch (key) {
             case InputConstants.KEY_LEFT -> index > 0 ? visibleCards.get(index - 1).getKey() : null;
-            case InputConstants.KEY_RIGHT -> index < visibleCards.size() - 1 ? visibleCards.get(index + 1).getKey() : null;
+            case InputConstants.KEY_RIGHT ->
+                    index < visibleCards.size() - 1 ? visibleCards.get(index + 1).getKey() : null;
             default -> verticalNeighbour(current, key == InputConstants.KEY_UP);
         };
     }

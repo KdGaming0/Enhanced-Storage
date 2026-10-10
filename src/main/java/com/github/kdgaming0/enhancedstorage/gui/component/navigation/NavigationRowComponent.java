@@ -20,7 +20,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
 
 /**
  * One line of the navigation panel: a section or a page that the grid can jump to.
@@ -38,7 +38,6 @@ public class NavigationRowComponent extends AbstractComponent {
     private static final int GUIDE_END_GAP = 2;
     private static final int LINE_GAP = 4;
     private static final int SECTION_LINE_Y = 5;
-    private static final int RIGHT_PAD = 0;
     private static final float CACHED_ALPHA = 0.7F;
     private static final float UNCACHED_ALPHA = 0.4F;
 
@@ -72,7 +71,7 @@ public class NavigationRowComponent extends AbstractComponent {
 
         Font font = Minecraft.getInstance().font;
         int textX = iconX + ICON_SIZE + TEXT_GAP;
-        int textWidth = width - textX - RIGHT_PAD;
+        int textWidth = width - textX;
         this.truncated = font.width(name) > textWidth;
         this.textEnd = textX + Math.min(font.width(name), textWidth);
         int color = open ? OverlayStyle.navActiveTitleColor()
@@ -142,7 +141,8 @@ public class NavigationRowComponent extends AbstractComponent {
                                        int parentWidth, int parentHeight) {
         int x = getTotalX();
         int y = getTotalY();
-        if (open) blit(graphics, Sprite.NAV_ROW_ACTIVE.id(), x, y, getWidth(), HEIGHT, OverlayStyle.navActiveRowColor());
+        if (open)
+            blit(graphics, Sprite.NAV_ROW_ACTIVE.id(), x, y, getWidth(), HEIGHT, OverlayStyle.navActiveRowColor());
         // Rows half outside the list are clipped, so only count hover inside the visible part.
         if (bounds().contains(mouseX, mouseY) && graphics.containsPointInScissor(mouseX, mouseY)) {
             blit(graphics, Sprite.NAV_ROW_HOVER.id(), x, y, getWidth(), HEIGHT, OverlayStyle.titleHoverFill());
@@ -175,7 +175,7 @@ public class NavigationRowComponent extends AbstractComponent {
     }
 
     @Override
-    public void extractRenderState(@NotNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY,
+    public void extractRenderState(@NonNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY,
                                    float partialTick, int parentWidth, int parentHeight) {
     }
 }

@@ -31,7 +31,6 @@ import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
-import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
@@ -51,13 +50,13 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     private final LiveSlotPlacer slotPlacer;
     private final LiveSlotSearch liveSearch = new LiveSlotSearch();
     private final boolean rrvLoaded = FabricLoader.getInstance().isModLoaded("rrv");
+    private final List<SunkRrvRenderable> sunkRrvWidgets = new ArrayList<>();
     private boolean refocusRrvSearchBar;
     private int backgroundMouseX;
     private int backgroundMouseY;
     private float backgroundPartialTick;
     private boolean rrvDrawnInBackground;
     private boolean bottomTabSelectedThisFrame;
-    private final List<SunkRrvRenderable> sunkRrvWidgets = new ArrayList<>();
     private boolean autoScrolledToOpenCard = false;
     private long deferredCloseAt = 0;
     private int slotsInStratum;
@@ -150,7 +149,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
      * it adds no meaningful overhead.
      */
     @Override
-    public @NotNull List<? extends GuiEventListener> children() {
+    public @NonNull List<? extends GuiEventListener> children() {
         return new ArrayList<>(super.children());
     }
 
@@ -192,8 +191,13 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         }
     }
 
+    // The menu's own slots come first, then the player's inventory.
+    private int containerSlotCount() {
+        return this.menu.getRowCount() * 9;
+    }
+
     private List<ItemStack> liveStacks() {
-        int containerSlots = this.menu.getRowCount() * 9;
+        int containerSlots = containerSlotCount();
         boolean countContainer = openKey.type() != StorageKey.Type.STORAGE_INDEX;
         List<ItemStack> stacks = new ArrayList<>(this.menu.slots.size());
         for (Slot slot : this.menu.slots) {
@@ -223,7 +227,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     }
 
     @Override
-    public void extractBackground(@NotNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
+    public void extractBackground(@NonNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         if (rrvLoaded) {
             sinkForeignRrvWidgets();
         }
@@ -244,7 +248,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
      * its unselected Quick Nav tabs straight after this dim: RRV's side panel would otherwise cover tabs that reach it.
      */
     @Override
-    public void extractTransparentBackground(@NotNull GuiGraphicsExtractor guiGraphics) {
+    public void extractTransparentBackground(@NonNull GuiGraphicsExtractor guiGraphics) {
         super.extractTransparentBackground(guiGraphics);
         if (rrvLoaded) drawRrvBelow(guiGraphics, backgroundMouseX, backgroundMouseY, backgroundPartialTick);
     }
@@ -390,11 +394,11 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
                 .flatMap(stack -> StorageKey.fromIndexItem(stack.getHoverName()));
     }
 
-    private Slot findHoveredContainerSlot(double mx, double my) {
-        int containerSlots = this.menu.getRowCount() * 9;
+    private @Nullable Slot findHoveredContainerSlot(double mx, double my) {
+        int containerSlots = containerSlotCount();
         for (int i = 0; i < containerSlots; i++) {
             Slot slot = this.menu.slots.get(i);
-            if (this.isHovering(slot.x, slot.y, 16, 16, mx, my)) {
+            if (this.isHovering(slot.x, slot.y, SLOT_ITEM_SIZE, SLOT_ITEM_SIZE, mx, my)) {
                 return slot;
             }
         }
@@ -460,9 +464,10 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         if (LiveSlotPlacer.isParked(slot)) return;
 
         Rect viewport = slotPlacer.viewport();
-        if (viewport == null || slot.index >= this.menu.getRowCount() * 9) {
+        if (viewport == null || slot.index >= containerSlotCount()) {
             nextStratumPerRow(graphics);
-            if (CopyHighlight.hasTarget() && CopyHighlight.isCopy(slot.getItem())) CopyHighlight.draw(graphics, slot.x, slot.y);
+            if (CopyHighlight.hasTarget() && CopyHighlight.isCopy(slot.getItem()))
+                CopyHighlight.draw(graphics, slot.x, slot.y);
             super.extractSlot(graphics, slot, mouseX, mouseY);
             return;
         }

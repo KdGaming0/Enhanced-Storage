@@ -47,6 +47,16 @@ public final class PageLayout extends ProfileScopedStore {
         return result.size();
     }
 
+    private static Optional<LayoutEntry> readStack(CompoundTag entry) {
+        return entry.getList(STACK_KEY).map(list -> {
+            List<StorageKey> keys = new ArrayList<>();
+            for (Tag tag : list) {
+                tag.asString().flatMap(StorageKey::fromId).ifPresent(keys::add);
+            }
+            return keys.isEmpty() ? null : LayoutOps.stackOf(keys);
+        });
+    }
+
     /**
      * Applies the saved order to the pages that exist right now. Saved pages that no longer exist are
      * skipped; pages missing from the saved order go next to their default-order neighbour. Spacers are kept.
@@ -145,16 +155,6 @@ public final class PageLayout extends ProfileScopedStore {
             });
         }
         LOGGER.info("Loaded storage layout: {} contexts (file version {})", orders.size(), fileVersion);
-    }
-
-    private static Optional<LayoutEntry> readStack(CompoundTag entry) {
-        return entry.getList(STACK_KEY).map(list -> {
-            List<StorageKey> keys = new ArrayList<>();
-            for (Tag tag : list) {
-                tag.asString().flatMap(StorageKey::fromId).ifPresent(keys::add);
-            }
-            return keys.isEmpty() ? null : LayoutOps.stackOf(keys);
-        });
     }
 
     @Override

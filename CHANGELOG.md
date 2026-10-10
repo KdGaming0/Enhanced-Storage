@@ -57,13 +57,15 @@ A new panel on the side of the overlay makes it easier to navigate your pages an
 - Skyblocker's Quick Nav tabs now line up with your storage pages and inventory instead of the middle of the screen.
 
 #### Performance
-**Storage Overlay is now 2–5× faster**, especially with a large window and many pages on screen. It now costs about 3 ms less per frame, so slower PCs get a smaller multiplier but the same time saved.
+**Storage Overlay is now up to 5× faster**, especially with a large window and many pages on screen.
 
 | Overlay open | Avg FPS | 1% low | 0.1% low |
 |---|---|---|---|
-| **Desktop** (Ryzen 7 5700X3D, RX 9070 XT) | 264 → **1436** (5.4×) | 172 → **310** | 156 → **245** |
-| **Laptop** (Ryzen 7 8840HS, Radeon 780M) | 170 → **350** (2.1×) | 78 → **115** | 55 → **80** |
-<sub>Tested on Hypixel SkyBlock while looking at the void, with Sodium, ImmediatelyFast and Gnetum installed.</sub>
+| **Desktop**, test instance | 282 → **1415** (5.0×) | 152 → **370** | 125 → **329** |
+| **Desktop**, modpack | 157 → **468** (3.0×) | 82 → **142** | 61 → **105** |
+| **Laptop**, test instance | 238 → **580** (2.4×) | 130 → **164** | 118 → **125** |
+| **Laptop**, modpack | 72 → **128** (1.8×) | 45 → **68** | 35 → **50** |
+<sub>Desktop: Ryzen 7 5700X3D, RX 9070 XT. Laptop: Ryzen 7 8840HS, Radeon 780M. Tested on Hypixel SkyBlock while looking at the void. Test instance: Sodium, ImmediatelyFast and Gnetum. Modpack: Skyblock Enhanced v5.2.3.</sub>
 
 **New settings**
 - **Enchant Glint Refresh Rate** (default: 30 FPS): Updates the enchant shimmer less often while the overlay is open, on every page and in your inventory. The shimmer looks slightly less smooth, but you get a lot more FPS. Set it to **Smooth** for the old behavior.

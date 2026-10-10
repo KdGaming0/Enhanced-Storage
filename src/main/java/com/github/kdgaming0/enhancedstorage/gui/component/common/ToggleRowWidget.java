@@ -10,7 +10,7 @@ import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.ARGB;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
 
 /**
  * A checkbox row: box, label, and a right-aligned detail.
@@ -50,7 +50,7 @@ public class ToggleRowWidget extends ButtonWidget {
     }
 
     @Override
-    protected void extractContents(@NotNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
+    protected void extractContents(@NonNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         Identifier sprite = checked ? Sprite.PAGE_CARD_ACTIVE.id()
                 : active && isHoveredOrFocused() ? Sprite.PAGE_CARD_HOVER.id()
                 : Sprite.PAGE_CARD_IDLE.id();

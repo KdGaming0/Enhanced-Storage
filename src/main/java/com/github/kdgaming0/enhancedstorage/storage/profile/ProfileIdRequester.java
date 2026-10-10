@@ -27,6 +27,7 @@ public final class ProfileIdRequester {
     private static Phase phase = Phase.WAITING_IN_SKYBLOCK;
     private static int phaseTicks;
     private static int suppressProfileIdOutputTicks;
+
     private ProfileIdRequester() {
     }
 

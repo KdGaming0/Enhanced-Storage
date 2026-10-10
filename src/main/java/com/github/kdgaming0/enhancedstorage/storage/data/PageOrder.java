@@ -10,6 +10,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static com.github.kdgaming0.enhancedstorage.EnhancedStorage.LOGGER;
 
+/**
+ * Per-page positions saved by 1.x. They only apply until the player saves a {@link PageLayout} for that context, and
+ * nothing writes new ones.
+ */
 public final class PageOrder extends ProfileScopedStore {
 
     private static final PageOrder INSTANCE = new PageOrder();
@@ -26,15 +30,6 @@ public final class PageOrder extends ProfileScopedStore {
 
     public Optional<Integer> get(StorageKey key) {
         return Optional.ofNullable(positions.get(key));
-    }
-
-    public void set(StorageKey key, Integer position) {
-        if (position == null) {
-            clear(key);
-            return;
-        }
-        Integer previous = positions.put(key, position);
-        if (!position.equals(previous)) markDirty();
     }
 
     public void clear(StorageKey key) {

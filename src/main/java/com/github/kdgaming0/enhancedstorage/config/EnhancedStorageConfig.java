@@ -167,8 +167,8 @@ public class EnhancedStorageConfig extends MidnightConfig {
     @Entry(category = CATEGORY_LAYOUT)
     public static ModWidgetSpacing modWidgetSpacing = ModWidgetSpacing.AUTOMATIC;
 
-    // Add extra margins to give space for skyblocker quick nav buttons, but defaults to 10 to not make the overlay too small
-    // we are just using of the exciting padding added before, so now there is no space between the quick nav buttons and the top and bottom of the screen
+    // Extra room for Skyblocker's Quick Nav tabs on top of the top and bottom margins. The default of 10 is small
+    // because the tabs also reach into those margins, so they end up flush with the screen edges.
     @Condition(requiredOption = "modWidgetSpacing", requiredValue = "MANUAL")
     @Entry(category = CATEGORY_LAYOUT, isSlider = true, min = 0, max = 50, precision = 1)
     public static int extraTopAndBottomMarginForQuickNav = 10;
@@ -264,29 +264,34 @@ public class EnhancedStorageConfig extends MidnightConfig {
      */
     static void setPageTitleStyleFromPreset(PageTitleStyle style) {
         pageTitleStyle = style;
-        EntryInfo info = entries.get(EnhancedStorage.MOD_ID + ":pageTitleStyle");
-        if (info != null) info.setValue(style);
-        if (configInstances.get(EnhancedStorage.MOD_ID) instanceof EnhancedStorageConfig config) {
-            config.reloadScreen = true;
-        }
+        setScreenValue("pageTitleStyle", style, true);
     }
 
-    /** Sets Slot Size from code while the config screen may be open, like {@link #setPageTitleStyleFromPreset}. */
+    /**
+     * Sets Slot Size from code while the config screen may be open, like {@link #setPageTitleStyleFromPreset}.
+     */
     static void setSlotSizeFromPreset(SlotSize size) {
         slotSize = size;
-        EntryInfo info = entries.get(EnhancedStorage.MOD_ID + ":slotSize");
-        if (info != null) info.setValue(size);
-        if (configInstances.get(EnhancedStorage.MOD_ID) instanceof EnhancedStorageConfig config) {
-            config.reloadScreen = true;
-        }
+        setScreenValue("slotSize", size, true);
     }
 
-    /** Sets the hidden panelsBesidePages helper while the config screen may be open, so conditions see it right away. */
+    /**
+     * Sets the hidden panelsBesidePages helper while the config screen may be open, so conditions see it right away.
+     */
     static void setPanelsBesidePages(boolean beside) {
         if (panelsBesidePages == beside) return;
         panelsBesidePages = beside;
-        EntryInfo info = entries.get(EnhancedStorage.MOD_ID + ":panelsBesidePages");
-        if (info != null) info.setValue(beside);
+        setScreenValue("panelsBesidePages", beside, false);
+    }
+
+    // Updates the open config screen's pending value for a field set from code, so the screen doesn't write the old
+    // value back. reloadList rebuilds the list so a visible button shows the new value.
+    private static void setScreenValue(String field, Object value, boolean reloadList) {
+        EntryInfo info = entries.get(EnhancedStorage.MOD_ID + ":" + field);
+        if (info != null) info.setValue(value);
+        if (reloadList && configInstances.get(EnhancedStorage.MOD_ID) instanceof EnhancedStorageConfig config) {
+            config.reloadScreen = true;
+        }
     }
 
     public enum BackgroundType {

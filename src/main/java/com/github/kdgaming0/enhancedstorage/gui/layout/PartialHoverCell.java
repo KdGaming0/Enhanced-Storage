@@ -15,6 +15,8 @@ public interface PartialHoverCell {
      */
     @Nullable Rect hoverArea(int mouseX, int mouseY);
 
-    /** Hover feedback that isn't drawn, such as the cursor. Called every frame the cell is hovered. */
+    /**
+     * Hover feedback that isn't drawn, such as the cursor. Called every frame the cell is hovered.
+     */
     void requestHoverCursor(GuiGraphicsExtractor graphics);
 }

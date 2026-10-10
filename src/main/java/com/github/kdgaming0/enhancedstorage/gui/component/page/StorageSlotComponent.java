@@ -11,7 +11,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 public class StorageSlotComponent extends AbstractComponent {
 
@@ -22,7 +22,6 @@ public class StorageSlotComponent extends AbstractComponent {
     private final @Nullable TooltipItemComponent item;
     private final ItemStack stack;
     private final int itemInset;
-    private boolean hoverEnabled = true;
     private SearchState searchState = SearchState.NONE;
 
     public StorageSlotComponent(int x, int y, int width, int height,
@@ -59,10 +58,6 @@ public class StorageSlotComponent extends AbstractComponent {
 
     public void setSearchState(SearchState searchState) {
         this.searchState = searchState;
-    }
-
-    public void setHoverEnabled(boolean hoverEnabled) {
-        this.hoverEnabled = hoverEnabled;
     }
 
     public @Nullable TooltipItemComponent getItem() {

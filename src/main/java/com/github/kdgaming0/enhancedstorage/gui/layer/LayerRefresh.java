@@ -17,7 +17,9 @@ public final class LayerRefresh {
     private long drawnAt;
     private boolean animated;
 
-    /** True when the layer no longer matches {@code key}, or is due for a safety redraw. */
+    /**
+     * True when the layer no longer matches {@code key}, or is due for a safety redraw.
+     */
     public boolean needsRedraw(Object key) {
         long age = Util.getMillis() - drawnAt;
         // Animated items are drawn live on top of the layer (LayerItems). Should one still end up inside it, keep it
@@ -26,7 +28,9 @@ public final class LayerRefresh {
                 || (animated && age >= EnhancedStorageConfig.animatedItemRefreshRate.intervalMillis);
     }
 
-    /** Records a redraw from {@code key}; {@code animated} is what {@link PageLayerCache#endLayer} returned. */
+    /**
+     * Records a redraw from {@code key}; {@code animated} is what {@link PageLayerCache#endLayer} returned.
+     */
     public void drawn(Object key, boolean animated) {
         this.drawnFrom = key;
         this.drawnAt = Util.getMillis();

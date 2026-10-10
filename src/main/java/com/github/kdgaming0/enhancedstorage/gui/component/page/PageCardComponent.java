@@ -28,8 +28,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -60,11 +60,12 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
     private final List<StorageSlotComponent> slots = new ArrayList<>();
     private final TextComponent pageTitle;
     private final @Nullable PageCardButtonWidget button;
-    Identifier idle = Sprite.PAGE_CARD_IDLE.id();
-    Identifier active = Sprite.PAGE_CARD_ACTIVE.id();
     private @Nullable EditBoxWidget titleEditor;
     private @Nullable TextComponent emptyLabel;
     private @Nullable String shownEmptyText;
+    private PageCache.@Nullable CachedPage countedPage;
+    private int countedEmpty;
+
     public PageCardComponent(int x, int y, int width, int height,
                              StorageKey key,
                              StorageOverlayState state,
@@ -88,6 +89,8 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
             this.addComponent(background);
             this.button = null;
         } else {
+            Identifier idle = Sprite.PAGE_CARD_IDLE.id();
+            Identifier active = Sprite.PAGE_CARD_ACTIVE.id();
             WidgetSprites idleSprites = new WidgetSprites(idle, idle, idle);
             WidgetSprites activeSprites = new WidgetSprites(active, active, active);
 
@@ -140,7 +143,6 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
                         live ? null : Sprite.SLOT_HIGHLIGHT_BACK.id(),
                         live ? null : Sprite.SLOT_HIGHLIGHT_FRONT.id(),
                         stack);
-                if (live) slotComponent.setHoverEnabled(false);
                 this.slots.add(slotComponent);
                 this.addComponent(slotComponent);
             }
@@ -229,7 +231,8 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
 
     @Override
     public void requestHoverCursor(GuiGraphicsExtractor graphics) {
-        if (button != null) graphics.requestCursor(button.isActive() ? CursorTypes.POINTING_HAND : CursorTypes.NOT_ALLOWED);
+        if (button != null)
+            graphics.requestCursor(button.isActive() ? CursorTypes.POINTING_HAND : CursorTypes.NOT_ALLOWED);
     }
 
     public int slotsAcross() {
@@ -283,7 +286,7 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
     private void updateEmptyLabel() {
         if (emptyLabel == null) return;
         String text = titleEditor != null ? "" : PageCache.getInstance().get(key)
-                .map(page -> emptyText(page.emptySlots()))
+                .map(page -> emptyText(emptySlots(page)))
                 .orElse("");
         if (text.equals(shownEmptyText)) return;
         shownEmptyText = text;
@@ -295,6 +298,15 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
         if (text.equals(FULL_TEXT)) label = label.withColor(OverlayStyle.fullTextColor() & 0xFFFFFF);
         emptyLabel.setText(fits ? label : Component.empty());
         emptyLabel.setX(labelX);
+    }
+
+    // A page snapshot never changes (a capture stores a new one), so count each snapshot's empty slots once.
+    private int emptySlots(PageCache.CachedPage page) {
+        if (page != countedPage) {
+            countedPage = page;
+            countedEmpty = page.emptySlots();
+        }
+        return countedEmpty;
     }
 
     // Makes the whole title area clickable, not just the text to make short titles easier to click.
@@ -353,6 +365,6 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
     }
 
     @Override
-    public void extractRenderState(@NotNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int parentWidth, int parentHeight) {
+    public void extractRenderState(@NonNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, int parentWidth, int parentHeight) {
     }
 }

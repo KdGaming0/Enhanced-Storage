@@ -32,7 +32,9 @@ public final class AnimatedItemThrottle {
         return animated && refreshThisFrame;
     }
 
-    /** Called after an atlas frees its slots; decides whether the next frame refreshes. */
+    /**
+     * Called after an atlas frees its slots; decides whether the next frame refreshes.
+     */
     public static void endFrame() {
         // The page layer's atlas ends its own frame too; only the main GUI's counts.
         if (PageLayerCache.isRendering()) return;
@@ -45,7 +47,9 @@ public final class AnimatedItemThrottle {
         if (refreshThisFrame) nextRefreshAt = now + EnhancedStorageConfig.animatedItemRefreshRate.intervalMillis;
     }
 
-    /** True while animated items are redrawn less often than every frame. */
+    /**
+     * True while animated items are redrawn less often than every frame.
+     */
     public static boolean isLimiting() {
         return EnhancedStorageConfig.animatedItemRefreshRate.intervalMillis > 0
                 && isStorageScreen(Minecraft.getInstance().screen);

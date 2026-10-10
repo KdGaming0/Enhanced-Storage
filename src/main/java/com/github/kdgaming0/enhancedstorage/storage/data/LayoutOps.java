@@ -113,36 +113,6 @@ public final class LayoutOps {
     }
 
     /**
-     * Where a dragged page or space lands. Resolved against the layout without the dragged entry, so the
-     * same target always gives the same result however the layout looked during the drag.
-     */
-    public sealed interface Target {
-        /**
-         * Its own column before the column holding {@code anchor}.
-         */
-        record Before(LayoutEntry anchor) implements Target {
-        }
-
-        /**
-         * Its own column after the column holding {@code anchor}.
-         */
-        record After(LayoutEntry anchor) implements Target {
-        }
-
-        /**
-         * Inside the stack holding {@code page} (a lone page becomes a stack), above or below it.
-         */
-        record Stack(StorageKey page, boolean above) implements Target {
-        }
-
-        /**
-         * Its own column at this index of the layout without the dragged entry.
-         */
-        record At(int index) implements Target {
-        }
-    }
-
-    /**
      * Moves a page or a space. Returns null when the target no longer exists.
      */
     public static @Nullable List<LayoutEntry> move(List<LayoutEntry> entries, LayoutEntry item, Target target) {
@@ -172,5 +142,35 @@ public final class LayoutOps {
             }
         }
         return base;
+    }
+
+    /**
+     * Where a dragged page or space lands. Resolved against the layout without the dragged entry, so the
+     * same target always gives the same result however the layout looked during the drag.
+     */
+    public sealed interface Target {
+        /**
+         * Its own column before the column holding {@code anchor}.
+         */
+        record Before(LayoutEntry anchor) implements Target {
+        }
+
+        /**
+         * Its own column after the column holding {@code anchor}.
+         */
+        record After(LayoutEntry anchor) implements Target {
+        }
+
+        /**
+         * Inside the stack holding {@code page} (a lone page becomes a stack), above or below it.
+         */
+        record Stack(StorageKey page, boolean above) implements Target {
+        }
+
+        /**
+         * Its own column at this index of the layout without the dragged entry.
+         */
+        record At(int index) implements Target {
+        }
     }
 }

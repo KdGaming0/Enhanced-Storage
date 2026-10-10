@@ -22,7 +22,7 @@ import net.minecraft.client.Minecraft;
  * options rather than remembering the previous value, so nothing can go stale and a missed restore
  * repairs itself on the next resize. The override is never written to {@code options.txt}, so it
  * can't outlive the process either. Between that and {@code Screen.removed()}, every exit path is
- * covered — no extra lifecycle hook is needed (audited in IMPLEMENTATION_LOG.md).
+ * covered — no extra lifecycle hook is needed.
  */
 public final class OverlayScale {
 
