@@ -101,58 +101,68 @@ public final class PageLayout extends ProfileScopedStore {
         if (orders.remove(context) != null) markDirty();
     }
 
+    /**
+     * The saved form of one context's entries. Layout codes use it too, so both read the same way.
+     */
+    public static ListTag writeEntries(List<LayoutEntry> order) {
+        ListTag list = new ListTag();
+        for (LayoutEntry entry : order) {
+            CompoundTag tag = new CompoundTag();
+            switch (entry) {
+                case LayoutEntry.Page(StorageKey key) -> tag.putString(PAGE_KEY, key.id());
+                case LayoutEntry.Stack(List<StorageKey> keys) -> {
+                    ListTag pages = new ListTag();
+                    for (StorageKey key : keys) pages.add(StringTag.valueOf(key.id()));
+                    tag.put(STACK_KEY, pages);
+                }
+                case LayoutEntry.Spacer(int id, int slots) -> {
+                    tag.putInt(SPACER_KEY, id);
+                    tag.putInt(SLOTS_KEY, slots);
+                }
+                case LayoutEntry.Section(int id, String name, boolean collapsed) -> {
+                    tag.putInt(SECTION_KEY, id);
+                    tag.putString(NAME_KEY, name);
+                    if (collapsed) tag.putBoolean(COLLAPSED_KEY, true);
+                }
+                case LayoutEntry.SectionEnd() -> tag.putBoolean(SECTION_END_KEY, true);
+            }
+            list.add(tag);
+        }
+        return list;
+    }
+
+    /**
+     * Reads what {@link #writeEntries} wrote. Unreadable and repeated entries are skipped.
+     */
+    public static List<LayoutEntry> readEntries(ListTag list) {
+        List<LayoutEntry> entries = new ArrayList<>();
+        Set<LayoutEntry> seen = new HashSet<>();
+        for (Tag tag : list) {
+            if (!(tag instanceof CompoundTag entry)) continue;
+            entry.getString(PAGE_KEY).flatMap(StorageKey::fromId)
+                    .<LayoutEntry>map(LayoutEntry.Page::new)
+                    .or(() -> readStack(entry))
+                    .or(() -> entry.getInt(SPACER_KEY).map(id ->
+                            new LayoutEntry.Spacer(id, entry.getInt(SLOTS_KEY).orElse(LayoutEntry.Spacer.FILL))))
+                    .or(() -> entry.getInt(SECTION_KEY).map(id -> new LayoutEntry.Section(id,
+                            entry.getString(NAME_KEY).orElse(LayoutEntry.Section.DEFAULT_NAME),
+                            entry.getBoolean(COLLAPSED_KEY).orElse(false))))
+                    .or(() -> entry.getBoolean(SECTION_END_KEY).map(present -> new LayoutEntry.SectionEnd()))
+                    .filter(e -> e instanceof LayoutEntry.SectionEnd || seen.add(e))
+                    .ifPresent(entries::add);
+        }
+        return LayoutOps.normalize(entries);
+    }
+
     @Override
     protected void writeTo(CompoundTag root) {
-        orders.forEach((context, order) -> {
-            ListTag list = new ListTag();
-            for (LayoutEntry entry : order) {
-                CompoundTag tag = new CompoundTag();
-                switch (entry) {
-                    case LayoutEntry.Page(StorageKey key) -> tag.putString(PAGE_KEY, key.id());
-                    case LayoutEntry.Stack(List<StorageKey> keys) -> {
-                        ListTag pages = new ListTag();
-                        for (StorageKey key : keys) pages.add(StringTag.valueOf(key.id()));
-                        tag.put(STACK_KEY, pages);
-                    }
-                    case LayoutEntry.Spacer(int id, int slots) -> {
-                        tag.putInt(SPACER_KEY, id);
-                        tag.putInt(SLOTS_KEY, slots);
-                    }
-                    case LayoutEntry.Section(int id, String name, boolean collapsed) -> {
-                        tag.putInt(SECTION_KEY, id);
-                        tag.putString(NAME_KEY, name);
-                        if (collapsed) tag.putBoolean(COLLAPSED_KEY, true);
-                    }
-                    case LayoutEntry.SectionEnd() -> tag.putBoolean(SECTION_END_KEY, true);
-                }
-                list.add(tag);
-            }
-            root.put(context.id, list);
-        });
+        orders.forEach((context, order) -> root.put(context.id, writeEntries(order)));
     }
 
     @Override
     protected void readFrom(CompoundTag root, int fileVersion) {
         for (Context context : Context.values()) {
-            root.getList(context.id).ifPresent(list -> {
-                List<LayoutEntry> entries = new ArrayList<>();
-                Set<LayoutEntry> seen = new HashSet<>();
-                for (Tag tag : list) {
-                    if (!(tag instanceof CompoundTag entry)) continue;
-                    entry.getString(PAGE_KEY).flatMap(StorageKey::fromId)
-                            .<LayoutEntry>map(LayoutEntry.Page::new)
-                            .or(() -> readStack(entry))
-                            .or(() -> entry.getInt(SPACER_KEY).map(id ->
-                                    new LayoutEntry.Spacer(id, entry.getInt(SLOTS_KEY).orElse(LayoutEntry.Spacer.FILL))))
-                            .or(() -> entry.getInt(SECTION_KEY).map(id -> new LayoutEntry.Section(id,
-                                    entry.getString(NAME_KEY).orElse(LayoutEntry.Section.DEFAULT_NAME),
-                                    entry.getBoolean(COLLAPSED_KEY).orElse(false))))
-                            .or(() -> entry.getBoolean(SECTION_END_KEY).map(present -> new LayoutEntry.SectionEnd()))
-                            .filter(e -> e instanceof LayoutEntry.SectionEnd || seen.add(e))
-                            .ifPresent(entries::add);
-                }
-                orders.put(context, List.copyOf(LayoutOps.normalize(entries)));
-            });
+            root.getList(context.id).ifPresent(list -> orders.put(context, List.copyOf(readEntries(list))));
         }
         LOGGER.info("Loaded storage layout: {} contexts (file version {})", orders.size(), fileVersion);
     }
@@ -174,6 +184,24 @@ public final class PageLayout extends ProfileScopedStore {
 
         public static Context of(boolean rift) {
             return rift ? RIFT : STORAGE;
+        }
+
+        public static Optional<Context> fromId(String id) {
+            for (Context context : values()) {
+                if (context.id.equals(id)) return Optional.of(context);
+            }
+            return Optional.empty();
+        }
+
+        public String id() {
+            return id;
+        }
+
+        /**
+         * Whether the page is shown in this context's overlay.
+         */
+        public boolean holds(StorageKey key) {
+            return key.type() != StorageKey.Type.STORAGE_INDEX && (this == RIFT) == (key.type() == StorageKey.Type.RIFT);
         }
     }
 }

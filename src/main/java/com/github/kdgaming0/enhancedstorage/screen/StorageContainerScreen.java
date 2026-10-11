@@ -371,7 +371,14 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         if (!this.menu.getCarried().isEmpty()) return;
 
         boolean rift = openKey.type() == StorageKey.Type.RIFT;
+        // Closing the menu resets the scroll as if storage was closed; keep it so edit mode opens where we were.
+        // Edit mode has no copy filter, so use the scroll from before the filter if one is active.
+        Double beforeFilter = state.getScrollBeforeCopyFilter();
+        double scroll = beforeFilter != null ? beforeFilter : state.getScrollAmount();
+        double navigationScroll = state.getNavigationScroll();
         this.minecraft.player.closeContainer();
+        state.setScrollAmount(scroll);
+        state.setNavigationScroll(navigationScroll);
         Minecraft.getInstance().setScreen(StorageOverlay.forEditMode(rift, true));
     }
 

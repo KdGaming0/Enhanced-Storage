@@ -13,6 +13,12 @@ Edit Mode lets you make the storage overlay your own. Open it with the new **Edi
   - **Custom Page Width:** Set how many slots wide pages are by default. Instead of the default 9 slots, you can choose any number from 2 to 18. You can also change the width of individual pages in Edit Mode.
   - **Hide Item Tooltips in Edit Mode** stops tooltips from covering pages while you arrange them.
   - **Collapse Sections While Dragging** shows every section as a collapsed bar while you move a section.
+- **Undo and redo:** Press Ctrl+Z to undo your last change in Edit Mode, and Ctrl+Y (or Ctrl+Shift+Z) to redo it. This works for moving, stacking, renaming, page widths, spaces and sections.
+  - After you reset or import a layout, the Edit Mode panel shows an **Undo** button so you can get your old layout back with one click.
+- **Share your layout:** Click the new **Share** button in Edit Mode and choose **Copy Layout**. Your layout is put in your clipboard as text you can send to a friend or a safe place for later use. Example when you move to a new computer.
+  - To use a layout, copy the whole text, then click **Share** and choose **Paste Layout**. You can pick what to bring over: the page arrangement, page widths, and page names.
+  - You can also use `/es layout export` and `/es layout import` (add `rift` for Rift Storage).
+  - Pages the other player doesn't have are skipped, and pages that aren't in the shared layout keep their usual spot.
 
 #### Custom Page Layouts
 A new page layout system gives you more control over how your pages are arranged.
@@ -55,6 +61,7 @@ A new panel on the side of the overlay makes it easier to navigate your pages an
 - Added a **Slot Size** setting. **Compact** uses smaller slots with no gap between items, so pages take up less space and more of them fit on screen. The Storage Overview and your inventory keep normal slots. The **Dense** layout uses compact slots, and you can change the setting afterwards.
 - Added a **Room for Other Mods** setting. When set to **Automatic** (the default), the overlay leaves just enough space for Skyblocker's Quick Nav tabs, RRV's search bar and SkyRecipes' category buttons — only for the ones you have turned on — so the overlay can use more of your screen. **Manual** lets you set the space yourself, like before.
 - Skyblocker's Quick Nav tabs now line up with your storage pages and inventory instead of the middle of the screen.
+- Added an **Open Storage** key that opens your storage on SkyBlock. It has no key set by default, but you can set one in the vanilla Controls settings.
 
 #### Performance
 **Storage Overlay is now up to 5× faster**, especially with a large window and many pages on screen.

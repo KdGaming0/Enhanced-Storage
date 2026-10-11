@@ -30,7 +30,8 @@ public final class CopyHighlight {
     private static final HighlightColor COLOR = new HighlightColor(0x33CCFF);
     private static final Identity NONE = new Identity("", null);
     private static final Map<ItemStack, Identity> IDENTITIES = new WeakHashMap<>();
-    private static final KeyMapping.Category CATEGORY =
+    // Shared by every Enhanced Storage key; a category can only be registered once.
+    public static final KeyMapping.Category CATEGORY =
             KeyMapping.Category.register(Identifier.fromNamespaceAndPath(MOD_ID, "main"));
     private static KeyMapping key;
     private static KeyMapping searchKey;

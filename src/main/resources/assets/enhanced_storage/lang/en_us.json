@@ -222,5 +222,6 @@
 
   "key.category.enhanced_storage.main": "Enhanced Storage",
   "key.enhanced_storage.highlight_copies": "Highlight Item Copies (Storage)",
-  "key.enhanced_storage.search_hovered": "Search for Hovered Item"
+  "key.enhanced_storage.search_hovered": "Search for Hovered Item",
+  "key.enhanced_storage.open_storage": "Open Storage"
 }

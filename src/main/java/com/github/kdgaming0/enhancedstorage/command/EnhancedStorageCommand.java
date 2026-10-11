@@ -2,10 +2,9 @@ package com.github.kdgaming0.enhancedstorage.command;
 
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlay;
+import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayLayout;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayState;
-import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
-import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
-import com.github.kdgaming0.enhancedstorage.storage.data.PageOrder;
+import com.github.kdgaming0.enhancedstorage.storage.data.*;
 import com.github.kdgaming0.enhancedstorage.storage.io.ProfileScopedStore;
 import com.github.kdgaming0.enhancedstorage.storage.profile.ProfileIdRequester;
 import com.github.kdgaming0.enhancedstorage.storage.profile.ProfileSession;
@@ -49,6 +48,15 @@ public class EnhancedStorageCommand {
                         .executes(ctx -> executeEdit(false))
                         .then(literal("rift")
                                 .executes(ctx -> executeEdit(true))))
+                .then(literal("layout")
+                        .then(literal("export")
+                                .executes(ctx -> executeExport(ctx, false))
+                                .then(literal("rift")
+                                        .executes(ctx -> executeExport(ctx, true))))
+                        .then(literal("import")
+                                .executes(ctx -> executeImport(false))
+                                .then(literal("rift")
+                                        .executes(ctx -> executeImport(true)))))
                 .then(literal("test_storage")
                         .executes(EnhancedStorageCommand::executeTestStorage))
                 .then(literal("debug")
@@ -108,6 +116,30 @@ public class EnhancedStorageCommand {
 
     private static int executeEdit(boolean rift) {
         Minecraft.getInstance().schedule(() -> Minecraft.getInstance().setScreen(StorageOverlay.forEditMode(rift, false)));
+        return 1;
+    }
+
+    private static int executeExport(CommandContext<FabricClientCommandSource> ctx, boolean rift) {
+        PageLayout.Context context = PageLayout.Context.of(rift);
+        LayoutSnapshot layout = StorageOverlayLayout.snapshot(context);
+        String name = rift ? "Rift Storage" : "Storage";
+        if (layout.pageCount() == 0) {
+            ctx.getSource().sendError(Component.literal("[EnhancedStorage] No " + name
+                    + " pages known yet. Open your " + name + " first."));
+            return 0;
+        }
+        Minecraft.getInstance().keyboardHandler.setClipboard(LayoutTransfer.encode(context, layout));
+        String importCommand = "/es layout import" + (rift ? " rift" : "");
+        ctx.getSource().sendFeedback(Component.literal("§a[EnhancedStorage] Your " + name + " layout ("
+                + layout.pageCount() + " pages) is now in your clipboard."));
+        ctx.getSource().sendFeedback(Component.literal("§7Paste it into a chat, a message or a text file to keep it or "
+                + "send it to a friend. To use it, copy the whole text again and type §f" + importCommand
+                + "§7, or open Edit Layout > Share > Paste Layout."));
+        return 1;
+    }
+
+    private static int executeImport(boolean rift) {
+        Minecraft.getInstance().schedule(() -> Minecraft.getInstance().setScreen(StorageOverlay.forImport(rift)));
         return 1;
     }
 

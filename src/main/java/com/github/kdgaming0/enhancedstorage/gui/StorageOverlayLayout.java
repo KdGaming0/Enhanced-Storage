@@ -33,11 +33,14 @@ import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.WidgetSprites;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.FormattedText;
+import net.minecraft.network.chat.Style;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -74,7 +77,10 @@ public class StorageOverlayLayout {
             new Hint("Drag grip", "Move section"),
             new Hint("Right-click", "More options"),
             new Hint("Hover gap", "Add section"),
-            new Hint("Drop on edge", "Stack pages"));
+            new Hint("Drop on edge", "Stack pages"),
+            new Hint("Ctrl+Z / Ctrl+Y", "Undo / Redo"));
+    private static final int NOTICE_BUTTON_HEIGHT = 18;
+    private static final int NOTICE_BUTTON_GAP = 4;
     private static final int SECTION_LINE_REACH = 3;
     private static final int SECTION_INSET = 4;
     private static final int NAV_INSET = 2;
@@ -142,6 +148,10 @@ public class StorageOverlayLayout {
     private @Nullable Rect themeButtonBounds;
     private @Nullable Rect editButtonBounds;
     private @Nullable Rect resetButtonBounds;
+    private @Nullable Rect shareButtonBounds;
+    private @Nullable EditNotice editNotice;
+    private @Nullable Rect noticeUndoBounds;
+    private @Nullable Rect noticeDismissBounds;
     private @Nullable Rect inventoryBounds;
     private @Nullable Rect overviewBounds;
 
@@ -619,7 +629,8 @@ public class StorageOverlayLayout {
         addOverviewIndexItems(liveKey);
         if (editMode) {
             addPanelTitle(inventoryPanel, "Edit Mode", OverlayStyle.accentColor());
-            addEditModeHints(inventoryPanel);
+            if (editNotice != null) addEditNotice(screen, inventoryPanel, editNotice);
+            else addEditModeHints(inventoryPanel);
         } else {
             addPanelTitle(inventoryPanel, "Inventory", OverlayStyle.titleColor());
         }
@@ -654,6 +665,9 @@ public class StorageOverlayLayout {
         this.themeButtonBounds = null;
         this.editButtonBounds = null;
         this.resetButtonBounds = null;
+        this.shareButtonBounds = null;
+        this.noticeUndoBounds = null;
+        this.noticeDismissBounds = null;
         this.draggedSection = null;
         this.navigationList = null;
         this.navigationTitle = null;
@@ -859,20 +873,59 @@ public class StorageOverlayLayout {
     }
 
     private List<LayoutEntry> collectEntries(@Nullable StorageKey liveKey) {
+        return collectEntries(PageLayout.Context.of(riftContext), liveKey);
+    }
+
+    private static List<LayoutEntry> collectEntries(PageLayout.Context context, @Nullable StorageKey liveKey) {
         List<StorageKey> keys = Stream.concat(
                         Stream.ofNullable(liveKey),
                         Stream.concat(
                                 PageCache.getInstance().all().keySet().stream(),
                                 PageCache.getInstance().allKnown().stream())).filter(Objects::nonNull)
-                .filter(this::inContext)
+                .filter(context::holds)
                 .distinct()
                 .sorted(StorageKey.DISPLAY_ORDER)
                 .toList();
 
         // Legacy per-page positions only apply until the player saves an order for this context.
-        List<LayoutEntry> entries = PageLayout.getInstance().resolve(PageLayout.Context.of(riftContext), keys)
+        List<LayoutEntry> entries = PageLayout.getInstance().resolve(context, keys)
                 .orElseGet(() -> applyCustomOrder(keys).stream().<LayoutEntry>map(LayoutEntry.Page::new).toList());
         return closeSections(entries);
+    }
+
+    public static LayoutSnapshot snapshot(PageLayout.Context context) {
+        Map<StorageKey, Integer> widths = new HashMap<>();
+        PageWidths.getInstance().all().forEach((key, width) -> {
+            if (context.holds(key)) widths.put(key, width);
+        });
+        Map<StorageKey, String> names = new HashMap<>();
+        PageNames.getInstance().all().forEach((key, name) -> {
+            if (context.holds(key)) names.put(key, name);
+        });
+        return new LayoutSnapshot(collectEntries(context, null), widths, names);
+    }
+
+    LayoutSnapshot snapshot() {
+        return snapshot(PageLayout.Context.of(riftContext));
+    }
+
+    void applySnapshot(LayoutSnapshot snapshot, boolean arrangement, boolean widths, boolean names) {
+        PageLayout.Context context = PageLayout.Context.of(riftContext);
+        if (arrangement) saveOrder(snapshot.entries());
+        if (widths) {
+            PageWidths store = PageWidths.getInstance();
+            for (StorageKey key : List.copyOf(store.all().keySet())) {
+                if (context.holds(key) && !snapshot.widths().containsKey(key)) store.clear(key);
+            }
+            snapshot.widths().forEach(store::set);
+        }
+        if (names) {
+            PageNames store = PageNames.getInstance();
+            for (StorageKey key : List.copyOf(store.all().keySet())) {
+                if (context.holds(key) && !snapshot.names().containsKey(key)) store.clear(key);
+            }
+            snapshot.names().forEach(store::set);
+        }
     }
 
     public void saveOrder(List<LayoutEntry> order) {
@@ -1300,6 +1353,36 @@ public class StorageOverlayLayout {
         }
     }
 
+    private void addEditNotice(IScreen screen, SpriteComponent panel, EditNotice notice) {
+        int x = 7;
+        int width = panel.getWidth() - x * 2;
+        addPanelText(panel, x, 17, notice.title(), OverlayStyle.titleColor());
+        int y = 28;
+        for (FormattedText line : font.getSplitter().splitLines(notice.detail(), width, Style.EMPTY).stream().limit(2).toList()) {
+            addPanelText(panel, x, y, line.getString(), OverlayStyle.secondaryTextColor());
+            y += font.lineHeight + 2;
+        }
+
+        int buttonY = 51;
+        int undoWidth = (width - NOTICE_BUTTON_GAP) / 2;
+        this.noticeUndoBounds = addPanelButton(screen, panel, x, buttonY, undoWidth, "Undo");
+        this.noticeDismissBounds = addPanelButton(screen, panel, x + undoWidth + NOTICE_BUTTON_GAP, buttonY,
+                width - undoWidth - NOTICE_BUTTON_GAP, "Dismiss");
+        addPanelText(panel, x, buttonY + NOTICE_BUTTON_HEIGHT + 5, "Ctrl+Z also undoes it.", OverlayStyle.secondaryTextColor());
+    }
+
+    private Rect addPanelButton(IScreen screen, SpriteComponent panel, int x, int y, int width, String text) {
+        Identifier idle = Sprite.PAGE_CARD_IDLE.id();
+        WidgetSprites sprites = new WidgetSprites(idle, idle, Sprite.PAGE_CARD_ACTIVE.id());
+        int color = OverlayStyle.titleColor() & 0xFFFFFF;
+        PageCardButtonWidget button = new PageCardButtonWidget(x, y + panelTop, width, NOTICE_BUTTON_HEIGHT,
+                Component.literal(text).withStyle(s -> s.withColor(color)), () -> sprites, b -> {
+        });
+        button.uilib$updateParentPosition(panel.getTotalX(), panel.getTotalY());
+        screen.addWidget(button);
+        return new Rect(panel.getTotalX() + x, panel.getTotalY() + y + panelTop, width, NOTICE_BUTTON_HEIGHT);
+    }
+
     private void ensureWarmupQueue() {
         if (warmupQueue != null) return;
         warmupQueue = new ArrayDeque<>();
@@ -1348,6 +1431,14 @@ public class StorageOverlayLayout {
             btnX += btnSize + btnGap;
         }
 
+        // Reset takes the Toolkit's slot in edit mode, so the Exit/Edit button stay in the same place.
+        if (editMode) {
+            ToolbarButtonComponent reset = ToolbarButtonComponent.icon(btnX, btnY, btnSize, Sprite.RESET_ICON.id(),
+                    List.of(title("Reset Layout"), hint("Choose what to restore to default")));
+            this.resetButtonBounds = placeButton(screen, reset, btnX, btnY, btnSize, width, height);
+            btnX += btnSize + btnGap;
+        }
+
         if (EnhancedStorageConfig.showSettingsButton && !riftContext) {
             ToolbarButtonComponent settings = ToolbarButtonComponent.icon(btnX, btnY, btnSize, Sprite.SETTINGS_ICON.id(),
                     List.of(title("Settings")));
@@ -1371,17 +1462,30 @@ public class StorageOverlayLayout {
         }
 
         if (editMode) {
-            // The column has one button row, so Reset joins it instead of going below.
-            int resetX = beside ? btnX : rowStartX;
-            int resetY = beside ? btnY : btnY + btnSize + btnGap;
-            ToolbarButtonComponent reset = ToolbarButtonComponent.icon(resetX, resetY, btnSize, Sprite.RESET_ICON.id(),
-                    List.of(title("Reset Layout"), hint("Choose what to restore to default")));
-            this.resetButtonBounds = placeButton(screen, reset, resetX, resetY, btnSize, width, height);
+            ToolbarButtonComponent share = ToolbarButtonComponent.icon(btnX, btnY, btnSize, Sprite.SHARE_ICON.id(),
+                    List.of(title("Share Layout"), hint("Copy your layout or paste one")));
+            this.shareButtonBounds = placeButton(screen, share, btnX, btnY, btnSize, width, height);
         }
     }
 
     public boolean isOverResetButton(double x, double y) {
         return Rect.contains(resetButtonBounds, x, y);
+    }
+
+    public boolean isOverShareButton(double x, double y) {
+        return Rect.contains(shareButtonBounds, x, y);
+    }
+
+    public void setEditNotice(@Nullable EditNotice notice) {
+        this.editNotice = notice;
+    }
+
+    public boolean isOverNoticeUndo(double x, double y) {
+        return Rect.contains(noticeUndoBounds, x, y);
+    }
+
+    public boolean isOverNoticeDismiss(double x, double y) {
+        return Rect.contains(noticeDismissBounds, x, y);
     }
 
     private void applySearch(String query) {
@@ -2003,6 +2107,9 @@ public class StorageOverlayLayout {
     }
 
     private record Hint(String action, String result) {
+    }
+
+    public record EditNotice(String title, String detail) {
     }
 
     private record PageLayerInputs(@Nullable StorageKey openKey, ItemStack copyTarget) {

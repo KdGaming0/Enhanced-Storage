@@ -22,6 +22,7 @@ import com.github.kdgaming0.enhancedstorage.gui.highlight.ItemTotals;
 import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
 import com.github.kdgaming0.enhancedstorage.storage.data.*;
 import com.github.kdgaming0.enhancedstorage.storage.profile.ProfileSession;
+import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.cursor.CursorTypes;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -69,6 +70,10 @@ public class StorageOverlay extends AbstractScreen {
     private @Nullable IWidget popupPressed;
     private int realMouseX;
     private int realMouseY;
+    private @Nullable EditHistory history;
+    private Optional<String> historyProfile = Optional.empty();
+    private String noticeDetail = "";
+    private boolean importOnOpen;
 
     public StorageOverlay() {
         this(new StorageOverlayLayout(), false, null);
@@ -89,6 +94,23 @@ public class StorageOverlay extends AbstractScreen {
     public static StorageOverlay forEditMode(boolean rift, boolean fromLiveStorage) {
         String returnCommand = fromLiveStorage && !rift ? "storage" : null;
         return new StorageOverlay(StorageOverlayLayout.forEditMode(rift), true, returnCommand);
+    }
+
+    public static StorageOverlay forImport(boolean rift) {
+        StorageOverlay overlay = forEditMode(rift, false);
+        overlay.importOnOpen = true;
+        return overlay;
+    }
+
+    private static boolean isUndo(KeyEvent event) {
+        return event.key() == InputConstants.KEY_Z && event.hasControlDownWithQuirk()
+                && !event.hasShiftDown() && !event.hasAltDown();
+    }
+
+    private static boolean isRedo(KeyEvent event) {
+        if (!event.hasControlDownWithQuirk() || event.hasAltDown()) return false;
+        return event.key() == InputConstants.KEY_Y ? !event.hasShiftDown()
+                : event.key() == InputConstants.KEY_Z && event.hasShiftDown();
     }
 
     private static boolean isOverRenameTarget(GridCellComponent cell, double x, double y) {
@@ -114,6 +136,8 @@ public class StorageOverlay extends AbstractScreen {
         popup = null;
         popupPressed = null;
 
+        String notice = history != null ? history.notice() : null;
+        layout.setEditNotice(notice != null ? new StorageOverlayLayout.EditNotice(notice, noticeDetail) : null);
         layout.build(this, this.font, this.width, this.height, state, null, 0, actions);
 
         if (editMode) {
@@ -124,6 +148,15 @@ public class StorageOverlay extends AbstractScreen {
             PaintLayerComponent dragLayer = new PaintLayerComponent(this.width, this.height, this::paintEditLayer);
             dragLayer.updateParentPosition(0, 0, this.width, this.height);
             addComponent(dragLayer);
+
+            if (history == null) {
+                history = new EditHistory(layout.snapshot());
+                historyProfile = ProfileSession.getInstance().current();
+            }
+            if (importOnOpen) {
+                importOnOpen = false;
+                pasteLayout();
+            }
         }
         state.onStorageScreenOpened();
     }
@@ -132,6 +165,53 @@ public class StorageOverlay extends AbstractScreen {
     public void tick() {
         super.tick();
         layout.tick();
+        if (editMode) observeHistory();
+    }
+
+    /**
+     * Turns whatever changed since the last tick into one undo step, once nothing is mid-change. A slider drag or a
+     * rename therefore becomes a single step.
+     */
+    private void observeHistory() {
+        if (history == null) return;
+        Optional<String> profile = ProfileSession.getInstance().current();
+        if (!profile.equals(historyProfile)) {
+            // Never restore one profile's layout into another.
+            history = new EditHistory(layout.snapshot());
+            historyProfile = profile;
+            return;
+        }
+        if (drag.isActive() || popupPressed != null || renameBox != null || pressedCard != null) return;
+        String notice = history.notice();
+        history.observe(layout.snapshot());
+        // The next edit replaces the notice in the Edit Mode panel with the hints again.
+        if (notice != null && history.notice() == null) rebuildWidgets();
+    }
+
+    private void undo(boolean redo) {
+        if (history == null) return;
+        LayoutSnapshot now = layout.snapshot();
+        LayoutSnapshot target = redo ? history.redo(now) : history.undo(now);
+        if (target == null) return;
+        // Opening or closing a section isn't undone, so sections stay as they are on screen.
+        List<LayoutEntry> entries = LayoutSnapshot.keepCollapse(target.entries(), now.entries());
+        layout.applySnapshot(new LayoutSnapshot(entries, target.widths(), target.names()), true, true, true);
+        ProfileSession.getInstance().saveAll();
+        rebuildWidgets();
+    }
+
+    private void applyAsNamedStep(String label, String detail, Runnable change) {
+        if (history != null) history.observe(layout.snapshot());
+        change.run();
+        ProfileSession.getInstance().saveAll();
+        if (history != null) history.observe(layout.snapshot(), label);
+        noticeDetail = detail;
+        rebuildWidgets();
+    }
+
+    private void dismissNotice() {
+        if (history != null) history.dismissNotice();
+        rebuildWidgets();
     }
 
     private void onPageCardClicked(StorageKey key) {
@@ -200,8 +280,20 @@ public class StorageOverlay extends AbstractScreen {
             endedRename = true;
         }
 
+        if (editMode && event.button() == 0 && layout.isOverNoticeUndo(event.x(), event.y())) {
+            undo(false);
+            return true;
+        }
+        if (editMode && event.button() == 0 && layout.isOverNoticeDismiss(event.x(), event.y())) {
+            dismissNotice();
+            return true;
+        }
         if (editMode && event.button() == 0 && layout.isOverResetButton(event.x(), event.y())) {
             openResetDialog(EnumSet.noneOf(ResetPart.class));
+            return true;
+        }
+        if (editMode && event.button() == 0 && layout.isOverShareButton(event.x(), event.y())) {
+            openShareMenu((int) event.x(), (int) event.y());
             return true;
         }
         if (layout.handleButtonClick(event)) return true;
@@ -568,6 +660,10 @@ public class StorageOverlay extends AbstractScreen {
             }
             return true;
         }
+        if (editMode && (isUndo(event) || isRedo(event))) {
+            undo(isRedo(event));
+            return true;
+        }
         EditBoxWidget search = layout.getSearchBox();
         boolean typing = search != null && (search.isFocused() || getFocused() == search);
         if (typing && (event.isEscape() || event.isConfirmation())) {
@@ -653,14 +749,88 @@ public class StorageOverlay extends AbstractScreen {
                 option("Reset Selected", !selected.isEmpty(), () -> resetLayout(selected)));
         popup = PopupComponent.checklist(this.width, this.height, this.font,
                 List.of(Component.literal("Reset " + context + " layout?"),
-                        Component.literal("Select what to restore. This can't be undone.")
-                                .withStyle(ChatFormatting.RED)),
+                        Component.literal("Select what to restore.")),
                 toggles, actions);
     }
 
     private void resetLayout(Set<ResetPart> parts) {
-        layout.resetLayout(parts);
-        rebuildWidgets();
+        applyAsNamedStep("Layout reset.", "The parts you picked went back to default.", () -> layout.resetLayout(parts));
+    }
+
+    private void openShareMenu(int x, int y) {
+        popup = PopupComponent.menu(this.width, this.height, this.font, x, y, List.of(
+                option("Copy Layout", this::copyLayout),
+                option("Paste Layout", this::pasteLayout)));
+    }
+
+    private void copyLayout() {
+        boolean rift = layout.isRiftContext();
+        Minecraft.getInstance().keyboardHandler.setClipboard(
+                LayoutTransfer.encode(PageLayout.Context.of(rift), layout.snapshot()));
+        showMessage(List.of(Component.literal("Your layout is now in your clipboard."),
+                Component.literal("Paste it into a chat, a message or a text file").withStyle(ChatFormatting.GRAY),
+                Component.literal("to keep it or send it to a friend.").withStyle(ChatFormatting.GRAY),
+                Component.literal(""),
+                Component.literal("To use it, copy the whole text again, then:"),
+                Component.literal("Edit Layout > Share > Paste Layout").withStyle(ChatFormatting.GRAY),
+                Component.literal("or type /es layout import" + (rift ? " rift" : "")).withStyle(ChatFormatting.GRAY)));
+    }
+
+    private void pasteLayout() {
+        LayoutTransfer.Shared shared;
+        try {
+            shared = LayoutTransfer.decode(Minecraft.getInstance().keyboardHandler.getClipboard());
+        } catch (LayoutTransfer.InvalidCodeException e) {
+            showMessage(List.of(Component.literal("Couldn't paste a layout"),
+                    Component.literal(e.getMessage()).withStyle(ChatFormatting.RED),
+                    Component.literal("Copy the whole layout text first, then try again.").withStyle(ChatFormatting.GRAY)));
+            return;
+        }
+        if (shared.context() != PageLayout.Context.of(layout.isRiftContext())) {
+            boolean rift = shared.context() == PageLayout.Context.RIFT;
+            showMessage(List.of(Component.literal("Couldn't paste a layout"),
+                    Component.literal("This layout is for " + (rift ? "Rift Storage" : "Storage") + ".")
+                            .withStyle(ChatFormatting.RED),
+                    Component.literal("Paste it in " + (rift ? "Rift edit mode (/es edit rift)." : "Storage edit mode (/es edit)."))
+                            .withStyle(ChatFormatting.GRAY)));
+            return;
+        }
+        Set<ImportPart> parts = EnumSet.noneOf(ImportPart.class);
+        for (ImportPart part : ImportPart.values()) {
+            if (part.count(shared.layout()) > 0) parts.add(part);
+        }
+        openImportDialog(shared.layout(), parts);
+    }
+
+    private void openImportDialog(LayoutSnapshot imported, Set<ImportPart> selected) {
+        String context = layout.isRiftContext() ? "Rift Storage" : "Storage";
+        List<PopupComponent.Toggle> toggles = new ArrayList<>();
+        for (ImportPart part : ImportPart.values()) {
+            int count = part.count(imported);
+            toggles.add(new PopupComponent.Toggle(part.label(), String.valueOf(count),
+                    selected.contains(part), count > 0, () -> {
+                Set<ImportPart> next = EnumSet.noneOf(ImportPart.class);
+                next.addAll(selected);
+                if (!next.remove(part)) next.add(part);
+                openImportDialog(imported, next);
+            }));
+        }
+        List<PopupComponent.Option> actions = List.of(
+                option("Cancel", () -> {
+                }),
+                option("Import Selected", !selected.isEmpty(), () -> applyAsNamedStep("Layout imported.",
+                        "The parts you picked replaced yours.",
+                        () -> layout.applySnapshot(imported, selected.contains(ImportPart.ARRANGEMENT),
+                                selected.contains(ImportPart.WIDTHS), selected.contains(ImportPart.NAMES)))));
+        popup = PopupComponent.checklist(this.width, this.height, this.font,
+                List.of(Component.literal("Import " + context + " layout?"),
+                        Component.literal("Selected parts replace yours.")),
+                toggles, actions);
+    }
+
+    private void showMessage(List<Component> lines) {
+        popup = PopupComponent.checklist(this.width, this.height, this.font, lines, List.of(), List.of(option("OK", () -> {
+        })));
     }
 
     private PopupComponent.Option option(String label, Runnable action) {
@@ -672,6 +842,30 @@ public class StorageOverlay extends AbstractScreen {
             popup = null;
             action.run();
         });
+    }
+
+    private enum ImportPart {
+        ARRANGEMENT("Arrangement"),
+        WIDTHS("Page widths"),
+        NAMES("Page names");
+
+        private final String label;
+
+        ImportPart(String label) {
+            this.label = label;
+        }
+
+        String label() {
+            return label;
+        }
+
+        int count(LayoutSnapshot layout) {
+            return switch (this) {
+                case ARRANGEMENT -> layout.pageCount();
+                case WIDTHS -> layout.widths().size();
+                case NAMES -> layout.names().size();
+            };
+        }
     }
 
     @Override

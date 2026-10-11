@@ -6,6 +6,7 @@ import com.github.kdgaming0.enhancedstorage.config.LayoutSpacing;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.CopyHighlight;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.ItemTotals;
 import com.github.kdgaming0.enhancedstorage.gui.layer.LayerItems;
+import com.github.kdgaming0.enhancedstorage.keybind.OpenStorageKey;
 import com.github.kdgaming0.enhancedstorage.screen.StorageContainerScreen;
 import com.github.kdgaming0.enhancedstorage.storage.StorageEvents;
 import com.github.kdgaming0.enhancedstorage.storage.capture.StorageCaptureHandler;
@@ -60,6 +61,7 @@ public class EnhancedStorage implements ClientModInitializer {
         CopyHighlight.register();
         ItemTotals.register();
         LayerItems.register();
+        OpenStorageKey.register();
 
         LOGGER.info("Enhanced Storage initialized.");
     }

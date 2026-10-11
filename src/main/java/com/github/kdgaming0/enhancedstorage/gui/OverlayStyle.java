@@ -194,6 +194,7 @@ public final class OverlayStyle {
         SETTINGS_ICON(fixed("icons/gear_icon")),
         EDIT_ICON(fixed("icons/edit_icon")),
         RESET_ICON(fixed("icons/reset_icon")),
+        SHARE_ICON(fixed("icons/share_icon")),
         THEME_ICON(variants("icons/icon_light", "icons/icon_dark", "icons/icon_transparent"));
 
         private final Identifier light;
