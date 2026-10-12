@@ -44,9 +44,15 @@ public class SectionHeaderComponent extends GridCellComponent implements LiveCel
     private final int arrowX;
     private final int nameX;
     private final int trashX;
-    private final int nameMaxWidth;
-    private final int nameWidth;
+    private final int statsRight;
+    private final int pages;
+    private final String stats;
+    private final TextComponent statsText;
+    private final String name;
     private final TruncatedTextComponent nameText;
+    private int nameMaxWidth;
+    private int nameWidth;
+    private int searchMatches = -1;
     private boolean open;
     private boolean openForDrag;
     private @Nullable EditBoxWidget nameEditor;
@@ -60,28 +66,36 @@ public class SectionHeaderComponent extends GridCellComponent implements LiveCel
         this.entry = entry;
         this.collapsed = collapsed;
         this.editMode = editMode;
-        Font font = Minecraft.getInstance().font;
 
         this.gripX = BORDER + EDGE_PAD;
         this.arrowX = editMode ? gripX + ICON_SIZE + GAP : gripX;
         this.nameX = arrowX + ICON_SIZE + GAP;
         this.trashX = width - BORDER - EDGE_PAD - ICON_SIZE;
-        int statsRight = editMode ? trashX - GAP : width - BORDER - EDGE_PAD;
+        this.statsRight = editMode ? trashX - GAP : width - BORDER - EDGE_PAD;
+        this.pages = pages;
 
-        String stats = pages + (pages == 1 ? " page" : " pages") + " · " + freeSlots
+        this.stats = pages + (pages == 1 ? " page" : " pages") + " · " + freeSlots
                 + (freeSlots == 1 ? " empty slot" : " empty slots");
-        int statsX = statsRight - font.width(stats);
-        TextComponent statsText = new TextComponent(statsX, TEXT_Y, Component.literal(stats), OverlayStyle.titleColor());
+        this.statsText = new TextComponent(0, TEXT_Y, Component.literal(stats), OverlayStyle.titleColor());
         statsText.setDrawShadow(OverlayStyle.titleShadow());
         addComponent(statsText);
 
-        this.nameMaxWidth = Math.max(0, statsX - NAME_STATS_GAP - nameX);
-        String name = TextUtils.colorCodes(entry.name());
-        this.nameWidth = Math.min(font.width(name), nameMaxWidth);
-        this.nameText = new TruncatedTextComponent(nameX, TEXT_Y, nameMaxWidth,
-                Component.literal(name), OverlayStyle.titleColor());
+        this.name = TextUtils.colorCodes(entry.name());
+        this.nameText = new TruncatedTextComponent(nameX, TEXT_Y, 0, Component.literal(name), OverlayStyle.titleColor());
         nameText.setDrawShadow(OverlayStyle.titleShadow());
         addComponent(nameText);
+        layoutText(stats);
+    }
+
+    // The name gets whatever the stats text on the right leaves free.
+    private void layoutText(String statsString) {
+        Font font = Minecraft.getInstance().font;
+        int statsX = statsRight - font.width(statsString);
+        statsText.setText(Component.literal(statsString));
+        statsText.setX(statsX);
+        this.nameMaxWidth = Math.max(0, statsX - NAME_STATS_GAP - nameX);
+        this.nameWidth = Math.min(font.width(name), nameMaxWidth);
+        nameText.setMaxWidth(nameMaxWidth);
     }
 
     @Override
@@ -90,7 +104,18 @@ public class SectionHeaderComponent extends GridCellComponent implements LiveCel
     }
 
     public boolean isCollapsed() {
-        return collapsed && !openForDrag;
+        return collapsed && !openForDrag && searchMatches <= 0;
+    }
+
+    /**
+     * Set by the layout on every search: how many pages under this header match, or -1 when not searching. A section
+     * with a match shows open while the search lasts; the saved state (and the arrow) stay as they are.
+     */
+    public void setSearchMatches(int matches) {
+        if (matches == searchMatches) return;
+        this.searchMatches = matches;
+        layoutText(matches < 0 ? stats
+                : matches + " of " + pages + (pages == 1 ? " page" : " pages") + (matches == 1 ? " matches" : " match"));
     }
 
     public void openForDrag() {

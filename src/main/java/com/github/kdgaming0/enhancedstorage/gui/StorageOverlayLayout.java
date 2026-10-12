@@ -1555,7 +1555,15 @@ public class StorageOverlayLayout {
         searchMisses.clear();
         List<GridCellComponent> shown = new ArrayList<>();
         boolean sectionNameMatches = false;
+        // A collapsed section opens while the search finds pages in it, else only its header would show up.
+        SectionHeaderComponent matchHeader = null;
+        int sectionMatches = 0;
         for (GridCellComponent cell : cells) {
+            if (isBoundary(cell)) {
+                if (matchHeader != null) matchHeader.setSearchMatches(searching ? sectionMatches : -1);
+                matchHeader = cell instanceof SectionHeaderComponent header ? header : null;
+                sectionMatches = 0;
+            }
             if (cell instanceof SectionHeaderComponent header) {
                 sectionNameMatches = searching && nameMatches(header.entry().name(), query);
             } else if (cell instanceof SectionEndComponent) {
@@ -1569,6 +1577,7 @@ public class StorageOverlayLayout {
                 boolean nameMatch = sectionNameMatches || (searching && customNameMatches(card.getKey(), query));
                 // A page found by its name is the result, so the items aren't dimmed.
                 card.applySearch(itemMatch || !nameMatch ? query : "");
+                if (itemMatch || nameMatch) sectionMatches++;
                 if (!searching || card.isLive() || itemMatch || nameMatch) {
                     shown.add(card);
                 } else if (dim) {
@@ -1579,6 +1588,7 @@ public class StorageOverlayLayout {
                 shown.add(cell);
             }
         }
+        if (matchHeader != null) matchHeader.setSearchMatches(searching ? sectionMatches : -1);
         if (copyFilter || (searching && !dim)) hideEmptySections(shown);
         if (dim) dimEmptySections(shown);
         if (shown.stream().noneMatch(PageCardComponent.class::isInstance)) shown.clear();

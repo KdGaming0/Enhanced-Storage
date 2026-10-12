@@ -242,6 +242,12 @@ public class StorageOverlay extends AbstractScreen {
         super.onClose();
     }
 
+    // Vanilla gives in-game UI the dark tint container screens use; a plain screen gets the blurred options-menu background instead.
+    @Override
+    public boolean isInGameUi() {
+        return true;
+    }
+
     @Override
     public void removed() {
         super.removed();
