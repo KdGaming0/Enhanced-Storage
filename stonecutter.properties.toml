@@ -5,6 +5,7 @@ mod.group = "com.github.kdgaming0"
 mod.version = "2.0.0-beta.3"
 
 deps.fabric_loader = "0.19.5"
+deps.oneconfig_toggles = "1.0.0"
 loomx.loom_version = "1.18-SNAPSHOT"
 
 ["26.1"]

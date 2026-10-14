@@ -77,6 +77,18 @@ repositories {
             includeGroup("net.azureaaron")
         }
     }
+
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = "Polyfrost"
+                url = uri("https://repo.polyfrost.org/releases")
+            }
+        }
+        filter {
+            includeGroup("org.polyfrost.oneconfig")
+        }
+    }
 }
 
 dependencies {
@@ -93,6 +105,7 @@ dependencies {
 
     modCompileOnly("maven.modrinth:skyblocker-liap:${property("deps.skyblocker_version")}")
     modCompileOnly("maven.modrinth:rrv:${property("deps.rrv_version")}")
+    compileOnly("org.polyfrost.oneconfig:mod-toggles:${property("deps.oneconfig_toggles")}")
 
     modRuntimeOnly("maven.modrinth:resourcepackcached:${property("deps.rpc_version")}")
     modRuntimeOnly("me.djtheredstoner:DevAuth-fabric:1.2.2")

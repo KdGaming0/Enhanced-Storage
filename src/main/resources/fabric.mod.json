@@ -18,6 +18,9 @@
   "entrypoints": {
     "client": [
       "com.github.kdgaming0.enhancedstorage.EnhancedStorage"
+    ],
+    "oneconfig:toggle": [
+      "com.github.kdgaming0.enhancedstorage.compat.OneConfigModToggle"
     ]
   },
   "mixins": [

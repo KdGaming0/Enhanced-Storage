@@ -62,6 +62,7 @@ A new panel on the side of the overlay makes it easier to navigate your pages an
 - Added a **Room for Other Mods** setting. When set to **Automatic** (the default), the overlay leaves just enough space for Skyblocker's Quick Nav tabs, RRV's search bar and SkyRecipes' category buttons — only for the ones you have turned on — so the overlay can use more of your screen. **Manual** lets you set the space yourself, like before.
 - Skyblocker's Quick Nav tabs now line up with your storage pages and inventory instead of the middle of the screen.
 - Added an **Open Storage** key that opens your storage on SkyBlock. It has no key set by default, but you can set one in the vanilla Controls settings.
+- If you use OneConfig, you can now turn Enhanced Storage on or off from OneConfig's mod list.
 
 #### Performance
 **Storage Overlay is now up to 5× faster**, especially with a large window and many pages on screen.
