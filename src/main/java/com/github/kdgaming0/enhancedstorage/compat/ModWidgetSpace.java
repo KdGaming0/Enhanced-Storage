@@ -5,6 +5,7 @@ import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.config.LayoutSpacing;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 
 import java.lang.reflect.Field;
 import java.util.List;
@@ -142,8 +143,15 @@ public final class ModWidgetSpace {
         if (!SKYRECIPES_LOADED || !categoryButtonsShown()) return 0;
 
         // The bar is centred and min(imageWidth, screenWidth / 2) wide; our overlay is always wider than half the
-        // screen or than the 9 buttons, so the screen half is the width that decides the wrapping.
-        int barWidth = Minecraft.getInstance().getWindow().getGuiScaledWidth() / 2;
+        // screen or than the 9 buttons, so the screen half is the width that decides the wrapping. The screen's own
+        // width, not the window's: Better Screens scales the screen only while drawing it, and this is also polled
+        // from the tick.
+        //? if <26.2 {
+        Screen screen = Minecraft.getInstance().screen;
+        //?} else {
+        /*Screen screen = Minecraft.getInstance().gui.screen();
+         *///?}
+        int barWidth = (screen != null ? screen.width : Minecraft.getInstance().getWindow().getGuiScaledWidth()) / 2;
         int perRow = Math.max(1, (barWidth + CATEGORY_BUTTON_GAP) / (CATEGORY_BUTTON_SIZE + CATEGORY_BUTTON_GAP));
         int rows = Math.ceilDiv(categoryCount, perRow);
         return rows * (CATEGORY_BUTTON_SIZE + CATEGORY_BUTTON_GAP);

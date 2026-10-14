@@ -125,9 +125,10 @@ public class StorageOverlay extends AbstractScreen {
     protected void init() {
         // Match the live screen's GUI scale so entering edit mode doesn't resize the overlay.
         Minecraft minecraft = Minecraft.getInstance();
-        OverlayScale.sync(minecraft);
-        this.width = minecraft.getWindow().getGuiScaledWidth();
-        this.height = minecraft.getWindow().getGuiScaledHeight();
+        if (OverlayScale.sync(minecraft)) {
+            this.width = minecraft.getWindow().getGuiScaledWidth();
+            this.height = minecraft.getWindow().getGuiScaledHeight();
+        }
 
         pressedCard = null;
         drag.reset();

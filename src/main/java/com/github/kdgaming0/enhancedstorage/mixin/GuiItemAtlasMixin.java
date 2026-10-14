@@ -8,7 +8,6 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
@@ -37,11 +36,6 @@ public abstract class GuiItemAtlasMixin {
     private boolean enhancedstorage$throttleAnimated(boolean discardAfterFrame) {
         if (!enhancedstorage$isVanillaAtlas()) return discardAfterFrame;
         return AnimatedItemThrottle.discardAfterFrame(discardAfterFrame);
-    }
-
-    @Inject(method = "endFrame", at = @At("TAIL"))
-    private void enhancedstorage$endFrame(CallbackInfo ci) {
-        if (enhancedstorage$isVanillaAtlas()) AnimatedItemThrottle.endFrame();
     }
 
     // ImmediatelyFast only uses its animated atlas for a frame when this returns true (checked against 1.16.5+26.2).

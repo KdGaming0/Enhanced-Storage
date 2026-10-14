@@ -84,6 +84,7 @@ A new panel on the side of the overlay makes it easier to navigate your pages an
 - Fixed items in an open storage page briefly appearing in the top row of the overlay before moving to the correct page.
 - Fixed a brief flash that sometimes appeared when switching between storage pages.
 - Fixed items in RRV's item list being invisible while the storage overlay is open with RRV's Recipe Book theme.
+- Fixed the storage overlay being too big and in the wrong place when the Better Screens mod's container scale is on. The overlay and Edit Mode now use Better Screens' container scale, and the Overlay GUI Scale setting applies only while that's turned off.
 
 ## Update 1.2.2
 

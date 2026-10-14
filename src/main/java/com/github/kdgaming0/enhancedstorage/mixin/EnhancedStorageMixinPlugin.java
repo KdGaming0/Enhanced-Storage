@@ -31,6 +31,7 @@ public class EnhancedStorageMixinPlugin implements IMixinConfigPlugin {
      * {@code SearchBar.isMouseOver}) may be inherited and must not be listed.
      */
     private static final Map<String, List<String>> REQUIRED_TARGET_METHODS = Map.of(
+            "BetterScreensContainerScaleMixin", List.of("shouldScale"),
             "RRVItemViewOverlayMixin", List.of("renderItemHighlighting"),
             "RRVOverlayManagerMixin", List.of("renderAll"),
             "RRVOverlayManagerBackgroundMixin", List.of("renderAllBackground"),
@@ -88,6 +89,10 @@ public class EnhancedStorageMixinPlugin implements IMixinConfigPlugin {
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
+        if (mixinClassName.contains(".compat.betterscreens.")) {
+            return FabricLoader.getInstance().isModLoaded("betterscreens")
+                    && hasRequiredMethods(targetClassName, mixinClassName);
+        }
         if (mixinClassName.contains(".compat.rrv.")) {
             return FabricLoader.getInstance().isModLoaded("rrv")
                     && hasRequiredMethods(targetClassName, mixinClassName);

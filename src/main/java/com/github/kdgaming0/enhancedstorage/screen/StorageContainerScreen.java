@@ -78,6 +78,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     /**
      * Switches the window to the overlay's own GUI scale before anything lays out. {@code width} and
      * {@code height} were assigned by our caller before the scale changed, so they have to be re-read.
+     * While Better Screens scales this screen it sets the scale and size itself, so both are left alone.
      * <p>
      * Every rebuild funnels through here, so resizes, fullscreen toggles and live config edits need no
      * code of their own — including window resizes, where vanilla resets the scale to the player's
@@ -86,9 +87,10 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     @Override
     protected void init() {
         Minecraft minecraft = Minecraft.getInstance();
-        OverlayScale.sync(minecraft);
-        this.width = minecraft.getWindow().getGuiScaledWidth();
-        this.height = minecraft.getWindow().getGuiScaledHeight();
+        if (OverlayScale.sync(minecraft)) {
+            this.width = minecraft.getWindow().getGuiScaledWidth();
+            this.height = minecraft.getWindow().getGuiScaledHeight();
+        }
 
         super.init();
 
@@ -98,9 +100,9 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
         layout.build(this, this.font, this.width, this.height, state, openKey, this.menu.getRowCount(), actions);
 
+        // Repeated for every layout until the first frame: Better Screens resizes the screen once more before it.
         if (!autoScrolledToOpenCard) {
             layout.scrollLiveCardIntoView();
-            autoScrolledToOpenCard = true;
         }
 
         SpriteComponent inventory = layout.getInventoryPanel();
@@ -179,6 +181,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
     @Override
     public void extractRenderState(@NonNull GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        autoScrolledToOpenCard = true;
         CopyHighlight.setTarget(hoveredStack(mouseX, mouseY));
         ItemTotals.update(layout.isRiftContext(), openKey, () -> liveStacks().iterator());
         layout.updateCopyFilter();

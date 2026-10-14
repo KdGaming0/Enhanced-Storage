@@ -3,7 +3,11 @@
   "package": "com.github.kdgaming0.enhancedstorage.mixin",
   "compatibilityLevel": "JAVA_25",
   "plugin": "com.github.kdgaming0.enhancedstorage.mixin.EnhancedStorageMixinPlugin",
+  "mixinextras": {
+    "minVersion": "0.5.0"
+  },
   "mixins": [
+    "compat.betterscreens.BetterScreensContainerScaleMixin",
     "compat.rrv.RRVItemViewOverlayMixin",
     "compat.rrv.RRVOverlayManagerBackgroundMixin",
     "compat.rrv.RRVOverlayManagerMixin",
@@ -20,6 +24,7 @@
     "AbstractContainerScreenAccessor",
     "ClientPacketListenerMixin",
     "ContainerScreenHighlightClipMixin",
+    "GameRendererMixin",
     "GuiItemAtlasMixin",
     "GuiRendererMixin",
     "MouseHandlerMixin",

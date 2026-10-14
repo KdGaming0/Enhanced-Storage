@@ -33,11 +33,11 @@ public final class AnimatedItemThrottle {
     }
 
     /**
-     * Called after an atlas frees its slots; decides whether the next frame refreshes.
+     * Called once per frame after every GUI renderer has drawn and freed its atlas slots; decides whether the next
+     * frame refreshes. Per frame rather than per atlas: the page layer's renderer and Better Screens' scaled renderer
+     * end their own atlas frames too, and a second decision in the same frame would cancel a refresh.
      */
     public static void endFrame() {
-        // The page layer's atlas ends its own frame too; only the main GUI's counts.
-        if (PageLayerCache.isRendering()) return;
         if (!isLimiting()) {
             refreshThisFrame = true;
             return;

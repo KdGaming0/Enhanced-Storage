@@ -1,5 +1,6 @@
 package com.github.kdgaming0.enhancedstorage.gui;
 
+import com.github.kdgaming0.enhancedstorage.compat.BetterScreensCompat;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.screen.StorageContainerScreen;
 import com.mojang.blaze3d.platform.Window;
@@ -58,9 +59,19 @@ public final class OverlayScale {
      * Brings the window's GUI scale in line with the config. Maintains global state rather than
      * performing a one-shot action: idempotent, and re-run on every {@code init()} so resizes and live
      * config edits settle on the right value.
+     *
+     * <p>Does nothing while Better Screens draws the current screen at its own container scale (see
+     * {@link BetterScreensCompat}): it sets the window's scale itself, only during the screen's frame,
+     * and resizes the screen to it. The screen must then keep the size it was given rather than re-read
+     * the window, which is back at the game's scale whenever input triggers a rebuild.
+     *
+     * @return true if the window now has the overlay's scale and the screen should take its size from
+     * the window
      */
-    public static void sync(Minecraft minecraft) {
+    public static boolean sync(Minecraft minecraft) {
+        if (BetterScreensCompat.scalesCurrentScreen()) return false;
         setGuiScale(minecraft, resolveScale(minecraft));
+        return true;
     }
 
     /**

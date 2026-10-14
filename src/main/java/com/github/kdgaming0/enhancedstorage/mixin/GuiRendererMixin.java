@@ -6,6 +6,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import net.minecraft.client.gui.render.GuiRenderer;
 import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
+import net.minecraft.client.renderer.state.gui.GuiRenderState;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -25,8 +26,9 @@ import net.minecraft.client.renderer.SubmitNodeCollector;
  *///?}
 
 /**
- * Hooks for {@link PageLayerCache}: renders pending page layers right before the main GUI, and points the layer's
- * own renderer at the layer target instead of the main render target.
+ * Hooks for {@link PageLayerCache}: renders pending page layers right before the GUI renderer that draws them (the
+ * main one, or Better Screens' scaled one), and points the layer's own renderer at the layer target instead of the
+ * main render target.
  */
 @Mixin(GuiRenderer.class)
 public abstract class GuiRendererMixin {
@@ -45,11 +47,15 @@ public abstract class GuiRendererMixin {
     @Final
     private FeatureRenderDispatcher featureRenderDispatcher;
 
+    @Shadow
+    @Final
+    private GuiRenderState renderState;
+
     //? if <26.2 {
     @Inject(method = "render", at = @At("HEAD"))
     private void enhancedstorage$renderPageLayers(GpuBufferSlice fogBuffer, CallbackInfo ci) {
         if (PageLayerCache.isLayerRenderer((GuiRenderer) (Object) this)) return;
-        PageLayerCache.renderPending(state -> new GuiRenderer(state, bufferSource, submitNodeCollector,
+        PageLayerCache.renderPending(renderState, state -> new GuiRenderer(state, bufferSource, submitNodeCollector,
                 featureRenderDispatcher, List.of()), fogBuffer);
     }
 
@@ -68,7 +74,7 @@ public abstract class GuiRendererMixin {
     /*@Inject(method = "render", at = @At("HEAD"))
     private void enhancedstorage$renderPageLayers(CallbackInfo ci) {
         if (PageLayerCache.isLayerRenderer((GuiRenderer) (Object) this)) return;
-        PageLayerCache.renderPending(state -> new GuiRenderer(state, featureRenderDispatcher, List.of()));
+        PageLayerCache.renderPending(renderState, state -> new GuiRenderer(state, featureRenderDispatcher, List.of()));
     }
 
     @WrapOperation(

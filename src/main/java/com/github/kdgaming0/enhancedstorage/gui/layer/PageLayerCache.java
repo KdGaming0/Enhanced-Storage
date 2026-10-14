@@ -41,7 +41,9 @@ import com.mojang.blaze3d.buffers.GpuBufferSlice;
  * changed (see {@link LayerRefresh}), and every frame draws the result as one textured quad.
  * <p>
  * Rendering uses a second vanilla {@link GuiRenderer}, so the output is identical to drawing the same elements
- * directly. It runs right before the main GUI renderer (see {@code GuiRendererMixin}), into a window-sized target
+ * directly. It runs right before the GUI renderer that draws the owners' screen (see {@code GuiRendererMixin}), so
+ * at that renderer's GUI scale: the main one, or Better Screens' own when it scales the screen. It draws into a
+ * window-sized target
  * that {@code GuiRendererMixin} substitutes for the main render target. Owners occupy disjoint screen areas, so each
  * one only clears and redraws its own rectangle of the shared target.
  * <p>
@@ -102,16 +104,17 @@ public final class PageLayerCache {
     }
 
     /**
-     * Renders the layers extracted this frame. Called right before the main GUI renderer, after the world, so the
-     * render state left behind (projection, lighting) is the one the main GUI sets up for itself anyway.
+     * Renders the layers extracted this frame into {@code screenState}, the state of the GUI renderer about to run.
+     * Called right before each GUI renderer, after the world, so the render state left behind (projection, lighting)
+     * is the one that renderer sets up for itself anyway.
      */
     //? if <26.2 {
-    public static void renderPending(Function<GuiRenderState, GuiRenderer> factory, GpuBufferSlice fogBuffer) {
-        for (PageLayerCache cache : ALL) cache.render(factory, fogBuffer);
+    public static void renderPending(GuiRenderState screenState, Function<GuiRenderState, GuiRenderer> factory, GpuBufferSlice fogBuffer) {
+        for (PageLayerCache cache : ALL) cache.render(screenState, factory, fogBuffer);
     }
     //?} else {
-    /*public static void renderPending(Function<GuiRenderState, GuiRenderer> factory) {
-        for (PageLayerCache cache : ALL) cache.render(factory);
+    /*public static void renderPending(GuiRenderState screenState, Function<GuiRenderState, GuiRenderer> factory) {
+        for (PageLayerCache cache : ALL) cache.render(screenState, factory);
     }
     *///?}
 
@@ -218,14 +221,17 @@ public final class PageLayerCache {
     }
 
     //? if <26.2 {
-    private void render(Function<GuiRenderState, GuiRenderer> factory, GpuBufferSlice fogBuffer) {
+    private void render(GuiRenderState screenState, Function<GuiRenderState, GuiRenderer> factory, GpuBufferSlice fogBuffer) {
         //?} else {
-        /*private void render(Function<GuiRenderState, GuiRenderer> factory) {
+        /*private void render(GuiRenderState screenState, Function<GuiRenderState, GuiRenderer> factory) {
          *///?}
         if (pendingExtractor == null) {
             if ((renderer != null || target != null) && Util.getMillis() - lastUsed > RELEASE_AFTER_IDLE_MS) release();
             return;
         }
+        // Wait for the renderer that draws the blits, so the layer gets its GUI scale. If it doesn't run this frame,
+        // the next sync() discards the extraction.
+        if (pendingExtractor.guiRenderState != screenState) return;
         RenderTarget layer = target;
         if (layer == null) {
             discardPending();
