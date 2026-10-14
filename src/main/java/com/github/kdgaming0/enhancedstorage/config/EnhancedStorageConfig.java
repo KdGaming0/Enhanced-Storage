@@ -233,6 +233,9 @@ public class EnhancedStorageConfig extends MidnightConfig {
     public static boolean wasdPageNavigation = false;
 
     @Entry(category = CATEGORY_NAVIGATION)
+    public static boolean openFirstPageOnExpand = false;
+
+    @Entry(category = CATEGORY_NAVIGATION)
     public static boolean rememberScrollOnReopen = false;
 
     @Entry(category = CATEGORY_NAVIGATION)

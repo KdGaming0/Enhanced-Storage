@@ -1845,7 +1845,12 @@ public class StorageOverlayLayout {
             if (!(cell instanceof SectionHeaderComponent header)) continue;
             LayoutEntry.Section section = header.entry();
             if (header.isOverArrow(x, y)) {
+                StorageKey first = EnhancedStorageConfig.openFirstPageOnExpand && !editMode
+                        && header.isCollapsed() && copyFilterTarget.isEmpty() ? firstPageIn(header) : null;
                 replaceSection(section, section.withCollapsed(!section.collapsed()));
+                if (first != null && !state.isOpen(first) && !state.isNavigating()) {
+                    actions.onCardClick().accept(first);
+                }
                 return true;
             }
             if (header.isOverTrash(x, y)) {
@@ -1854,6 +1859,13 @@ public class StorageOverlayLayout {
             }
         }
         return false;
+    }
+
+    private @Nullable StorageKey firstPageIn(SectionHeaderComponent header) {
+        for (int i = cells.indexOf(header) + 1; i < cells.size() && !isBoundary(cells.get(i)); i++) {
+            if (cells.get(i) instanceof PageCardComponent card) return card.getKey();
+        }
+        return null;
     }
 
     private void replaceSection(LayoutEntry.Section section, LayoutEntry.@Nullable Section replacement) {

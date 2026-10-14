@@ -153,6 +153,9 @@
   "enhanced_storage.midnightconfig.wasdPageNavigation": "WASD Page Navigation",
   "enhanced_storage.midnightconfig.wasdPageNavigation.tooltip": "Use W, A, S and D to open the page above, left, below or right, just like the arrow keys. You can still type these letters in the search bar after clicking it, but with Search Bar Autofocus on they no longer start a search.",
 
+  "enhanced_storage.midnightconfig.openFirstPageOnExpand": "Open First Page When Expanding",
+  "enhanced_storage.midnightconfig.openFirstPageOnExpand.tooltip": "Expanding a section with the arrow on its header also opens the first page in it.",
+
   "enhanced_storage.midnightconfig.collapseSectionsWhileDragging": "Collapse Sections While Dragging",
   "enhanced_storage.midnightconfig.collapseSectionsWhileDragging.tooltip": "Shows every section as its collapsed bar while you move a section in edit mode.",
 
