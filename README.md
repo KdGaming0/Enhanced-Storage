@@ -12,7 +12,7 @@
 
 <div align="center" style="text-align: center">
 
-<img src="https://zipline.kdhub.dev/u/zTp3eK.webp" alt="Enhanced Storage overlay cycling through layouts: default, Dense, Nav Bar on either side, inventory moved to the side, and Edit Mode">
+<img src="https://cdn.modrinth.com/data/ICyROmSc/images/fb7515cc91d017736363e37548c86dbb45a95de0.webp" alt="Enhanced Storage overlay cycling through layouts: default, Dense, Nav Bar on either side, inventory moved to the side, and Edit Mode">
 
 </div>
 
@@ -24,7 +24,7 @@ Since the mod is client-side only, it can only see the page you currently have o
 
 ### Edit Mode
 
-<img src="https://zipline.kdhub.dev/u/hbep6J.webp" alt="Reordering pages by dragging them, then stacking two pages by dropping one on another page's edge" width="400" align="right" style="float: right; margin-left: 16px">
+<img src="https://cdn.modrinth.com/data/ICyROmSc/images/e0e549854f5da19e1fa5bf2c19925dbf0158110d.webp" alt="Reordering pages by dragging them, then stacking two pages by dropping one on another page's edge" width="400" align="right" style="float: right; margin-left: 16px">
 
 Edit Mode lets you organize the overlay however you like. To enter Edit Mode, click the button with the wrench icon beside the inventory.
 
@@ -44,6 +44,8 @@ While in Edit Mode, you have the following options:
 
 Beside the inventory, there is a Storage Overview widget. There, you can see all the Ender Chest and backpack slots, as you do when you first open storage in vanilla. When the Storage Overview title is gold, it is the menu you currently have open, so you can interact with its slots directly. Click any of the items to open that page, or right-click them to pick up backpacks or place new backpacks into your storage. (The Storage Overview widget can be disabled.)
 
+<img src="https://cdn.modrinth.com/data/ICyROmSc/images/dc5036397a12ed1ea4f0d16a8f83781fed0aca1c.webp" alt="Enhanced Storage overlay showing Hypixel SkyBlock storage pages grouped into Combat, Mining and Farming sections with colored custom names, a Nav Bar listing every page on the right, and the inventory moved beside the pages." width="400" align="right" style="float: right; margin-left: 16px">
+
 You can optionally enable a Nav Bar that adds a widget to the left or right of the storage overlay, listing all your pages in order. From there, you can click the page you want to open. Used together with custom names, this can greatly increase navigation speed.
 
 ### Inventory
@@ -52,7 +54,7 @@ The inventory can be moved to the left or right of the storage overlay to give t
 
 ### Search
 
-<img src="https://zipline.kdhub.dev/u/HJ7IVl.webp" alt="Typing a search query and the overlay filtering down to only the pages with matching items" width="400" align="right" style="float: right; margin-left: 16px">
+<img src="https://cdn.modrinth.com/data/ICyROmSc/images/d5553d26ca989ed79c8e5d39516ce6ff461f22de.webp" alt="Typing a search query and the overlay filtering down to only the pages with matching items" width="400" align="right" style="float: right; margin-left: 16px">
 
 At the top of the inventory, you will see a search bar. Type into it to find items quickly. You can also use `/ecs <query>` to open the storage overlay with a search already filled in.
 
@@ -67,7 +69,7 @@ More search options:
 
 ### Highlight Matching Items
 
-<img src="https://zipline.kdhub.dev/u/se4luS.webp" alt="Holding Left Alt over a pickaxe highlights every copy across the pages, with a 35× total next to the cursor" width="400" align="right" style="float: right; margin-left: 16px">
+<img src="https://cdn.modrinth.com/data/ICyROmSc/images/4504421d226e356580989433244822c59f10db92.webp" alt="Holding Left Alt over a pickaxe highlights every copy across the pages, with a 35× total next to the cursor" width="400" align="right" style="float: right; margin-left: 16px">
 
 While you hold Left Alt (you can change the key in Controls), all items of the same type are highlighted. When an item is highlighted, a small tooltip shows how many of that item you have, and pages without a match are hidden. Both options can be turned off. Together, these features let you quickly see how many of an item you have and which pages it is on.
 
