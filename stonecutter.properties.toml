@@ -2,7 +2,7 @@
 mod.id = "enhanced_storage"
 mod.name = "Enhanced Storage"
 mod.group = "com.github.kdgaming0"
-mod.version = "2.0.0-beta.3"
+mod.version = "2.0.0"
 
 deps.fabric_loader = "0.19.5"
 deps.oneconfig_toggles = "1.0.0"
@@ -33,3 +33,16 @@ deps.uilib_version="21.1.2"
 deps.skyblocker_version="v6.10.4+26.2"
 deps.rrv_version="8.10.9+26.2-fabric"
 deps.rpc_version="1.2.7"
+
+["26.3"]
+mod.mc_compat = "~26.3"
+mod.mc_releases = ["26.3"]
+
+deps.fabric_api = "0.162.0+26.3"
+deps.midnightlib_version = "1.9.3+26.3-fabric"
+deps.modmenu_version = "21.0.0"
+deps.hm_api_version = "1.0.5+26.3"
+deps.uilib_version="22.1.0"
+deps.skyblocker_version="v6.10.4+26.2"
+deps.rrv_version="8.10.10+26.3-fabric"
+deps.rpc_version="1.2.8"

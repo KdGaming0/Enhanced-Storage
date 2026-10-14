@@ -18,9 +18,14 @@ stonecutter parameters {
         replace("Minecraft.getInstance().screen", "Minecraft.getInstance().gui.screen()")
         replace("Minecraft.getInstance().setScreen(", "Minecraft.getInstance().gui.setScreen(")
     }
+
+    replacements.string(eval(node.metadata.version, ">=26.3")) {
+        replace("InputConstants.Type.KEYSYM", "InputConstants.Type.KEYBOARD")
+        replace("InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), ", "InputConstants.isKeyDown(")
+    }
 }
 
-val releaseVersions = listOf("26.1", "26.2")
+val releaseVersions = listOf("26.1", "26.2", "26.3")
 
 stonecutter tasks {
     order("publishMods")

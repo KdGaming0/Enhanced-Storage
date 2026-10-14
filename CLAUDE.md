@@ -17,7 +17,7 @@ Enhanced Storage is a Fabric client mod for Hypixel SkyBlock (Minecraft) that re
 
 ## Build system
 
-Stonecutter (multi-Minecraft-version Gradle) generates per-version project copies, so tasks can be prefixed with a version — `./gradlew :26.1:runClient` launches a dev client for that version, against a `run/` directory shared across versions. Versions are declared in `settings.gradle.kts` (currently `26.1` and `26.2`); `26.1` is the VCS/active version, so the checked-in source is the 26.1 variant.
+Stonecutter (multi-Minecraft-version Gradle) generates per-version project copies, so tasks can be prefixed with a version — `./gradlew :26.1:runClient` launches a dev client for that version, against a `run/` directory shared across versions. Versions are declared in `settings.gradle.kts` (currently `26.1`, `26.2` and `26.3`); `26.1` is the VCS/active version, so the checked-in source is the 26.1 variant.
 
 - `./gradlew buildAndCollect` — build and copy the mod jar (+ sources jar) into `build/libs/<mod.version>/`.
 - `./gradlew chiseledSrc` / stonecutter migrate tasks — used only when adding/porting to a new Minecraft version; don't invoke unless asked.
@@ -51,7 +51,7 @@ Your training data may predate MC 26.x and the current versions of the compat mo
 
 Nullability annotations are jspecify (`org.jspecify.annotations.Nullable`/`NonNull`), not JetBrains. They're TYPE_USE-only, so a nested type is written `Outer.@Nullable Inner`.
 
-Minecraft 26.3 replaces GLFW with SDL. Use `InputConstants` for keys and modifiers, not `org.lwjgl.glfw.GLFW`, and don't do arithmetic or range checks on key codes (SDL's differ); use explicit sets or tables. Text inputs must report focus changes through `Minecraft.onTextInputFocusChange` (vanilla `EditBox.setFocused` already does). `MouseHandlerMixin`'s `glfwSetCursorPos` is a deliberate exception for now.
+Minecraft 26.3 replaces GLFW with SDL. Use `InputConstants` for keys, mouse buttons and modifiers, not `org.lwjgl.glfw.GLFW`, and don't do arithmetic or range checks on key codes (SDL's differ); use explicit sets or tables. Never compare mouse buttons with literals: left is 0 before 26.3 and 1 from 26.3 on, so use `InputConstants.MOUSE_BUTTON_LEFT`/`RIGHT`. Text inputs must report focus changes through `Minecraft.onTextInputFocusChange` (vanilla `EditBox.setFocused` already does).
 
 # Workflow
 

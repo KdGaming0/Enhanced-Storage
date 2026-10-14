@@ -1520,11 +1520,11 @@ public class StorageOverlayLayout {
         double y = event.y();
         int button = event.button();
 
-        if ((button == 0 || button == 1) && Rect.contains(toolkitButtonBounds, x, y)) {
-            actions.sendCommand().accept(button == 0 ? "farmingtoolkit" : "huntingtoolkit");
+        if ((button == InputConstants.MOUSE_BUTTON_LEFT || button == InputConstants.MOUSE_BUTTON_RIGHT) && Rect.contains(toolkitButtonBounds, x, y)) {
+            actions.sendCommand().accept(button == InputConstants.MOUSE_BUTTON_LEFT ? "farmingtoolkit" : "huntingtoolkit");
             return true;
         }
-        if (button != 0) return false;
+        if (button != InputConstants.MOUSE_BUTTON_LEFT) return false;
 
         if (handleSectionClick(x, y)) return true;
         if (handleNavigationClick(x, y)) return true;

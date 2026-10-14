@@ -287,27 +287,27 @@ public class StorageOverlay extends AbstractScreen {
             endedRename = true;
         }
 
-        if (editMode && event.button() == 0 && layout.isOverNoticeUndo(event.x(), event.y())) {
+        if (editMode && event.button() == InputConstants.MOUSE_BUTTON_LEFT && layout.isOverNoticeUndo(event.x(), event.y())) {
             undo(false);
             return true;
         }
-        if (editMode && event.button() == 0 && layout.isOverNoticeDismiss(event.x(), event.y())) {
+        if (editMode && event.button() == InputConstants.MOUSE_BUTTON_LEFT && layout.isOverNoticeDismiss(event.x(), event.y())) {
             dismissNotice();
             return true;
         }
-        if (editMode && event.button() == 0 && layout.isOverResetButton(event.x(), event.y())) {
+        if (editMode && event.button() == InputConstants.MOUSE_BUTTON_LEFT && layout.isOverResetButton(event.x(), event.y())) {
             openResetDialog(EnumSet.noneOf(ResetPart.class));
             return true;
         }
-        if (editMode && event.button() == 0 && layout.isOverShareButton(event.x(), event.y())) {
+        if (editMode && event.button() == InputConstants.MOUSE_BUTTON_LEFT && layout.isOverShareButton(event.x(), event.y())) {
             openShareMenu((int) event.x(), (int) event.y());
             return true;
         }
         if (layout.handleButtonClick(event)) return true;
 
-        if (editMode && event.button() == 1 && openSpacerMenu(event.x(), event.y())) return true;
+        if (editMode && event.button() == InputConstants.MOUSE_BUTTON_RIGHT && openSpacerMenu(event.x(), event.y())) return true;
 
-        if (editMode && event.button() == 0) {
+        if (editMode && event.button() == InputConstants.MOUSE_BUTTON_LEFT) {
             StorageOverlayLayout.SectionSlot slot = endedRename ? null : layout.sectionSlotAt(event.x(), event.y());
             if (slot != null) {
                 insertSection(slot.index());
@@ -327,14 +327,14 @@ public class StorageOverlay extends AbstractScreen {
         ScrollContainerWidget navigation = layout.getNavigationList();
         if (navigation != null && navigation.mouseClicked(event, doubleClick)) {
             setFocused(navigation);
-            if (event.button() == 0) setDragging(true);
+            if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) setDragging(true);
             return true;
         }
 
         ScrollContainerWidget overview = layout.getPageOverview();
         if (overview != null && overview.mouseClicked(event, doubleClick)) {
             setFocused(overview);
-            if (event.button() == 0) setDragging(true);
+            if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) setDragging(true);
             return true;
         }
         return super.mouseClicked(event, doubleClick);
@@ -370,11 +370,11 @@ public class StorageOverlay extends AbstractScreen {
             pressed.mouseReleased(event);
             return true;
         }
-        if (event.button() == 0 && drag.isActive()) {
+        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && drag.isActive()) {
             drag.drop();
             return true;
         }
-        if (event.button() == 0 && pressedCard != null) {
+        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && pressedCard != null) {
             GridCellComponent cell = pressedCard;
             pressedCard = null;
             if (pressedOnTitle && !movedPastThreshold(event.x(), event.y())
@@ -393,7 +393,7 @@ public class StorageOverlay extends AbstractScreen {
             if (popupPressed != null) popupPressed.mouseDragged(event, dragX, dragY);
             return true;
         }
-        if (event.button() == 0 && pressedCard != null && !drag.isActive()
+        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && pressedCard != null && !drag.isActive()
                 && (pressedOnGrip || !(pressedCard instanceof SectionHeaderComponent))
                 && movedPastThreshold(event.x(), event.y())) {
             drag.start(pressedCard, pressX, pressY, this.width, this.height);

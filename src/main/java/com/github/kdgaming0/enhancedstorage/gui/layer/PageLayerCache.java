@@ -6,7 +6,6 @@ import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.FilterMode;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
@@ -26,8 +25,13 @@ import java.util.function.Function;
 
 //? if <26.2 {
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
-//?} else {
+import com.mojang.blaze3d.textures.FilterMode;
+//?} else if <26.3 {
 /*import com.mojang.blaze3d.GpuFormat;
+import com.mojang.blaze3d.textures.FilterMode;
+ *///?} else {
+/*import com.mojang.renderpearl.api.GpuFormat;
+import com.mojang.renderpearl.api.textures.FilterMode;
  *///?}
 
 /**
@@ -268,9 +272,15 @@ public final class PageLayerCache {
             int top = Math.clamp((long) rect.top() * scale, 0, layer.height);
             int bottom = Math.clamp((long) rect.bottom() * scale, 0, layer.height);
             if (right <= left || bottom <= top) continue;
+            //? if <26.3 {
             RenderSystem.getDevice().createCommandEncoder().clearColorAndDepthTextures(
                     layer.getColorTexture(), GuiRenderer.CLEAR_COLOR, layer.getDepthTexture(), clearDepth(),
                     left, layer.height - bottom, right - left, bottom - top);
+            //?} else {
+            /*RenderSystem.getDevice().createCommandEncoder().clearColorAndDepthTextures(
+                    layer.getColorTexture(), GuiRenderer.CLEAR_COLOR, layer.getDepthTexture(), clearDepth(),
+                    left, layer.height - bottom, right - left, bottom - top, 0);
+             *///?}
         }
         dirty.clear();
     }
@@ -285,8 +295,10 @@ public final class PageLayerCache {
         if (target == null) {
             //? if <26.2 {
             target = new TextureTarget(name, width, height, true);
-            //?} else {
+            //?} else if <26.3 {
             /*target = new TextureTarget(name, width, height, true, GpuFormat.RGBA8_UNORM);
+             *///?} else {
+            /*target = new TextureTarget(name, width, height, GpuFormat.RGBA8_UNORM, GpuFormat.D32_FLOAT);
              *///?}
             generation++;
         } else if (target.width != width || target.height != height) {

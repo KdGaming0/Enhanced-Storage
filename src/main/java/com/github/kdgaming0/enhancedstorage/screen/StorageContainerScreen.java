@@ -17,6 +17,7 @@ import com.github.kdgaming0.enhancedstorage.mixin.AbstractContainerScreenAccesso
 import com.github.kdgaming0.enhancedstorage.storage.capture.StorageCaptureHandler;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
 import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
+import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -549,7 +550,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
                 if (!child.isFocused()) {
                     child.setFocused(true);   // screen ref was stale; force the widget flag
                 }
-                if (event.button() == 0) this.setDragging(true);
+                if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) this.setDragging(true);
                 return true;
             }
         }
@@ -560,7 +561,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
      * On the live index page, left-clicking a page item navigates to that page.
      */
     private boolean handleIndexSlotClick(MouseButtonEvent event) {
-        if (openKey.type() != StorageKey.Type.STORAGE_INDEX || event.button() != 0) return false;
+        if (openKey.type() != StorageKey.Type.STORAGE_INDEX || event.button() != InputConstants.MOUSE_BUTTON_LEFT) return false;
 
         Slot slot = findHoveredContainerSlot(event.x(), event.y());
         if (slot == null || !slot.hasItem()) return false;
@@ -576,7 +577,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
      * Off the index page, left-clicking the cached overview opens the clicked page, or /storage when no item is hit.
      */
     private boolean handleOverviewPanelClick(MouseButtonEvent event) {
-        if (event.button() != 0
+        if (event.button() != InputConstants.MOUSE_BUTTON_LEFT
                 || openKey.type() == StorageKey.Type.STORAGE_INDEX
                 || !this.menu.getCarried().isEmpty()
                 || !isOverOverviewPanel(event.x(), event.y())) {

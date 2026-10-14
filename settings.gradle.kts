@@ -20,6 +20,7 @@ stonecutter {
         // See https://stonecutter.kikugie.dev/wiki/start/#choosing-minecraft-versions
         version("26.1", "26.1.2")
         version("26.2")
+        version("26.3")
         vcsVersion = "26.1"
     }
 }

@@ -7,7 +7,6 @@ import com.mojang.blaze3d.platform.Window;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.MouseHandler;
 import net.minecraft.util.Util;
-import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -15,6 +14,9 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+//? if <26.3 {
+import org.lwjgl.glfw.GLFW;
+//?}
 
 @Mixin(MouseHandler.class)
 public abstract class MouseHandlerMixin {
@@ -49,6 +51,7 @@ public abstract class MouseHandlerMixin {
     }
 
     // Menu is opening: restore the saved position if it's been < 0.5s (default value).
+    //? if <26.3 {
     @WrapOperation(
             method = "releaseMouse",
             at = @At(
@@ -57,9 +60,7 @@ public abstract class MouseHandlerMixin {
             )
     )
     private void enhancedstorage$restoreCursorPos(Window window, int cursorMode, double xpos, double ypos, Operation<Void> original) {
-        boolean recent = this.enhancedstorage$grabbedAt != Long.MIN_VALUE && Util.getMillis() - this.enhancedstorage$grabbedAt
-                <= (long) (EnhancedStorageConfig.saveCursorPositionWindow * 1000);
-        if (EnhancedStorageConfig.saveCursorPosition && recent) {
+        if (enhancedstorage$shouldRestore()) {
             this.xpos = this.enhancedstorage$savedX;
             this.ypos = this.enhancedstorage$savedY;
             original.call(window, cursorMode, this.enhancedstorage$savedX, this.enhancedstorage$savedY);
@@ -67,5 +68,31 @@ public abstract class MouseHandlerMixin {
         } else {
             original.call(window, cursorMode, xpos, ypos);
         }
+    }
+    //?} else {
+    /*
+    @WrapOperation(
+            method = "releaseMouse",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lcom/mojang/blaze3d/platform/InputConstants;releaseMouse(Lcom/mojang/blaze3d/platform/Window;DD)V"
+            )
+    )
+    private void enhancedstorage$restoreCursorPos(Window window, double xpos, double ypos, Operation<Void> original) {
+        if (enhancedstorage$shouldRestore()) {
+            this.xpos = this.enhancedstorage$savedX;
+            this.ypos = this.enhancedstorage$savedY;
+            original.call(window, this.enhancedstorage$savedX, this.enhancedstorage$savedY);
+        } else {
+            original.call(window, xpos, ypos);
+        }
+    }
+    *///?}
+
+    @Unique
+    private boolean enhancedstorage$shouldRestore() {
+        boolean recent = this.enhancedstorage$grabbedAt != Long.MIN_VALUE && Util.getMillis() - this.enhancedstorage$grabbedAt
+                <= (long) (EnhancedStorageConfig.saveCursorPositionWindow * 1000);
+        return EnhancedStorageConfig.saveCursorPosition && recent;
     }
 }
