@@ -4,6 +4,7 @@ import cc.cassian.rrv.common.overlay.OverlayManager;
 import cc.cassian.rrv.common.overlay.itemlist.view.ItemViewOverlay;
 import cc.cassian.rrv.common.overlay.itemlist.view.SearchBar;
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -13,14 +14,19 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 
+/**
+ * Calls into RRV. Every public method is safe to call without RRV installed: it does nothing then.
+ */
 public final class RRVCompat {
-    private static final MethodType HIGHLIGHT_TYPE = MethodType.methodType(void.class, ItemViewOverlay.class, Screen.class, GuiGraphicsExtractor.class, int.class, int.class, float.class);
-    private static final MethodHandle RENDER_ITEM_HIGHLIGHTING = bindRenderItemHighlighting();
-    private static final boolean RENDER_ALL_BACKGROUND_AVAILABLE = hasRenderAllBackground();
+    private static final boolean LOADED = FabricLoader.getInstance().isModLoaded("rrv");
     private static boolean renderingEarly = false;
     private static boolean renderingHighlightLate = false;
 
     private RRVCompat() {
+    }
+
+    public static boolean isLoaded() {
+        return LOADED;
     }
 
     public static boolean isRenderingEarly() {
@@ -32,13 +38,14 @@ public final class RRVCompat {
     }
 
     public static boolean isSearchBarFocused(Screen screen) {
-        return screen.getFocused() instanceof SearchBar;
+        return LOADED && screen.getFocused() instanceof SearchBar;
     }
 
     /**
      * Gives RRV's search bar focus again, e.g. after a rebuild took it away while the player was typing.
      */
     public static void focusSearchBar(Screen screen) {
+        if (!LOADED) return;
         SearchBar searchBar = ItemViewOverlay.INSTANCE.getSearchbar();
         if (searchBar == null || !searchBar.isVisible()) return;
         screen.setFocused(searchBar);
@@ -55,16 +62,17 @@ public final class RRVCompat {
     }
 
     public static boolean canDeferHighlight() {
-        return RENDER_ITEM_HIGHLIGHTING != null;
+        return LOADED && Rrv.RENDER_ITEM_HIGHLIGHTING != null;
     }
 
     // Render the RRV overlay below the Storage Overlay so the item list nav buttons don't interfere with the overlay when it is open.
     public static void renderOverlayBelow(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTicks) {
+        if (!LOADED) return;
         renderingEarly = true;
         try {
             // RRV normally draws its panel backgrounds in Fabric's after-background event, which comes after our early
             // item list; the recipe book theme's opaque panel would then hide the items, so the backgrounds go first here.
-            if (RENDER_ALL_BACKGROUND_AVAILABLE) {
+            if (Rrv.RENDER_ALL_BACKGROUND_AVAILABLE) {
                 OverlayManager.INSTANCE.renderAllBackground(guiGraphics, mouseX, mouseY, partialTicks);
             }
             OverlayManager.INSTANCE.renderAll(guiGraphics, mouseX, mouseY, partialTicks);
@@ -75,7 +83,8 @@ public final class RRVCompat {
 
     // Render the Filter Highlight Above again so they are visible
     public static void renderHighlightAbove(AbstractContainerScreen<?> screen, GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTicks) {
-        MethodHandle handle = RENDER_ITEM_HIGHLIGHTING;
+        if (!LOADED) return;
+        MethodHandle handle = Rrv.RENDER_ITEM_HIGHLIGHTING;
         if (handle == null) return;
 
         renderingHighlightLate = true;
@@ -106,7 +115,7 @@ public final class RRVCompat {
             try {
                 method.setAccessible(true);
                 // asType inserts the checked cast that reconciles our Screen callsite with whatever RRV declares.
-                return MethodHandles.lookup().unreflect(method).asType(HIGHLIGHT_TYPE);
+                return MethodHandles.lookup().unreflect(method).asType(Rrv.HIGHLIGHT_TYPE);
             } catch (ReflectiveOperationException | RuntimeException e) {
                 EnhancedStorage.LOGGER.warn("Could not bind RRV renderItemHighlighting; filter highlights will render under the storage overlay.", e);
                 return null;
@@ -115,5 +124,14 @@ public final class RRVCompat {
 
         EnhancedStorage.LOGGER.warn("RRV's renderItemHighlighting is missing or has an unrecognised signature; filter highlights will render under the storage overlay.");
         return null;
+    }
+
+    /**
+     * Looked up on first use, so that loading this class without RRV installed doesn't touch RRV's classes.
+     */
+    private static final class Rrv {
+        static final MethodType HIGHLIGHT_TYPE = MethodType.methodType(void.class, ItemViewOverlay.class, Screen.class, GuiGraphicsExtractor.class, int.class, int.class, float.class);
+        static final MethodHandle RENDER_ITEM_HIGHLIGHTING = bindRenderItemHighlighting();
+        static final boolean RENDER_ALL_BACKGROUND_AVAILABLE = hasRenderAllBackground();
     }
 }

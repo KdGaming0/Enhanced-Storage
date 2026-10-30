@@ -3,7 +3,9 @@ package com.github.kdgaming0.enhancedstorage.gui;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Set;
 
@@ -43,5 +45,25 @@ public final class SearchAutofocus {
         if (!EnhancedStorageConfig.searchBarAutofocus || !box.getValue().isEmpty()) return false;
         int key = event.key();
         return key == InputConstants.KEY_BACKSPACE || key == InputConstants.KEY_DELETE;
+    }
+
+    // The box's own flag and the screen's focus can disagree after a rebuild, so either counts.
+    public static boolean isFocused(Screen screen, @Nullable EditBox box) {
+        return box != null && (box.isFocused() || screen.getFocused() == box);
+    }
+
+    // Both go through the box's setFocused, which reports the text input focus change.
+    public static void focus(Screen screen, EditBox box) {
+        screen.setFocused(box);
+        box.setFocused(true);
+    }
+
+    public static void release(Screen screen, EditBox box) {
+        box.setFocused(false);
+        screen.setFocused(null);
+    }
+
+    public static void releaseOnOutsideClick(Screen screen, @Nullable EditBox box, double x, double y) {
+        if (isFocused(screen, box) && !box.isMouseOver(x, y)) release(screen, box);
     }
 }

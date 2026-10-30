@@ -2,12 +2,14 @@ package com.github.kdgaming0.enhancedstorage.gui.component.page;
 
 import com.daqem.uilib.gui.widget.ButtonWidget;
 import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle.Sprite;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.WidgetSprites;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.ARGB;
 import org.jspecify.annotations.NonNull;
 
@@ -27,6 +29,18 @@ public class PageCardButtonWidget extends ButtonWidget {
         super(x, y, width, height, message, onPress);
         this.spriteSupplier = spriteSupplier;
 
+    }
+
+    /**
+     * A button in the page card style with a plain text label, as used in popups and the Edit Mode panel.
+     */
+    public static PageCardButtonWidget labelled(int x, int y, int width, int height, String text, int color,
+                                                OnPress onPress) {
+        Identifier idle = Sprite.PAGE_CARD_IDLE.id();
+        WidgetSprites sprites = new WidgetSprites(idle, idle, Sprite.PAGE_CARD_ACTIVE.id());
+        int rgb = color & 0xFFFFFF;
+        return new PageCardButtonWidget(x, y, width, height, Component.literal(text).withStyle(s -> s.withColor(rgb)),
+                () -> sprites, onPress);
     }
 
     @Override

@@ -24,10 +24,10 @@ public final class EditHistory {
     }
 
     public void observe(LayoutSnapshot now) {
-        if (!now.sameIgnoringCollapse(current)) push(now, null);
+        observe(now, null);
     }
 
-    public void observe(LayoutSnapshot now, String label) {
+    public void observe(LayoutSnapshot now, @Nullable String label) {
         if (!now.sameIgnoringCollapse(current)) push(now, label);
     }
 
@@ -47,14 +47,6 @@ public final class EditHistory {
         current = redo.pop();
         notice = null;
         return current;
-    }
-
-    public boolean canUndo() {
-        return !undo.isEmpty();
-    }
-
-    public boolean canRedo() {
-        return !redo.isEmpty();
     }
 
     public @Nullable String notice() {

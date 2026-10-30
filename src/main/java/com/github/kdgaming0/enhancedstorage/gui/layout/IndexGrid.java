@@ -41,16 +41,4 @@ public final class IndexGrid {
         }
         return -1;
     }
-
-    /**
-     * Visible row for a row of the /storage menu, or -1 for navigation and filler rows.
-     */
-    public static int visibleRowOfMenuRow(int menuRow) {
-        return switch (menuRow) {
-            case 1 -> 0;
-            case 3 -> 1;
-            case 4 -> 2;
-            default -> -1;
-        };
-    }
 }

@@ -38,13 +38,6 @@ public class ToggleRowWidget extends ButtonWidget {
         return INSET + BOX + BOX_GAP + font.width(label) + DETAIL_GAP + font.width(detail) + INSET;
     }
 
-    private static void drawOutline(GuiGraphicsExtractor g, int x, int y, int size, int color) {
-        g.fill(x, y, x + size, y + 1, color);
-        g.fill(x, y + size - 1, x + size, y + size, color);
-        g.fill(x, y + 1, x + 1, y + size - 1, color);
-        g.fill(x + size - 1, y + 1, x + size, y + size - 1, color);
-    }
-
     private static int dim(int color) {
         return (color & 0xFFFFFF) | 0x80000000;
     }
@@ -65,7 +58,7 @@ public class ToggleRowWidget extends ButtonWidget {
 
         int boxX = getX() + INSET;
         int boxY = getY() + (getHeight() - BOX) / 2;
-        drawOutline(guiGraphics, boxX, boxY, BOX, textColor);
+        guiGraphics.outline(boxX, boxY, BOX, BOX, textColor);
         if (checked) {
             guiGraphics.fill(boxX + 2, boxY + 2, boxX + BOX - 2, boxY + BOX - 2, textColor);
         }

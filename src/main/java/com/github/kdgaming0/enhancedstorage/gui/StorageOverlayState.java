@@ -71,7 +71,7 @@ public class StorageOverlayState {
     }
 
     public String getSearchQuery() {
-        return searchQuery == null ? "" : searchQuery;
+        return searchQuery;
     }
 
     public void setSearchQuery(String query) {
@@ -91,6 +91,6 @@ public class StorageOverlayState {
     }
 
     public boolean isSearching() {
-        return searchQuery != null && !searchQuery.isBlank();
+        return !searchQuery.isBlank();
     }
 }

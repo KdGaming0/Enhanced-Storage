@@ -28,7 +28,6 @@ import java.util.List;
 public final class ModWidgetSpace {
 
     private static final boolean SKYBLOCKER_LOADED = FabricLoader.getInstance().isModLoaded("skyblocker");
-    private static final boolean RRV_LOADED = FabricLoader.getInstance().isModLoaded("rrv");
     private static final boolean SKYRECIPES_LOADED = FabricLoader.getInstance().isModLoaded("skyrecipes");
     // Quick Nav tabs are 32px tall and reach 28px past the screen bounds we report: Skyblocker's QuickNavButton puts
     // the top row at topPos - 28 and the bottom row at topPos + imageHeight - 4.
@@ -82,7 +81,7 @@ public final class ModWidgetSpace {
                 if (quickNavEnabled() && quickNavRowShown(false)) {
                     reserve += bottomTabSelected ? QUICK_NAV_TAB_REACH : QUICK_NAV_UNSELECTED_BOTTOM_TAB_REACH;
                 }
-                if (RRV_LOADED && rrvSearchBarAtBottom()) reserve += RRV_SEARCH_BAR_REACH + categoryButtonsHeight();
+                if (RRVCompat.isLoaded() && rrvSearchBarAtBottom()) reserve += RRV_SEARCH_BAR_REACH + categoryButtonsHeight();
                 return reserve == 0 ? margin : Math.max(margin, reserve + LayoutSpacing.modWidgetGap());
             } catch (LinkageError e) {
                 warnFallback(e);
@@ -91,7 +90,7 @@ public final class ModWidgetSpace {
         if (quickNavEnabled()) {
             margin += EnhancedStorageConfig.extraTopAndBottomMarginForQuickNav - MANUAL_QUICK_NAV_BOTTOM_OVERLAP;
         }
-        if (RRV_LOADED) margin += EnhancedStorageConfig.extraBottomMarginForRecipeSearchBar;
+        if (RRVCompat.isLoaded()) margin += EnhancedStorageConfig.extraBottomMarginForRecipeSearchBar;
         return margin;
     }
 
@@ -146,11 +145,7 @@ public final class ModWidgetSpace {
         // screen or than the 9 buttons, so the screen half is the width that decides the wrapping. The screen's own
         // width, not the window's: Better Screens scales the screen only while drawing it, and this is also polled
         // from the tick.
-        //? if <26.2 {
         Screen screen = Minecraft.getInstance().screen;
-        //?} else {
-        /*Screen screen = Minecraft.getInstance().gui.screen();
-         *///?}
         int barWidth = (screen != null ? screen.width : Minecraft.getInstance().getWindow().getGuiScaledWidth()) / 2;
         int perRow = Math.max(1, (barWidth + CATEGORY_BUTTON_GAP) / (CATEGORY_BUTTON_SIZE + CATEGORY_BUTTON_GAP));
         int rows = Math.ceilDiv(categoryCount, perRow);

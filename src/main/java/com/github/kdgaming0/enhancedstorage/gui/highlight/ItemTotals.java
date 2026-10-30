@@ -2,6 +2,7 @@ package com.github.kdgaming0.enhancedstorage.gui.highlight;
 
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
+import com.github.kdgaming0.enhancedstorage.storage.data.PageLayout;
 import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
 import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
 import net.minecraft.ChatFormatting;
@@ -21,7 +22,7 @@ public final class ItemTotals {
 
     private static ItemStack countedTarget = ItemStack.EMPTY;
     private static @Nullable StorageKey countedLiveKey;
-    private static boolean countedRift;
+    private static PageLayout.@Nullable Context countedContext;
     private static int cachedCount;
     private static int total;
     private static @Nullable Screen totalScreen;
@@ -38,18 +39,18 @@ public final class ItemTotals {
         });
     }
 
-    public static void update(boolean rift, @Nullable StorageKey liveKey, Iterable<ItemStack> liveStacks) {
+    public static void update(PageLayout.Context context, @Nullable StorageKey liveKey, Iterable<ItemStack> liveStacks) {
         shownInTooltip = false;
         ItemStack target = CopyHighlight.target();
         if (!EnhancedStorageConfig.showItemTotals || target.isEmpty()) {
             clear();
             return;
         }
-        if (target != countedTarget || rift != countedRift || !Objects.equals(liveKey, countedLiveKey)) {
+        if (target != countedTarget || context != countedContext || !Objects.equals(liveKey, countedLiveKey)) {
             countedTarget = target;
-            countedRift = rift;
+            countedContext = context;
             countedLiveKey = liveKey;
-            cachedCount = countCached(target, rift, liveKey);
+            cachedCount = countCached(target, context, liveKey);
         }
         int count = cachedCount;
         for (ItemStack stack : liveStacks) {
@@ -70,14 +71,11 @@ public final class ItemTotals {
         graphics.setTooltipForNextFrame(font, Component.literal(total + "×"), mouseX, mouseY);
     }
 
-    private static int countCached(ItemStack target, boolean rift, @Nullable StorageKey liveKey) {
+    private static int countCached(ItemStack target, PageLayout.Context context, @Nullable StorageKey liveKey) {
         int count = 0;
         for (Map.Entry<StorageKey, PageCache.CachedPage> entry : PageCache.getInstance().all().entrySet()) {
             StorageKey key = entry.getKey();
-            if (key.type() == StorageKey.Type.STORAGE_INDEX || rift != (key.type() == StorageKey.Type.RIFT)
-                    || key.equals(liveKey)) {
-                continue;
-            }
+            if (!context.holds(key) || key.equals(liveKey)) continue;
             List<ItemStack> items = entry.getValue().items();
             for (ItemStack stack : items) {
                 if (!stack.isEmpty() && CopyHighlight.sameItem(target, stack)) count += stack.getCount();

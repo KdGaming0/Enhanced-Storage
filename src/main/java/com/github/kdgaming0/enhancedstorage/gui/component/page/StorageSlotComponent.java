@@ -2,7 +2,6 @@ package com.github.kdgaming0.enhancedstorage.gui.component.page;
 
 import com.daqem.uilib.gui.component.AbstractComponent;
 import com.daqem.uilib.gui.component.sprite.SpriteComponent;
-import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.CopyHighlight;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.SearchHighlight;
 import com.github.kdgaming0.enhancedstorage.gui.layer.LayerItems;
@@ -27,7 +26,7 @@ public class StorageSlotComponent extends AbstractComponent {
     public StorageSlotComponent(int x, int y, int width, int height,
                                 @Nullable Identifier highlightBackTexture,
                                 @Nullable Identifier highlightFrontTexture,
-                                @Nullable ItemStack stack) {
+                                @Nullable ItemStack stack, boolean tooltip) {
         super(x, y, width, height);
         this.stack = stack == null ? ItemStack.EMPTY : stack;
         this.itemInset = itemInset(width);
@@ -44,7 +43,7 @@ public class StorageSlotComponent extends AbstractComponent {
 
         if (stack != null && !stack.isEmpty()) {
             this.item = new TooltipItemComponent(itemInset, itemInset, stack, true);
-            this.item.setTooltipEnabled(EnhancedStorageConfig.showItemTooltipsOnCachedItems);
+            this.item.setTooltipEnabled(tooltip);
             this.item.setGlintHideable(true);
             this.addComponent(this.item);
         } else {

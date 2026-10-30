@@ -2,7 +2,7 @@
 mod.id = "enhanced_storage"
 mod.name = "Enhanced Storage"
 mod.group = "com.github.kdgaming0"
-mod.version = "2.0.0"
+mod.version = "2.0.1"
 
 deps.fabric_loader = "0.19.5"
 deps.oneconfig_toggles = "1.0.0"

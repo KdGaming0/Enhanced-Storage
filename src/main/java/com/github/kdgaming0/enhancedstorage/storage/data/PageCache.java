@@ -66,6 +66,15 @@ public final class PageCache extends ProfileScopedStore {
         return Optional.ofNullable(pages.get(key));
     }
 
+    /**
+     * The cached item in that slot of the page, or EMPTY if the page or the slot isn't cached.
+     */
+    public ItemStack itemAt(StorageKey key, int index) {
+        CachedPage page = pages.get(key);
+        if (page == null || index < 0 || index >= page.items().size()) return ItemStack.EMPTY;
+        return page.items().get(index);
+    }
+
     public Map<StorageKey, CachedPage> all() {
         return Collections.unmodifiableMap(pages);
     }

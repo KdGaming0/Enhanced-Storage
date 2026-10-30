@@ -15,6 +15,7 @@ import java.util.regex.Pattern;
  */
 public record StorageKey(Type type, int page) {
 
+    public static final StorageKey INDEX = new StorageKey(Type.STORAGE_INDEX, 0);
     public static final Comparator<StorageKey> DISPLAY_ORDER =
             Comparator.comparing(StorageKey::type).thenComparingInt(StorageKey::page);
     // Matched against TextUtils.stripString output, so they must be lowercase.
@@ -28,7 +29,7 @@ public record StorageKey(Type type, int page) {
         String title = TextUtils.stripString(text);
 
         if (title.equals("storage")) {
-            return Optional.of(new StorageKey(Type.STORAGE_INDEX, 0));
+            return Optional.of(INDEX);
         }
 
         return match(ENDER_CHEST_TITLE, title, Type.ENDER_CHEST)

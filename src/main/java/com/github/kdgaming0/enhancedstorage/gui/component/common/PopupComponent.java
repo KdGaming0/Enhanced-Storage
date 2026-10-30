@@ -9,11 +9,9 @@ import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle.Sprite;
 import com.github.kdgaming0.enhancedstorage.gui.component.page.PageCardButtonWidget;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.WidgetSprites;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextColor;
-import net.minecraft.resources.Identifier;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
@@ -177,13 +175,9 @@ public class PopupComponent extends AbstractComponent {
     }
 
     private void addButton(Option option, int x, int y, int width) {
-        Identifier idle = Sprite.PAGE_CARD_IDLE.id();
-        Identifier active = Sprite.PAGE_CARD_ACTIVE.id();
-        WidgetSprites sprites = new WidgetSprites(idle, idle, active);
-        int color = (option.enabled() ? OverlayStyle.titleColor() : OverlayStyle.secondaryTextColor()) & 0xFFFFFF;
-        Component label = Component.literal(option.label()).withStyle(s -> s.withColor(color));
-        PageCardButtonWidget button = new PageCardButtonWidget(x, y, width, BUTTON_HEIGHT, label,
-                () -> sprites, b -> option.action().run());
+        int color = option.enabled() ? OverlayStyle.titleColor() : OverlayStyle.secondaryTextColor();
+        PageCardButtonWidget button = PageCardButtonWidget.labelled(x, y, width, BUTTON_HEIGHT, option.label(), color,
+                b -> option.action().run());
         button.active = option.enabled();
         addWidget(button);
     }

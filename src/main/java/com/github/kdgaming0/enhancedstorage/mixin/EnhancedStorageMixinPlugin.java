@@ -18,6 +18,11 @@ public class EnhancedStorageMixinPlugin implements IMixinConfigPlugin {
     private static final Logger LOGGER = LoggerFactory.getLogger("enhanced_storage/mixin-plugin");
 
     /**
+     * Compat mixins live in {@code mixin.compat.<mod id>} and only apply when that mod is loaded.
+     */
+    private static final String COMPAT_PACKAGE = ".mixin.compat.";
+
+    /**
      * Method names each compat mixin injects into, keyed by simple mixin class name.
      * <p>
      * Mixin validates injection-handler descriptors during APPLY and throws — a hard crash during the *other*
@@ -89,23 +94,17 @@ public class EnhancedStorageMixinPlugin implements IMixinConfigPlugin {
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
-        if (mixinClassName.contains(".compat.betterscreens.")) {
-            return FabricLoader.getInstance().isModLoaded("betterscreens")
-                    && hasRequiredMethods(targetClassName, mixinClassName);
-        }
-        if (mixinClassName.contains(".compat.rrv.")) {
-            return FabricLoader.getInstance().isModLoaded("rrv")
-                    && hasRequiredMethods(targetClassName, mixinClassName);
-        }
-        if (mixinClassName.contains(".compat.skyblocker.")) {
-            return FabricLoader.getInstance().isModLoaded("skyblocker")
-                    && hasRequiredMethods(targetClassName, mixinClassName);
-        }
-        if (mixinClassName.contains(".compat.skyhanni.")) {
-            return FabricLoader.getInstance().isModLoaded("skyhanni")
-                    && hasRequiredMethods(targetClassName, mixinClassName);
-        }
-        return true;
+        int compatStart = mixinClassName.indexOf(COMPAT_PACKAGE);
+        if (compatStart < 0) return true;
+
+        int idStart = compatStart + COMPAT_PACKAGE.length();
+        int idEnd = mixinClassName.indexOf('.', idStart);
+        // A mixin directly in mixin.compat has no mod to gate on; refuse it rather than apply it unconditionally.
+        if (idEnd < 0) return false;
+
+        String modId = mixinClassName.substring(idStart, idEnd);
+        return FabricLoader.getInstance().isModLoaded(modId)
+                && hasRequiredMethods(targetClassName, mixinClassName);
     }
 
     @Override

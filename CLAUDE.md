@@ -42,7 +42,7 @@ Use `graphify query` to orient in the module graph. Non-obvious contracts:
 
 Mixins live in `mixin/` and are declared in `src/main/resources/enhancedstorage.mixins.json`. Third-party compat mixins live under `mixin/compat/{betterscreens,rrv,skyblocker,skyhanni}/` and `EnhancedStorageMixinPlugin.shouldApplyMixin` gates each package behind `FabricLoader.isModLoaded(...)` — they must stay optional at the mixin-plugin level, not just at runtime, since those mods are compile-only deps (see `modCompileOnly` entries in `build.gradle.kts`).
 
-When adding a compat mixin, also add its injection-target method names to `REQUIRED_TARGET_METHODS` in the plugin: it checks the target's bytecode and skips the mixin if the method was renamed/removed, so an update to the other mod disables the feature instead of crashing the game. Prefer the argument-less handler form (`CallbackInfo` only) so signature changes don't break APPLY. MixinExtras `@Expression` works only because the mixin config declares `mixinextras.minVersion`; `require = 0` doesn't stop a setup error from crashing at launch.
+The plugin reads the mod id from the package name, so a compat package must be named exactly after the other mod's id. When adding a compat mixin, also add its injection-target method names to `REQUIRED_TARGET_METHODS` in the plugin: it checks the target's bytecode and skips the mixin if the method was renamed/removed, so an update to the other mod disables the feature instead of crashing the game. Prefer the argument-less handler form (`CallbackInfo` only) so signature changes don't break APPLY. MixinExtras `@Expression` works only because the mixin config declares `mixinextras.minVersion`; `require = 0` doesn't stop a setup error from crashing at launch.
 
 
 ## Verifying APIs

@@ -5,6 +5,7 @@ import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.screen.StorageContainerScreen;
 import com.mojang.blaze3d.platform.Window;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 
 /**
  * Per-menu GUI scale for the storage overlay.
@@ -72,6 +73,18 @@ public final class OverlayScale {
         if (BetterScreensCompat.scalesCurrentScreen()) return false;
         setGuiScale(minecraft, resolveScale(minecraft));
         return true;
+    }
+
+    /**
+     * {@link #sync} from a screen's {@code init()}. Its size was assigned before the scale changed, so it is re-read
+     * when the screen should take its size from the window.
+     */
+    public static void syncScreen(Screen screen) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (sync(minecraft)) {
+            screen.width = minecraft.getWindow().getGuiScaledWidth();
+            screen.height = minecraft.getWindow().getGuiScaledHeight();
+        }
     }
 
     /**

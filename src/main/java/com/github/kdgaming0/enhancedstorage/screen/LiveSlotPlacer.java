@@ -1,12 +1,12 @@
 package com.github.kdgaming0.enhancedstorage.screen;
 
 import com.daqem.uilib.gui.component.sprite.SpriteComponent;
-import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayLayout;
 import com.github.kdgaming0.enhancedstorage.gui.component.page.PageCardComponent;
 import com.github.kdgaming0.enhancedstorage.gui.component.page.StorageSlotComponent;
 import com.github.kdgaming0.enhancedstorage.gui.layout.IndexGrid;
 import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
+import com.github.kdgaming0.enhancedstorage.storage.capture.MenuLayout;
 import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.Slot;
@@ -74,11 +74,6 @@ final class LiveSlotPlacer {
         return viewport;
     }
 
-    // The menu's own slots come first, then the player's inventory.
-    private int containerSlotCount() {
-        return menu.getRowCount() * 9;
-    }
-
     void sync(int offX, int offY) {
         clipRects.clear();
         viewport = null;
@@ -90,19 +85,21 @@ final class LiveSlotPlacer {
         placePlayerSlots(offX, offY);
     }
 
-    private void placePageSlots(int offX, int offY) {
-        ScrollContainerWidget widget = layout.getPageOverview();
-        if (widget == null) return;
+    private void parkContainerSlots() {
+        int containerSlots = MenuLayout.containerSlots(menu);
+        for (int i = 0; i < containerSlots; i++) {
+            park(menu.slots.get(i));
+        }
+    }
 
-        Rect view = new Rect(widget.getX(), widget.getY(), widget.getWidth(), widget.getHeight());
+    private void placePageSlots(int offX, int offY) {
+        Rect view = layout.getPageOverviewBounds();
+        if (view == null) return;
         this.viewport = view;
 
         PageCardComponent openCard = layout.getOpenCard();
         if (openCard == null) {
-            int containerSlots = containerSlotCount();
-            for (int i = 0; i < containerSlots; i++) {
-                park(menu.slots.get(i));
-            }
+            parkContainerSlots();
             return;
         }
 
@@ -112,17 +109,17 @@ final class LiveSlotPlacer {
         int originY = openCard.slotGridScreenY() + inset;
         int pageWidth = openCard.slotsAcross();
 
-        int containerSlots = containerSlotCount();
+        int containerSlots = MenuLayout.containerSlots(menu);
         for (int i = 0; i < containerSlots; i++) {
             Slot slot = menu.slots.get(i);
 
             // The top row holds the server's navigation buttons.
-            if (i < 9) {
+            if (i < MenuLayout.HEADER_SLOTS) {
                 park(slot);
                 continue;
             }
 
-            int visible = i - 9;
+            int visible = i - MenuLayout.HEADER_SLOTS;
             int absX = originX + (visible % pageWidth) * slotSize;
             int absY = originY + (visible / pageWidth) * slotSize;
             slot.x = absX - offX;
@@ -138,29 +135,27 @@ final class LiveSlotPlacer {
     }
 
     private void placeIndexSlots(int offX, int offY) {
-        int containerSlots = containerSlotCount();
         SpriteComponent overview = layout.getOverviewPanel();
 
         if (overview == null) {
             // With the Storage Overview card disabled there is nowhere to show the index slots.
-            for (int i = 0; i < containerSlots; i++) {
-                park(menu.slots.get(i));
-            }
+            parkContainerSlots();
             return;
         }
 
         int panelX = overview.getTotalX();
         int panelY = overview.getTotalY() + layout.getPanelContentTop();
+        int containerSlots = MenuLayout.containerSlots(menu);
         for (int i = 0; i < containerSlots; i++) {
             Slot slot = menu.slots.get(i);
 
-            int visRow = IndexGrid.visibleRowOfMenuRow(i / 9);
+            int visRow = MenuLayout.indexIconRow(i / MenuLayout.SLOTS_PER_ROW);
             if (visRow < 0) {
                 park(slot);
                 continue;
             }
 
-            slot.x = panelX + IndexGrid.cellX(i % 9) + ITEM_INSET - offX;
+            slot.x = panelX + IndexGrid.cellX(i % MenuLayout.SLOTS_PER_ROW) + ITEM_INSET - offX;
             slot.y = panelY + IndexGrid.rowY(visRow) + ITEM_INSET - offY;
         }
     }
@@ -174,8 +169,8 @@ final class LiveSlotPlacer {
         int mainY = inventory.getTotalY() + layout.getPanelContentTop() + 15;
         int hotbarY = mainY + 3 * SLOT_SIZE + 4;
 
-        int base = menu.slots.size() - 36;
-        for (int i = 0; i < 36; i++) {
+        int base = MenuLayout.containerSlots(menu);
+        for (int i = 0; i < MenuLayout.PLAYER_SLOTS; i++) {
             Slot slot = menu.slots.get(base + i);
             int y = i < 27 ? mainY + (i / 9) * SLOT_SIZE : hotbarY;
             slot.x = invX + (i % 9) * SLOT_SIZE - offX;

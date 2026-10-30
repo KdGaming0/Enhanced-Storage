@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 
 import static com.github.kdgaming0.enhancedstorage.EnhancedStorage.LOGGER;
 
@@ -42,6 +43,10 @@ public final class PageWidths extends ProfileScopedStore {
 
     public void clear(StorageKey key) {
         if (widths.remove(key) != null) markDirty();
+    }
+
+    public void clearIf(Predicate<StorageKey> filter) {
+        if (widths.keySet().removeIf(filter)) markDirty();
     }
 
     public Map<StorageKey, Integer> all() {

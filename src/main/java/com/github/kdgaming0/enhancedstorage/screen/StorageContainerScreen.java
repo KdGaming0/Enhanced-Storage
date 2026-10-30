@@ -3,10 +3,8 @@ package com.github.kdgaming0.enhancedstorage.screen;
 import com.daqem.uilib.api.screen.IScreenAccessor;
 import com.daqem.uilib.gui.AbstractContainerScreen;
 import com.daqem.uilib.gui.component.sprite.SpriteComponent;
-import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
 import com.github.kdgaming0.enhancedstorage.compat.RRVCompat;
-import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.gui.*;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.CopyHighlight;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.ItemTotals;
@@ -14,11 +12,11 @@ import com.github.kdgaming0.enhancedstorage.gui.highlight.SearchHighlight;
 import com.github.kdgaming0.enhancedstorage.gui.layout.IndexGrid;
 import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
 import com.github.kdgaming0.enhancedstorage.mixin.AbstractContainerScreenAccessor;
+import com.github.kdgaming0.enhancedstorage.storage.capture.MenuLayout;
 import com.github.kdgaming0.enhancedstorage.storage.capture.StorageCaptureHandler;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
 import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
 import com.mojang.blaze3d.platform.InputConstants;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Renderable;
@@ -50,7 +48,6 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     private final StorageOverlayLayout layout = new StorageOverlayLayout();
     private final LiveSlotPlacer slotPlacer;
     private final LiveSlotSearch liveSearch = new LiveSlotSearch();
-    private final boolean rrvLoaded = FabricLoader.getInstance().isModLoaded("rrv");
     private final List<SunkRrvRenderable> sunkRrvWidgets = new ArrayList<>();
     private boolean refocusRrvSearchBar;
     private int backgroundMouseX;
@@ -87,11 +84,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
      */
     @Override
     protected void init() {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (OverlayScale.sync(minecraft)) {
-            this.width = minecraft.getWindow().getGuiScaledWidth();
-            this.height = minecraft.getWindow().getGuiScaledHeight();
-        }
+        OverlayScale.syncScreen(this);
 
         super.init();
 
@@ -184,7 +177,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     public void extractRenderState(@NonNull GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         autoScrolledToOpenCard = true;
         CopyHighlight.setTarget(hoveredStack(mouseX, mouseY));
-        ItemTotals.update(layout.isRiftContext(), openKey, () -> liveStacks().iterator());
+        ItemTotals.update(layout.context(), openKey, () -> liveStacks().iterator());
         layout.updateCopyFilter();
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         if (this.menu.getCarried().isEmpty()) ItemTotals.extractBox(graphics, this.font, mouseX, mouseY);
@@ -195,13 +188,8 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         }
     }
 
-    // The menu's own slots come first, then the player's inventory.
-    private int containerSlotCount() {
-        return this.menu.getRowCount() * 9;
-    }
-
     private List<ItemStack> liveStacks() {
-        int containerSlots = containerSlotCount();
+        int containerSlots = MenuLayout.containerSlots(this.menu);
         boolean countContainer = openKey.type() != StorageKey.Type.STORAGE_INDEX;
         List<ItemStack> stacks = new ArrayList<>(this.menu.slots.size());
         for (Slot slot : this.menu.slots) {
@@ -225,14 +213,12 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         slotPlacer.sync(this.leftPos, this.topPos);
         super.extractContents(guiGraphics, mouseX, mouseY, a);
         if (this.menu.getCarried().isEmpty()) layout.extractOverlayTooltip(guiGraphics, mouseX, mouseY);
-        if (rrvLoaded) {
-            RRVCompat.renderHighlightAbove(this, guiGraphics, mouseX, mouseY, a);
-        }
+        RRVCompat.renderHighlightAbove(this, guiGraphics, mouseX, mouseY, a);
     }
 
     @Override
     public void extractBackground(@NonNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
-        if (rrvLoaded) {
+        if (RRVCompat.isLoaded()) {
             sinkForeignRrvWidgets();
         }
         bottomTabSelectedThisFrame = false;
@@ -242,7 +228,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         rrvDrawnInBackground = false;
         super.extractBackground(guiGraphics, mouseX, mouseY, partialTick);
         // Rendering RRV's overlay early, in the background stratum, so everything this screen draws appears on top of it and not the other way around.
-        if (rrvLoaded && !rrvDrawnInBackground) {
+        if (RRVCompat.isLoaded() && !rrvDrawnInBackground) {
             drawRrvBelow(guiGraphics, mouseX, mouseY, partialTick);
         }
     }
@@ -254,7 +240,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     @Override
     public void extractTransparentBackground(@NonNull GuiGraphicsExtractor guiGraphics) {
         super.extractTransparentBackground(guiGraphics);
-        if (rrvLoaded) drawRrvBelow(guiGraphics, backgroundMouseX, backgroundMouseY, backgroundPartialTick);
+        if (RRVCompat.isLoaded()) drawRrvBelow(guiGraphics, backgroundMouseX, backgroundMouseY, backgroundPartialTick);
     }
 
     /**
@@ -339,17 +325,13 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
      */
     @Override
     protected void rebuildWidgets() {
-        var previous = layout.getSearchBox();
-        boolean refocus = previous != null && (previous.isFocused() || this.getFocused() == previous);
-        refocusRrvSearchBar |= rrvLoaded && RRVCompat.isSearchBarFocused(this);
+        boolean refocus = SearchAutofocus.isFocused(this, layout.getSearchBox());
+        refocusRrvSearchBar |= RRVCompat.isSearchBarFocused(this);
 
         super.rebuildWidgets();
 
         var box = layout.getSearchBox();
-        if (refocus && box != null) {
-            this.setFocused(box);
-            box.setFocused(true);
-        }
+        if (refocus && box != null) SearchAutofocus.focus(this, box);
     }
 
     // Opening a page with the arrow keys counts as keyboard input, after which vanilla focuses the first widget: the search box. This prevents that.
@@ -397,16 +379,12 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         int idx = IndexGrid.cellAt((int) (mx - bounds.x()), (int) (my - bounds.y() - layout.getPanelContentTop()));
         if (idx < 0) return Optional.empty();
 
-        return PageCache.getInstance().get(new StorageKey(StorageKey.Type.STORAGE_INDEX, 0))
-                .map(PageCache.CachedPage::items)
-                .filter(items -> idx < items.size())
-                .map(items -> items.get(idx))
-                .filter(stack -> !stack.isEmpty())
-                .flatMap(stack -> StorageKey.fromIndexItem(stack.getHoverName()));
+        ItemStack stack = PageCache.getInstance().itemAt(StorageKey.INDEX, idx);
+        return stack.isEmpty() ? Optional.empty() : StorageKey.fromIndexItem(stack.getHoverName());
     }
 
     private @Nullable Slot findHoveredContainerSlot(double mx, double my) {
-        int containerSlots = containerSlotCount();
+        int containerSlots = MenuLayout.containerSlots(this.menu);
         for (int i = 0; i < containerSlots; i++) {
             Slot slot = this.menu.slots.get(i);
             if (this.isHovering(slot.x, slot.y, SLOT_ITEM_SIZE, SLOT_ITEM_SIZE, mx, my)) {
@@ -414,10 +392,6 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
             }
         }
         return null;
-    }
-
-    private boolean isOverPageOverview(double mouseX, double mouseY) {
-        return Rect.contains(layout.getPageOverviewBounds(), mouseX, mouseY);
     }
 
     // Centers Skyblocker Quick Nav row on the inventory or main storage panel instead of the whole screen.
@@ -440,18 +414,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        double ownScrollY = EnhancedStorageConfig.invertScrollDirection ? -scrollY : scrollY;
-        ScrollContainerWidget navigation = layout.getNavigationList();
-        if (navigation != null && Rect.contains(layout.getNavigationBounds(), mouseX, mouseY)
-                && navigation.mouseScrolled(mouseX, mouseY, scrollX, ownScrollY)) {
-            return true;
-        }
-        if (isOverPageOverview(mouseX, mouseY)) {
-            ScrollContainerWidget overview = layout.getPageOverview();
-            if (overview.mouseScrolled(mouseX, mouseY, scrollX, ownScrollY)) {
-                return true;
-            }
-        }
+        if (layout.scrollPanels(mouseX, mouseY, scrollX, scrollY)) return true;
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
@@ -475,7 +438,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         if (LiveSlotPlacer.isParked(slot)) return;
 
         Rect viewport = slotPlacer.viewport();
-        if (viewport == null || slot.index >= containerSlotCount()) {
+        if (viewport == null || slot.index >= MenuLayout.containerSlots(this.menu)) {
             nextStratumPerRow(graphics);
             if (CopyHighlight.hasTarget() && CopyHighlight.isCopy(slot.getItem()))
                 CopyHighlight.draw(graphics, slot.x, slot.y);
@@ -496,12 +459,14 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
                 viewport.right() - this.leftPos, viewport.bottom() - this.topPos);
 
         boolean searching = state.isSearching();
-        boolean match = searching && liveSearch.matches(slot, state.getSearchQuery());
+        // Read once: other mods hook every slot read.
+        ItemStack stack = searching || CopyHighlight.hasTarget() ? slot.getItem() : ItemStack.EMPTY;
+        boolean match = searching && liveSearch.matches(slot.index, stack, state.getSearchQuery());
 
         if (searching && match) {
             SearchHighlight.drawMatch(graphics, slot.x, slot.y);
         }
-        if (CopyHighlight.hasTarget() && CopyHighlight.isCopy(slot.getItem())) {
+        if (CopyHighlight.isCopy(stack)) {
             CopyHighlight.draw(graphics, slot.x, slot.y);
         }
 
@@ -528,11 +493,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
     @Override
     public boolean mouseClicked(@NonNull MouseButtonEvent event, boolean doubleClick) {
-        var box = layout.getSearchBox();
-        if (box != null && (box.isFocused() || this.getFocused() == box) && !box.isMouseOver(event.x(), event.y())) {
-            box.setFocused(false);
-            this.setFocused(null);
-        }
+        SearchAutofocus.releaseOnOutsideClick(this, layout.getSearchBox(), event.x(), event.y());
         if (layout.handleButtonClick(event)) return true;
 
         boolean coveredByGui = isInsideOverlay(event.x(), event.y());
@@ -619,29 +580,24 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
 
         var box = layout.getSearchBox();
         // Stops E from closing the overlay when searching
-        if (box != null && (box.isFocused() || this.getFocused() == box)) {
+        if (SearchAutofocus.isFocused(this, box)) {
             // Enter or Esc leaves the search box; a second Esc closes the screen as usual.
             if (event.isEscape() || event.isConfirmation()) {
-                box.setFocused(false);
-                this.setFocused(null);
+                SearchAutofocus.release(this, box);
                 return true;
             }
             box.keyPressed(event);
-            if (SearchAutofocus.shouldRelease(event, box)) {
-                box.setFocused(false);
-                this.setFocused(null);
-            }
+            if (SearchAutofocus.shouldRelease(event, box)) SearchAutofocus.release(this, box);
             return true;
         }
-        if (rrvLoaded && RRVCompat.isSearchBarFocused(this)) return super.keyPressed(event);
+        if (RRVCompat.isSearchBarFocused(this)) return super.keyPressed(event);
         if (CopyHighlight.isSearchKey(event)) {
             layout.searchFor(CopyHighlight.hovered());
             return true;
         }
         if (layout.handleNavigationKey(event)) return true;
         if (box != null && SearchAutofocus.shouldFocus(event, this.hoveredSlot != null || !CopyHighlight.hovered().isEmpty())) {
-            this.setFocused(box);
-            box.setFocused(true);
+            SearchAutofocus.focus(this, box);
             box.keyPressed(event);
             return true;
         }

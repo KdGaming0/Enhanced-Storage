@@ -3,7 +3,6 @@ package com.github.kdgaming0.enhancedstorage.mixin;
 import com.github.kdgaming0.enhancedstorage.screen.StorageContainerScreen;
 import com.github.kdgaming0.enhancedstorage.storage.capture.ContainerContentTracker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.protocol.game.ClientboundContainerClosePacket;
 import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
@@ -28,15 +27,9 @@ public abstract class ClientPacketListenerMixin {
     // renders with no screen (a flash of the world). Keep the overlay up while a page switch is in flight.
     @Inject(method = "handleContainerClose", at = @At("HEAD"), cancellable = true)
     private void enhancedstorage$onContainerClose(ClientboundContainerClosePacket packet, CallbackInfo ci) {
-        Minecraft minecraft = Minecraft.getInstance();
         // HEAD also runs on the network thread before vanilla hands the packet to the main thread; only act on the latter.
-        if (!minecraft.isSameThread()) return;
-        //? if <26.2 {
-        Screen current = minecraft.screen;
-        //?} else {
-        /*Screen current = minecraft.gui.screen();
-         *///?}
-        if (current instanceof StorageContainerScreen screen
+        if (!Minecraft.getInstance().isSameThread()) return;
+        if (Minecraft.getInstance().screen instanceof StorageContainerScreen screen
                 && screen.deferCloseForNavigation(packet.getContainerId())) {
             ci.cancel();
         }

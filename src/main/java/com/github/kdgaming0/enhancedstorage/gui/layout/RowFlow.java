@@ -116,6 +116,19 @@ public final class RowFlow {
         public Box(int width, int height) {
             this(width, height, false);
         }
+
+        /**
+         * Boxes stacked in one column: as wide as the widest, as tall as all of them with spacing between.
+         */
+        public static Box column(List<Box> parts, int spacing) {
+            int width = 0;
+            int height = -spacing;
+            for (Box part : parts) {
+                width = Math.max(width, part.width());
+                height += part.height() + spacing;
+            }
+            return new Box(width, height);
+        }
     }
 
     /**

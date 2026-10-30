@@ -103,7 +103,7 @@ public class NavigationRowComponent extends AbstractComponent {
     public static NavigationRowComponent page(int width, PageCardComponent card, boolean indented,
                                               boolean continues, boolean open, boolean dimmed) {
         StorageKey key = card.getKey();
-        String name = TextUtils.colorCodes(PageNames.getInstance().get(key).orElse(key.displayName()));
+        String name = TextUtils.colorCodes(PageNames.getInstance().displayName(key));
         return new NavigationRowComponent(width, card, name, false, false, indented, open, card.isCached(),
                 continues, dimmed);
     }

@@ -82,10 +82,12 @@ public final class PageLayout extends ProfileScopedStore {
             }
         }
 
+        Set<StorageKey> placed = new HashSet<>();
+        for (LayoutEntry entry : result) placed.addAll(LayoutOps.keysOf(entry));
         // Walk in default order so consecutive new pages chain (#4 lands after #3, then #5 after #4).
         for (int i = 0; i < defaultOrder.size(); i++) {
             StorageKey key = defaultOrder.get(i);
-            if (LayoutOps.indexOfKey(result, key) < 0) {
+            if (placed.add(key)) {
                 result.add(insertionIndex(result, defaultOrder, i), new LayoutEntry.Page(key));
             }
         }
@@ -195,6 +197,14 @@ public final class PageLayout extends ProfileScopedStore {
 
         public String id() {
             return id;
+        }
+
+        public String displayName() {
+            return this == RIFT ? "Rift Storage" : "Storage";
+        }
+
+        public String importCommand() {
+            return "/es layout import" + (this == RIFT ? " rift" : "");
         }
 
         /**

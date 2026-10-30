@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 
 import static com.github.kdgaming0.enhancedstorage.EnhancedStorage.LOGGER;
 
@@ -30,8 +31,25 @@ public final class PageNames extends ProfileScopedStore {
         return INSTANCE;
     }
 
+    /**
+     * Cuts the name to {@link #MAX_NAME_LENGTH}, without splitting an emoji (surrogate pair) in half.
+     */
+    public static String capLength(String name) {
+        if (name.length() <= MAX_NAME_LENGTH) return name;
+        int end = MAX_NAME_LENGTH;
+        if (Character.isHighSurrogate(name.charAt(end - 1))) end--;
+        return name.substring(0, end);
+    }
+
     public Optional<String> get(StorageKey key) {
         return Optional.ofNullable(names.get(key));
+    }
+
+    /**
+     * The custom name, or the page's default name. Still holds color codes.
+     */
+    public String displayName(StorageKey key) {
+        return get(key).orElse(key.displayName());
     }
 
     /**
@@ -44,13 +62,7 @@ public final class PageNames extends ProfileScopedStore {
             return;
         }
 
-        String trimmed = name.strip();
-        if (trimmed.length() > MAX_NAME_LENGTH) {
-            int end = MAX_NAME_LENGTH;
-            // Don't cut an emoji (surrogate pair) in half.
-            if (Character.isHighSurrogate(trimmed.charAt(end - 1))) end--;
-            trimmed = trimmed.substring(0, end).strip();
-        }
+        String trimmed = capLength(name.strip()).strip();
 
         String previous = names.put(key, trimmed);
         if (!trimmed.equals(previous)) markDirty();
@@ -58,6 +70,10 @@ public final class PageNames extends ProfileScopedStore {
 
     public void clear(StorageKey key) {
         if (names.remove(key) != null) markDirty();
+    }
+
+    public void clearIf(Predicate<StorageKey> filter) {
+        if (names.keySet().removeIf(filter)) markDirty();
     }
 
     public Map<StorageKey, String> all() {

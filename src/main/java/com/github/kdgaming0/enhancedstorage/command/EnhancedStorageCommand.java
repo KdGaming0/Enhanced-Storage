@@ -92,11 +92,7 @@ public class EnhancedStorageCommand {
 
         client.schedule(() -> {
             try {
-                //? if >=26.2 {
-                /*client.gui.setScreen(MidnightConfig.getScreen(client.gui.screen(), EnhancedStorage.MOD_ID));
-                 *///?} else {
-                client.setScreen(MidnightConfig.getScreen(client.screen, EnhancedStorage.MOD_ID));
-                //?}
+                Minecraft.getInstance().setScreen(MidnightConfig.getScreen(Minecraft.getInstance().screen, EnhancedStorage.MOD_ID));
             } catch (Exception e) {
                 EnhancedStorage.LOGGER.error("Failed to open config menu", e);
             }
@@ -122,14 +118,14 @@ public class EnhancedStorageCommand {
     private static int executeExport(CommandContext<FabricClientCommandSource> ctx, boolean rift) {
         PageLayout.Context context = PageLayout.Context.of(rift);
         LayoutSnapshot layout = StorageOverlayLayout.snapshot(context);
-        String name = rift ? "Rift Storage" : "Storage";
+        String name = context.displayName();
         if (layout.pageCount() == 0) {
             ctx.getSource().sendError(Component.literal("[EnhancedStorage] No " + name
                     + " pages known yet. Open your " + name + " first."));
             return 0;
         }
         Minecraft.getInstance().keyboardHandler.setClipboard(LayoutTransfer.encode(context, layout));
-        String importCommand = "/es layout import" + (rift ? " rift" : "");
+        String importCommand = context.importCommand();
         ctx.getSource().sendFeedback(Component.literal("§a[EnhancedStorage] Your " + name + " layout ("
                 + layout.pageCount() + " pages) is now in your clipboard."));
         ctx.getSource().sendFeedback(Component.literal("§7Paste it into a chat, a message or a text file to keep it or "

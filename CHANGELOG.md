@@ -1,3 +1,8 @@
+## Update 2.0.1
+
+### Other Changes
+- Cleaned up the mod's code behind the scenes. Nothing should look or work differently, but let us know if something does.
+
 ## Update 2.0.0
 
 ### New Features and Improvements

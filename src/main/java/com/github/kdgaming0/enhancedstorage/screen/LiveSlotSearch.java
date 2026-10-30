@@ -1,7 +1,6 @@
 package com.github.kdgaming0.enhancedstorage.screen;
 
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
-import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.HashMap;
@@ -16,17 +15,16 @@ final class LiveSlotSearch {
     private final Map<Integer, Entry> entries = new HashMap<>();
     private String query = "";
 
-    boolean matches(Slot slot, String currentQuery) {
+    boolean matches(int slotIndex, ItemStack stack, String currentQuery) {
         if (!currentQuery.equals(query)) {
             entries.clear();
             query = currentQuery;
         }
 
-        ItemStack stack = slot.getItem();
-        Entry entry = entries.get(slot.index);
+        Entry entry = entries.get(slotIndex);
         if (entry == null || !ItemStack.matches(entry.stack(), stack)) {
             entry = new Entry(stack.copy(), ItemSearch.matches(stack, currentQuery));
-            entries.put(slot.index, entry);
+            entries.put(slotIndex, entry);
         }
         return entry.match();
     }

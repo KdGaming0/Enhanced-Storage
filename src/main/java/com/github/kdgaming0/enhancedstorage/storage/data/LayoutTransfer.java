@@ -91,7 +91,7 @@ public final class LayoutTransfer {
                 }
                 case LayoutEntry.Spacer spacer -> entries.add(spacer.fill() ? spacer
                         : spacer.withSlots(Math.clamp(spacer.slots(), PageWidths.MIN_WIDTH, PageWidths.MAX_WIDTH)));
-                case LayoutEntry.Section section -> entries.add(section.withName(capName(section.name())));
+                case LayoutEntry.Section section -> entries.add(section.withName(PageNames.capLength(section.name())));
                 case LayoutEntry.SectionEnd end -> entries.add(end);
             }
         }
@@ -107,19 +107,11 @@ public final class LayoutTransfer {
         CompoundTag nameTag = root.getCompoundOrEmpty(NAMES_KEY);
         for (String id : nameTag.keySet()) {
             StorageKey.fromId(id).filter(context::holds).ifPresent(key -> nameTag.getString(id).ifPresent(name -> {
-                if (!name.isBlank()) names.put(key, capName(name));
+                if (!name.isBlank()) names.put(key, PageNames.capLength(name));
             }));
         }
 
         return new Shared(context, new LayoutSnapshot(entries, widths, names));
-    }
-
-    private static String capName(String name) {
-        if (name.length() <= PageNames.MAX_NAME_LENGTH) return name;
-        int end = PageNames.MAX_NAME_LENGTH;
-        // Don't cut an emoji (surrogate pair) in half.
-        if (Character.isHighSurrogate(name.charAt(end - 1))) end--;
-        return name.substring(0, end);
     }
 
     public record Shared(PageLayout.Context context, LayoutSnapshot layout) {

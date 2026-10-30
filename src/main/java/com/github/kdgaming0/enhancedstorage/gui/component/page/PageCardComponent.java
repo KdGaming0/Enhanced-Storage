@@ -10,6 +10,7 @@ import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle;
 import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle.Sprite;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayLayout;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayState;
+import com.github.kdgaming0.enhancedstorage.gui.component.common.NameEditBox;
 import com.github.kdgaming0.enhancedstorage.gui.layout.LiveCell;
 import com.github.kdgaming0.enhancedstorage.gui.layout.PartialHoverCell;
 import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
@@ -72,7 +73,7 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
                              List<ItemStack> items, int slotCount,
                              boolean cached, boolean live, boolean clickable,
                              int cardBorder, EnhancedStorageConfig.PageTitleStyle titleStyle,
-                             int slotsAcross, int slotSize,
+                             int slotsAcross, int slotSize, boolean itemTooltips,
                              Consumer<StorageKey> onClick) {
         super(x, y, width, height);
         this.slotsAcross = slotsAcross;
@@ -107,7 +108,7 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
         }
 
         // Show the custom name if the user set one, otherwise the default.
-        String displayName = TextUtils.colorCodes(PageNames.getInstance().get(key).orElse(key.displayName()));
+        String displayName = TextUtils.colorCodes(PageNames.getInstance().displayName(key));
 
         boolean showTitle = titleStyle != EnhancedStorageConfig.PageTitleStyle.HIDDEN;
         int titleX = 3;
@@ -142,11 +143,10 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
                         slotSize, slotSize,
                         live ? null : Sprite.SLOT_HIGHLIGHT_BACK.id(),
                         live ? null : Sprite.SLOT_HIGHLIGHT_FRONT.id(),
-                        stack);
+                        stack, itemTooltips);
                 this.slots.add(slotComponent);
                 this.addComponent(slotComponent);
             }
-            applySearch(state.getSearchQuery());
 
             if (EnhancedStorageConfig.showEmptySlotCount && showTitle) {
                 this.emptyLabel = new TextComponent(width - titleX, titleY, Component.empty(), OverlayStyle.secondaryTextColor());
@@ -257,12 +257,6 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
         return ItemStack.EMPTY;
     }
 
-    public void disableItemTooltips() {
-        for (StorageSlotComponent slot : slots) {
-            if (slot.getItem() != null) slot.getItem().setTooltipEnabled(false);
-        }
-    }
-
     // Apply the slot tint when searching
     public void applySearch(String query) {
         if (live || slots.isEmpty()) return;
@@ -274,9 +268,10 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
             return;
         }
 
+        String normalized = ItemSearch.normalizeQuery(query);
         for (int i = 0; i < slots.size(); i++) {
             ItemStack stack = (i < items.size()) ? items.get(i) : null;
-            slots.get(i).setSearchState(ItemSearch.matches(stack, query)
+            slots.get(i).setSearchState(ItemSearch.matchesNormalized(stack, normalized)
                     ? StorageSlotComponent.SearchState.MATCH
                     : StorageSlotComponent.SearchState.NO_MATCH);
         }
@@ -323,15 +318,8 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
      * so the static title is blanked.
      */
     public EditBoxWidget beginTitleEdit(Font font) {
-        String defaultName = key.displayName();
-        EditBoxWidget box = new EditBoxWidget(font, titleLocalX, titleLocalY,
-                getWidth() - titleLocalX * 2, font.lineHeight, Component.literal("Page name"));
-        box.setBordered(false);
-        box.setMaxLength(PageNames.MAX_NAME_LENGTH);
-        box.setTextColor(OverlayStyle.titleColor());
-        box.setResponder(text -> box.setSuggestion(text.isEmpty() ? defaultName : null));
-        box.setValue(PageNames.getInstance().get(key).orElse(""));
-        box.setSuggestion(box.getValue().isEmpty() ? defaultName : null);
+        EditBoxWidget box = NameEditBox.create(font, titleLocalX, titleLocalY, getWidth() - titleLocalX * 2,
+                "Page name", key.displayName(), PageNames.getInstance().get(key).orElse(""));
 
         pageTitle.setText(Component.empty());
         this.titleEditor = box;
@@ -355,10 +343,7 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
             widget.extractRenderState(guiGraphics, mouseX, mouseY, partialTick);
         }
 
-        // Render the Slots after
-        this.extractRenderState(guiGraphics, mouseX, mouseY, partialTick, parentWidth, parentHeight);
-
-        // Last render the items
+        // Then the slots and their items
         for (IComponent component : getComponents()) {
             component.extractRenderStateBase(guiGraphics, mouseX, mouseY, partialTick, getWidth(), getHeight());
         }

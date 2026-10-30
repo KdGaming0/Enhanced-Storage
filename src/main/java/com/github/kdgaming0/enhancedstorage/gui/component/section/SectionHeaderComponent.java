@@ -7,11 +7,11 @@ import com.daqem.uilib.gui.component.text.TruncatedTextComponent;
 import com.daqem.uilib.gui.widget.EditBoxWidget;
 import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle;
 import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle.Sprite;
+import com.github.kdgaming0.enhancedstorage.gui.component.common.NameEditBox;
 import com.github.kdgaming0.enhancedstorage.gui.component.page.GridCellComponent;
 import com.github.kdgaming0.enhancedstorage.gui.layout.LiveCell;
 import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
 import com.github.kdgaming0.enhancedstorage.storage.data.LayoutEntry;
-import com.github.kdgaming0.enhancedstorage.storage.data.PageNames;
 import com.github.kdgaming0.enhancedstorage.util.TextUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -168,14 +168,8 @@ public class SectionHeaderComponent extends GridCellComponent implements LiveCel
      */
     public EditBoxWidget beginNameEdit(Font font) {
         String defaultName = LayoutEntry.Section.DEFAULT_NAME;
-        EditBoxWidget box = new EditBoxWidget(font, nameX, TEXT_Y, nameMaxWidth, font.lineHeight,
-                Component.literal("Section name | Click to edit"));
-        box.setBordered(false);
-        box.setMaxLength(PageNames.MAX_NAME_LENGTH);
-        box.setTextColor(OverlayStyle.titleColor());
-        box.setResponder(text -> box.setSuggestion(text.isEmpty() ? defaultName : null));
-        box.setValue(entry.name().equals(defaultName) ? "" : entry.name());
-        box.setSuggestion(box.getValue().isEmpty() ? defaultName : null);
+        EditBoxWidget box = NameEditBox.create(font, nameX, TEXT_Y, nameMaxWidth, "Section name | Click to edit",
+                defaultName, entry.name().equals(defaultName) ? "" : entry.name());
 
         this.nameEditor = box;
         this.addWidget(box);

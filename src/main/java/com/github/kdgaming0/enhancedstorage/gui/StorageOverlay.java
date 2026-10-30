@@ -6,7 +6,6 @@ import com.daqem.uilib.gui.component.text.TextComponent;
 import com.daqem.uilib.gui.widget.EditBoxWidget;
 import com.daqem.uilib.gui.widget.ScrollContainerWidget;
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
-import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle.Sprite;
 import com.github.kdgaming0.enhancedstorage.gui.StorageOverlayLayout.ResetPart;
 import com.github.kdgaming0.enhancedstorage.gui.component.common.PaintLayerComponent;
@@ -52,7 +51,12 @@ public class StorageOverlay extends AbstractScreen {
     private static final float FILL_SPACER_ALPHA = 0.5f;
     private final StorageOverlayState state = StorageOverlayState.session();
     private final StorageOverlayLayout layout;
-    private final OverlayActions actions = OverlayActions.create(this, state, this::onPageCardClicked, this::toggleEditMode, this::rebuildWidgets);
+    private final OverlayActions actions = OverlayActions.create(this, state, this::onPageCardClicked, this::toggleEditMode,
+            this::rebuildWidgets, new OverlayActions.EditActions(
+                    () -> openResetDialog(EnumSet.noneOf(ResetPart.class)),
+                    event -> openShareMenu((int) event.x(), (int) event.y()),
+                    () -> undo(false),
+                    this::dismissNotice));
     private final boolean editMode;
     // Sent on exit to reopen the live menu edit mode was entered from; null means just close.
     private final @Nullable String returnCommand;
@@ -113,6 +117,14 @@ public class StorageOverlay extends AbstractScreen {
                 : event.key() == InputConstants.KEY_Z && event.hasShiftDown();
     }
 
+    // A copy with the part switched on or off.
+    private static <E extends Enum<E>> Set<E> toggled(Set<E> selected, E part) {
+        Set<E> next = EnumSet.noneOf(part.getDeclaringClass());
+        next.addAll(selected);
+        if (!next.remove(part)) next.add(part);
+        return next;
+    }
+
     private static boolean isOverRenameTarget(GridCellComponent cell, double x, double y) {
         return switch (cell) {
             case PageCardComponent card -> card.isOverTitleRow(x, y);
@@ -124,11 +136,7 @@ public class StorageOverlay extends AbstractScreen {
     @Override
     protected void init() {
         // Match the live screen's GUI scale so entering edit mode doesn't resize the overlay.
-        Minecraft minecraft = Minecraft.getInstance();
-        if (OverlayScale.sync(minecraft)) {
-            this.width = minecraft.getWindow().getGuiScaledWidth();
-            this.height = minecraft.getWindow().getGuiScaledHeight();
-        }
+        OverlayScale.syncScreen(this);
 
         pressedCard = null;
         drag.reset();
@@ -216,7 +224,7 @@ public class StorageOverlay extends AbstractScreen {
     }
 
     private void onPageCardClicked(StorageKey key) {
-        if (Objects.equals(key, state.getOpenKey())) return;
+        if (state.isOpen(key)) return;
 
         EnhancedStorage.LOGGER.debug("Storage page card clicked: {} (type={}, cached={})",
                 key.displayName(), key.type(), PageCache.getInstance().get(key).isPresent());
@@ -270,11 +278,7 @@ public class StorageOverlay extends AbstractScreen {
             if (!popup.isOverPanel(event.x(), event.y())) popup = null;
             return true;
         }
-        EditBoxWidget search = layout.getSearchBox();
-        if (search != null && (search.isFocused() || getFocused() == search) && !search.isMouseOver(event.x(), event.y())) {
-            search.setFocused(false);
-            setFocused(null);
-        }
+        SearchAutofocus.releaseOnOutsideClick(this, layout.getSearchBox(), event.x(), event.y());
         boolean endedRename = false;
         if (renameBox != null) {
             if (renameBox.isMouseOver(event.x(), event.y())) {
@@ -287,22 +291,6 @@ public class StorageOverlay extends AbstractScreen {
             endedRename = true;
         }
 
-        if (editMode && event.button() == InputConstants.MOUSE_BUTTON_LEFT && layout.isOverNoticeUndo(event.x(), event.y())) {
-            undo(false);
-            return true;
-        }
-        if (editMode && event.button() == InputConstants.MOUSE_BUTTON_LEFT && layout.isOverNoticeDismiss(event.x(), event.y())) {
-            dismissNotice();
-            return true;
-        }
-        if (editMode && event.button() == InputConstants.MOUSE_BUTTON_LEFT && layout.isOverResetButton(event.x(), event.y())) {
-            openResetDialog(EnumSet.noneOf(ResetPart.class));
-            return true;
-        }
-        if (editMode && event.button() == InputConstants.MOUSE_BUTTON_LEFT && layout.isOverShareButton(event.x(), event.y())) {
-            openShareMenu((int) event.x(), (int) event.y());
-            return true;
-        }
         if (layout.handleButtonClick(event)) return true;
 
         if (editMode && event.button() == InputConstants.MOUSE_BUTTON_RIGHT && openSpacerMenu(event.x(), event.y())) return true;
@@ -350,7 +338,7 @@ public class StorageOverlay extends AbstractScreen {
         if (editMode || blocked || player == null) {
             ItemTotals.clear();
         } else {
-            ItemTotals.update(layout.isRiftContext(), null, player.getInventory().getNonEquipmentItems());
+            ItemTotals.update(layout.context(), null, player.getInventory().getNonEquipmentItems());
         }
         layout.updateCopyFilter();
         if (popup != null) {
@@ -672,10 +660,9 @@ public class StorageOverlay extends AbstractScreen {
             return true;
         }
         EditBoxWidget search = layout.getSearchBox();
-        boolean typing = search != null && (search.isFocused() || getFocused() == search);
+        boolean typing = SearchAutofocus.isFocused(this, search);
         if (typing && (event.isEscape() || event.isConfirmation())) {
-            search.setFocused(false);
-            setFocused(null);
+            SearchAutofocus.release(this, search);
             return true;
         }
         if (!typing && CopyHighlight.isSearchKey(event)) {
@@ -684,16 +671,12 @@ public class StorageOverlay extends AbstractScreen {
         }
         if (!typing && layout.handleNavigationKey(event)) return true;
         if (!typing && search != null && SearchAutofocus.shouldFocus(event, !CopyHighlight.hovered().isEmpty())) {
-            setFocused(search);
-            search.setFocused(true);
+            SearchAutofocus.focus(this, search);
             search.keyPressed(event);
             return true;
         }
         boolean handled = super.keyPressed(event);
-        if (typing && SearchAutofocus.shouldRelease(event, search)) {
-            search.setFocused(false);
-            setFocused(null);
-        }
+        if (typing && SearchAutofocus.shouldRelease(event, search)) SearchAutofocus.release(this, search);
         return handled;
     }
 
@@ -718,8 +701,7 @@ public class StorageOverlay extends AbstractScreen {
         renameBox = box;
         renameCommit = commit;
         // Typed characters reach the box through screen focus.
-        setFocused(box);
-        box.setFocused(true);
+        SearchAutofocus.focus(this, box);
     }
 
     private void endRename(boolean save) {
@@ -735,19 +717,14 @@ public class StorageOverlay extends AbstractScreen {
     }
 
     private void openResetDialog(Set<ResetPart> selected) {
-        String context = layout.isRiftContext() ? "Rift Storage" : "Storage";
+        String context = layout.context().displayName();
         List<PopupComponent.Toggle> toggles = new ArrayList<>();
         boolean anyCustom = false;
         for (ResetPart part : ResetPart.values()) {
             int count = layout.customCount(part);
             anyCustom |= count > 0;
             toggles.add(new PopupComponent.Toggle(part.label(), String.valueOf(count),
-                    selected.contains(part), count > 0, () -> {
-                Set<ResetPart> next = EnumSet.noneOf(ResetPart.class);
-                next.addAll(selected);
-                if (!next.remove(part)) next.add(part);
-                openResetDialog(next);
-            }));
+                    selected.contains(part), count > 0, () -> openResetDialog(toggled(selected, part))));
         }
         List<PopupComponent.Option> actions = List.of(
                 option("Cancel", () -> {
@@ -771,16 +748,15 @@ public class StorageOverlay extends AbstractScreen {
     }
 
     private void copyLayout() {
-        boolean rift = layout.isRiftContext();
-        Minecraft.getInstance().keyboardHandler.setClipboard(
-                LayoutTransfer.encode(PageLayout.Context.of(rift), layout.snapshot()));
+        PageLayout.Context context = layout.context();
+        Minecraft.getInstance().keyboardHandler.setClipboard(LayoutTransfer.encode(context, layout.snapshot()));
         showMessage(List.of(Component.literal("Your layout is now in your clipboard."),
                 Component.literal("Paste it into a chat, a message or a text file").withStyle(ChatFormatting.GRAY),
                 Component.literal("to keep it or send it to a friend.").withStyle(ChatFormatting.GRAY),
                 Component.literal(""),
                 Component.literal("To use it, copy the whole text again, then:"),
                 Component.literal("Edit Layout > Share > Paste Layout").withStyle(ChatFormatting.GRAY),
-                Component.literal("or type /es layout import" + (rift ? " rift" : "")).withStyle(ChatFormatting.GRAY)));
+                Component.literal("or type " + context.importCommand()).withStyle(ChatFormatting.GRAY)));
     }
 
     private void pasteLayout() {
@@ -793,10 +769,10 @@ public class StorageOverlay extends AbstractScreen {
                     Component.literal("Copy the whole layout text first, then try again.").withStyle(ChatFormatting.GRAY)));
             return;
         }
-        if (shared.context() != PageLayout.Context.of(layout.isRiftContext())) {
+        if (shared.context() != layout.context()) {
             boolean rift = shared.context() == PageLayout.Context.RIFT;
             showMessage(List.of(Component.literal("Couldn't paste a layout"),
-                    Component.literal("This layout is for " + (rift ? "Rift Storage" : "Storage") + ".")
+                    Component.literal("This layout is for " + shared.context().displayName() + ".")
                             .withStyle(ChatFormatting.RED),
                     Component.literal("Paste it in " + (rift ? "Rift edit mode (/es edit rift)." : "Storage edit mode (/es edit)."))
                             .withStyle(ChatFormatting.GRAY)));
@@ -810,17 +786,12 @@ public class StorageOverlay extends AbstractScreen {
     }
 
     private void openImportDialog(LayoutSnapshot imported, Set<ImportPart> selected) {
-        String context = layout.isRiftContext() ? "Rift Storage" : "Storage";
+        String context = layout.context().displayName();
         List<PopupComponent.Toggle> toggles = new ArrayList<>();
         for (ImportPart part : ImportPart.values()) {
             int count = part.count(imported);
             toggles.add(new PopupComponent.Toggle(part.label(), String.valueOf(count),
-                    selected.contains(part), count > 0, () -> {
-                Set<ImportPart> next = EnumSet.noneOf(ImportPart.class);
-                next.addAll(selected);
-                if (!next.remove(part)) next.add(part);
-                openImportDialog(imported, next);
-            }));
+                    selected.contains(part), count > 0, () -> openImportDialog(imported, toggled(selected, part))));
         }
         List<PopupComponent.Option> actions = List.of(
                 option("Cancel", () -> {
@@ -877,20 +848,8 @@ public class StorageOverlay extends AbstractScreen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        double ownScrollY = EnhancedStorageConfig.invertScrollDirection ? -scrollY : scrollY;
         if (popup != null) return true;
-        ScrollContainerWidget navigation = layout.getNavigationList();
-        if (navigation != null
-                && Rect.contains(layout.getNavigationBounds(), mouseX, mouseY)
-                && navigation.mouseScrolled(mouseX, mouseY, scrollX, ownScrollY)) {
-            return true;
-        }
-        ScrollContainerWidget overview = layout.getPageOverview();
-        if (overview != null
-                && Rect.contains(layout.getPageOverviewBounds(), mouseX, mouseY)
-                && overview.mouseScrolled(mouseX, mouseY, scrollX, ownScrollY)) {
-            return true;
-        }
+        if (layout.scrollPanels(mouseX, mouseY, scrollX, scrollY)) return true;
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 }

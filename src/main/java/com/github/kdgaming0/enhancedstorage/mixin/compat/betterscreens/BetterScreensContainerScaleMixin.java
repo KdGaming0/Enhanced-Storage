@@ -5,7 +5,6 @@ import com.llamalad7.mixinextras.expression.Definition;
 import com.llamalad7.mixinextras.expression.Expression;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -23,11 +22,6 @@ public abstract class BetterScreensContainerScaleMixin {
     @Expression("? instanceof AbstractContainerScreen")
     @ModifyExpressionValue(method = "shouldScale", at = @At("MIXINEXTRAS:EXPRESSION"), require = 0)
     private static boolean enhancedstorage$scaleEditMode(boolean isContainerScreen) {
-        //? if <26.2 {
-        Screen screen = Minecraft.getInstance().screen;
-        //?} else {
-        /*Screen screen = Minecraft.getInstance().gui.screen();
-         *///?}
-        return isContainerScreen || screen instanceof StorageOverlay;
+        return isContainerScreen || Minecraft.getInstance().screen instanceof StorageOverlay;
     }
 }

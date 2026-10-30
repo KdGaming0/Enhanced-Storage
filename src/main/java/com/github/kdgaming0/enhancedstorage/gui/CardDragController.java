@@ -75,17 +75,9 @@ final class CardDragController {
 
     private static int nextBoundary(List<GridCellComponent> order, int from) {
         for (int i = from; i < order.size(); i++) {
-            if (order.get(i) instanceof SectionHeaderComponent || order.get(i) instanceof SectionEndComponent) return i;
+            if (StorageOverlayLayout.isBoundary(order.get(i))) return i;
         }
         return order.size();
-    }
-
-    private static @Nullable SectionHeaderComponent sectionOf(List<GridCellComponent> order, int index) {
-        for (int i = index - 1; i >= 0; i--) {
-            if (order.get(i) instanceof SectionEndComponent) return null;
-            if (order.get(i) instanceof SectionHeaderComponent header) return header;
-        }
-        return null;
     }
 
     private static @Nullable GridCellComponent cellUnder(List<GridCellComponent> cells, Rect viewport, double x, double y) {
@@ -147,14 +139,6 @@ final class CardDragController {
         return new Rect(left, top, right - left, bottom - top);
     }
 
-    private static void outline(GuiGraphicsExtractor graphics, Rect r) {
-        int color = OverlayStyle.accentColor();
-        graphics.fill(r.x(), r.y(), r.right(), r.y() + 1, color);
-        graphics.fill(r.x(), r.bottom() - 1, r.right(), r.bottom(), color);
-        graphics.fill(r.x(), r.y(), r.x() + 1, r.bottom(), color);
-        graphics.fill(r.right() - 1, r.y(), r.right(), r.bottom(), color);
-    }
-
     boolean isActive() {
         return dragged != null;
     }
@@ -176,7 +160,7 @@ final class CardDragController {
 
         String name = null;
         if (cell instanceof PageCardComponent card) {
-            name = PageNames.getInstance().get(card.getKey()).orElse(card.getKey().displayName());
+            name = PageNames.getInstance().displayName(card.getKey());
         } else if (cell instanceof SectionHeaderComponent header) {
             name = header.entry().name();
             Rect nameBounds = header.nameBounds();
@@ -341,7 +325,7 @@ final class CardDragController {
         List<GridCellComponent> finalOrder = List.copyOf(layout.getCells());
         List<LayoutEntry> finalEntries = layout.currentEntries();
         boolean changed = !finalEntries.equals(originalEntries);
-        SectionHeaderComponent landedIn = sectionOf(finalOrder, finalOrder.indexOf(cell));
+        SectionHeaderComponent landedIn = StorageOverlayLayout.sectionOf(finalOrder, finalOrder.indexOf(cell));
         SectionHeaderComponent keepOpen = springOpened.contains(landedIn) ? landedIn : null;
         reset();
         if (!changed) return;
@@ -419,7 +403,7 @@ final class CardDragController {
         int index = cells.indexOf(cell);
         if (index >= 0 && cell.stackTag() != GridCellComponent.NO_STACK) {
             Rect stack = union(cells, StorageOverlayLayout.stackStart(cells, index), StorageOverlayLayout.stackEnd(cells, index));
-            outline(graphics, stack);
+            graphics.outline(stack.x(), stack.y(), stack.width(), stack.height(), OverlayStyle.accentColor());
         }
 
         GridCellComponent hovered = cellUnder(layout.getVisibleCells(), viewport, mouseX, mouseY);

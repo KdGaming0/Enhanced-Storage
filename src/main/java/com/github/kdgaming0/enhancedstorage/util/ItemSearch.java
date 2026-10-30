@@ -25,9 +25,19 @@ public class ItemSearch {
 
     public static boolean matches(ItemStack stack, String query) {
         if (query.isBlank()) return false;
-        if (stack == null || stack.isEmpty()) return false;
+        return matchesNormalized(stack, normalizeQuery(query));
+    }
 
-        return searchText(stack).contains(TextUtils.stripString(query));
+    /**
+     * The form {@link #matchesNormalized} takes, so a query checked against many stacks is cleaned up once.
+     */
+    public static String normalizeQuery(String query) {
+        return TextUtils.stripString(query);
+    }
+
+    public static boolean matchesNormalized(@Nullable ItemStack stack, String normalizedQuery) {
+        if (stack == null || stack.isEmpty()) return false;
+        return searchText(stack).contains(normalizedQuery);
     }
 
     public static String searchTermFor(ItemStack stack) {
@@ -85,10 +95,9 @@ public class ItemSearch {
     public static boolean anyMatch(List<ItemStack> stacks, String query) {
         if (query.isBlank()) return false;
 
-        String cleanQuery = TextUtils.stripString(query);
+        String cleanQuery = normalizeQuery(query);
         for (ItemStack stack : stacks) {
-            if (stack == null || stack.isEmpty()) continue;
-            if (searchText(stack).contains(cleanQuery)) return true;
+            if (matchesNormalized(stack, cleanQuery)) return true;
         }
         return false;
     }
