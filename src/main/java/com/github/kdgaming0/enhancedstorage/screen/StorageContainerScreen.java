@@ -13,6 +13,7 @@ import com.github.kdgaming0.enhancedstorage.gui.highlight.SearchHighlight;
 import com.github.kdgaming0.enhancedstorage.gui.layout.IndexGrid;
 import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
 import com.github.kdgaming0.enhancedstorage.mixin.AbstractContainerScreenAccessor;
+import com.github.kdgaming0.enhancedstorage.storage.capture.ContainerContentTracker;
 import com.github.kdgaming0.enhancedstorage.storage.capture.MenuLayout;
 import com.github.kdgaming0.enhancedstorage.storage.capture.StorageCaptureHandler;
 import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
@@ -230,7 +231,10 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     public void extractContents(@NonNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float a) {
         slotPlacer.sync(this.leftPos, this.topPos);
         super.extractContents(guiGraphics, mouseX, mouseY, a);
-        if (this.menu.getCarried().isEmpty()) layout.extractOverlayTooltip(guiGraphics, mouseX, mouseY);
+        // A live slot holding an item shows its own tooltip, even if the cached copy still has it empty.
+        if (this.menu.getCarried().isEmpty() && (this.hoveredSlot == null || !this.hoveredSlot.hasItem())) {
+            layout.extractOverlayTooltip(guiGraphics, mouseX, mouseY);
+        }
         RRVCompat.renderHighlightAbove(this, guiGraphics, mouseX, mouseY, a);
     }
 
@@ -322,6 +326,8 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     protected void slotClicked(@Nullable Slot slot, int slotId, int buttonNum, @NonNull ContainerInput containerInput) {
         if (deferredCloseAt != 0) return;
         super.slotClicked(slot, slotId, buttonNum, containerInput);
+        // Capture the page on the next tick, so its cached copy (hover, empty count, search) includes this change.
+        ContainerContentTracker.markLocalChange(this.menu);
     }
 
     @Override

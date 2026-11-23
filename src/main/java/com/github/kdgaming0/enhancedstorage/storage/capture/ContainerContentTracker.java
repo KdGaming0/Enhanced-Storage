@@ -50,6 +50,13 @@ public final class ContainerContentTracker {
         AbstractContainerMenu menu = menuWithId(containerId);
         if (menu == null) return;
 
+        markLocalChange(menu);
+    }
+
+    /**
+     * The menu changed. Also called for the player's own clicks, which the server doesn't send back.
+     */
+    public static void markLocalChange(AbstractContainerMenu menu) {
         State state = states.get(menu);
         if (state != null && state.received) {
             state.changed.set(true);

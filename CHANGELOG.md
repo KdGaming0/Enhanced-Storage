@@ -3,6 +3,10 @@
 ### Improvements
 - Added support for SkyOcean's Craft Helper. When you have a recipe set, the storage overlay now moves aside to make room for the Craft Helper panel instead of covering it, so the panel is no longer cut off and doesn't hide your pages.
 
+### Bug Fixes
+- Fixed items you just put into a page sometimes not showing on that page after switching to another page.
+- Fixed hovering an item you just put into a page sometimes showing the page name and empty slot count instead of the item's tooltip.
+
 ### Other Changes
 - Cleaned up the mod's code behind the scenes. Nothing should look or work differently, but let me know if something does.
 - Updated the mod's dependencies to their latest versions.
