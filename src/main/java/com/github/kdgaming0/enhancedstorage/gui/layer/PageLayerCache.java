@@ -112,15 +112,11 @@ public final class PageLayerCache {
      * Called right before each GUI renderer, after the world, so the render state left behind (projection, lighting)
      * is the one that renderer sets up for itself anyway.
      */
-    //? if <26.2 {
+    //~ if >=26.2 'factory, GpuBufferSlice fogBuffer)' -> 'factory)', 'factory, fogBuffer)' -> 'factory)' {
     public static void renderPending(GuiRenderState screenState, Function<GuiRenderState, GuiRenderer> factory, GpuBufferSlice fogBuffer) {
         for (PageLayerCache cache : ALL) cache.render(screenState, factory, fogBuffer);
     }
-    //?} else {
-    /*public static void renderPending(GuiRenderState screenState, Function<GuiRenderState, GuiRenderer> factory) {
-        for (PageLayerCache cache : ALL) cache.render(screenState, factory);
-    }
-    *///?}
+    //~}
 
     // The value GameRenderer clears the depth buffer to before drawing the GUI (26.2 switched to reverse Z).
     private static double clearDepth() {
@@ -224,11 +220,9 @@ public final class PageLayerCache {
                 main.scissorStack.peek()));
     }
 
-    //? if <26.2 {
+    //~ if >=26.2 'factory, GpuBufferSlice fogBuffer)' -> 'factory)' {
     private void render(GuiRenderState screenState, Function<GuiRenderState, GuiRenderer> factory, GpuBufferSlice fogBuffer) {
-        //?} else {
-        /*private void render(GuiRenderState screenState, Function<GuiRenderState, GuiRenderer> factory) {
-         *///?}
+    //~}
         if (pendingExtractor == null) {
             if ((renderer != null || target != null) && Util.getMillis() - lastUsed > RELEASE_AFTER_IDLE_MS) release();
             return;
@@ -248,20 +242,14 @@ public final class PageLayerCache {
         animatedItems = 0;
         rendering = true;
         try {
-            //? if <26.2 {
+            //~ if >=26.2 'render(fogBuffer)' -> 'render()'
             renderer.render(fogBuffer);
-            //?} else {
-            /*renderer.render();
-             *///?}
             renderer.endFrame();
         } finally {
             rendering = false;
         }
-        //? if <26.2 {
+        //~ if >=26.2 '.getLighting()' -> '.lighting()'
         Minecraft.getInstance().gameRenderer.getLighting().setupFor(Lighting.Entry.ITEMS_3D);
-        //?} else {
-        /*Minecraft.getInstance().gameRenderer.lighting().setupFor(Lighting.Entry.ITEMS_3D);
-         *///?}
     }
 
     private void clearDirty(RenderTarget layer) {
@@ -272,15 +260,11 @@ public final class PageLayerCache {
             int top = Math.clamp((long) rect.top() * scale, 0, layer.height);
             int bottom = Math.clamp((long) rect.bottom() * scale, 0, layer.height);
             if (right <= left || bottom <= top) continue;
-            //? if <26.3 {
+            //~ if >=26.3 'bottom - top)' -> 'bottom - top, 0)' {
             RenderSystem.getDevice().createCommandEncoder().clearColorAndDepthTextures(
                     layer.getColorTexture(), GuiRenderer.CLEAR_COLOR, layer.getDepthTexture(), clearDepth(),
                     left, layer.height - bottom, right - left, bottom - top);
-            //?} else {
-            /*RenderSystem.getDevice().createCommandEncoder().clearColorAndDepthTextures(
-                    layer.getColorTexture(), GuiRenderer.CLEAR_COLOR, layer.getDepthTexture(), clearDepth(),
-                    left, layer.height - bottom, right - left, bottom - top, 0);
-             *///?}
+            //~}
         }
         dirty.clear();
     }

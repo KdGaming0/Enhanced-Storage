@@ -1,5 +1,4 @@
 plugins {
-    id("dev.kikugie.stonecutter")
     id("me.modmuss50.mod-publish-plugin") version "2.2.+" apply false
 }
 
@@ -10,7 +9,7 @@ stonecutter parameters {
     swaps["mod_version"] = "\"${property("mod.version")}\";"
     swaps["minecraft"] = "\"${node.metadata.version}\";"
     constants["release"] = property("mod.id") != "template"
-    dependencies["fapi"] = node.project.property("deps.fabric_api") as String
+    targets["fapi"] = node.project.property("deps.fabric_api") as String
 
     replacements.string(eval(node.metadata.version, ">=26.2")) {
         replace("mc.screen", "mc.gui.screen()")
@@ -25,22 +24,14 @@ stonecutter parameters {
     }
 }
 
-val releaseVersions = listOf("26.1", "26.2", "26.3")
-
 stonecutter tasks {
-    order("publishMods")
+    // Upload versions one at a time, oldest first. `publishMods` only delegates to these, so ordering it does nothing.
+    order("publishModrinth")
+    order("publishCurseforge")
 }
 
 tasks.register("publishToAllPlatforms") {
     group       = "publishing"
     description = "Publish all release groups to Modrinth and CurseForge sequentially."
-    dependsOn(releaseVersions.map { ":$it:publishMods" })
-}
-
-gradle.projectsEvaluated {
-    releaseVersions.zipWithNext().forEach { (prev, next) ->
-        project(":$next").tasks.matching { it.name == "publishMods" }.configureEach {
-            mustRunAfter(project(":$prev").tasks.matching { it.name == "publishMods" })
-        }
-    }
+    dependsOn(stonecutter.tasks.names("publishMods").map { it.values })
 }

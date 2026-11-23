@@ -28,7 +28,7 @@ public class EnhancedStorage implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
 
-        MidnightConfig.init(MOD_ID, EnhancedStorageConfig.class);
+        MidnightConfig.register(MOD_ID, EnhancedStorageConfig.class);
         LayoutSpacing.register();
 
         ProfileSession session = ProfileSession.getInstance();

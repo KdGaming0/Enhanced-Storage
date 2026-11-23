@@ -18,11 +18,9 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 /**
  * Replaces the vanilla chest screen with the storage overlay when a storage page opens.
  */
-//? if <26.2 {
+//~ if >=26.2 'Minecraft.class' -> 'Gui.class' {
 @Mixin(Minecraft.class)
-        //?} else {
-/*@Mixin(Gui.class)
- *///?}
+//~}
 public abstract class ScreenSwapMixin {
 
     @Unique

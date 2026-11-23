@@ -24,7 +24,7 @@ Stonecutter (multi-Minecraft-version Gradle) generates per-version project copie
 
 There is no separate lint or test task configured — `build` is the correctness gate (compiles, applies mixins, generates resources).
 
-Version/mod metadata (mod id, version, dependency versions per MC version) is centralized in `stonecutter.properties.toml`, not scattered across `build.gradle.kts`. Bump versions there.
+Version/mod metadata (mod id, version, dependency versions per MC version) is centralized in `stonecutter.properties.toml`, not scattered across `build.gradle.kts`. Bump versions there. Exception: the Loom version is `loomx.loom_version` in `gradle.properties` (loom-back-compat only reads it there). When a Modrinth version number is shared by files for different MC ranges, pin the Modrinth version ID instead (see `deps.rpc_version`).
 
 ## Architecture
 
