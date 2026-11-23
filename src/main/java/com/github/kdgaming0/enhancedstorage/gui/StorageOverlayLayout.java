@@ -105,6 +105,13 @@ public class StorageOverlayLayout {
     private int contentInset;
     private int builtModWidgetMargin;
     private boolean quickNavBottomTabSelected;
+    // Screen width kept free at each edge for another mod's side panel (SkyOcean's craft helper). The overlay is laid
+    // out in the area [areaLeft, areaLeft + areaWidth): normally the whole screen, shifted just clear of a reserved
+    // side, or the screen minus the reserved sides when shifting isn't enough.
+    private int reservedLeft;
+    private int reservedRight;
+    private int areaLeft;
+    private int areaWidth;
     private int frameWidth;
     private int liveRowTop = -1;
     private int liveRowBottom = -1;
@@ -469,6 +476,14 @@ public class StorageOverlayLayout {
         this.quickNavBottomTabSelected = selected;
     }
 
+    /**
+     * Screen width to keep free at the left and right edge on the next build, for another mod's side panel.
+     */
+    public void setReservedSides(int left, int right) {
+        this.reservedLeft = Math.max(0, left);
+        this.reservedRight = Math.max(0, right);
+    }
+
     private int computeBottomMargin(boolean inventoryBelow) {
         // Reserve room for the inventory panel when it sits directly below the page overview,
         // plus room below it for Quick Nav tabs and RRV's search bar.
@@ -611,14 +626,17 @@ public class StorageOverlayLayout {
                       @Nullable StorageKey liveKey, int liveRows, OverlayActions actions) {
         resetForBuild(font, state, actions, liveKey, liveRows);
         List<LayoutEntry> entries = collectEntries(context(), liveKey);
+        this.areaLeft = 0;
+        this.areaWidth = width;
         computeGeometry(width, height, entries);
+        if (reservedLeft > 0 || reservedRight > 0) keepClearOfReservedSides(width, height, entries);
 
         SpriteComponent mainBackground = buildMainPanel(screen);
         buildNavigationPanel(screen, mainBackground, entries);
         buildCells(entries);
         buildPageViewport(mainBackground);
 
-        buildBottomPanels(screen, width, mainBackground);
+        buildBottomPanels(screen, mainBackground);
         addOverviewIndexItems();
         if (editMode) {
             addPanelTitle(inventoryPanel, "Edit Mode", OverlayStyle.accentColor());
@@ -707,12 +725,53 @@ public class StorageOverlayLayout {
         this.panelTop = bottom ? 0 : PANEL_TOP;
     }
 
+    /**
+     * Moves the overlay just far enough to clear the reserved sides, keeping its size; when it doesn't fit beside them
+     * that way, lays it out again in the space between them, which narrows the rows.
+     */
+    private void keepClearOfReservedSides(int width, int height, List<LayoutEntry> entries) {
+        int gap = LayoutSpacing.horizontalMargin() / 2;
+        int minLeft = reservedLeft + gap;
+        int maxRight = width - reservedRight - gap;
+        int left = overlayLeft();
+        int right = overlayRight();
+        if (left >= minLeft && right <= maxRight) return;
+
+        if (right - left <= maxRight - minLeft) {
+            // Same geometry, shifted: everything horizontal is placed relative to areaLeft.
+            this.areaLeft = left < minLeft ? minLeft - left : maxRight - right;
+            computeGeometry(width, height, entries);
+            return;
+        }
+        this.areaLeft = reservedLeft;
+        this.areaWidth = width - reservedLeft - reservedRight;
+        computeGeometry(areaWidth, height, entries);
+    }
+
+    /**
+     * Left edge of everything the overlay draws, from the computed geometry (before the panels are built).
+     */
+    private int overlayLeft() {
+        int left = mainBackgroundX;
+        if (navigationWidth > 0 && !navigationStacked) left = Math.min(left, navigationX());
+        if (inventoryPosition != EnhancedStorageConfig.InventoryPosition.BOTTOM) return Math.min(left, columnX);
+        int inventoryX = bottomInventoryX();
+        return Math.min(left, showOverview() ? inventoryX - OVERVIEW_WIDTH : inventoryX);
+    }
+
+    private int overlayRight() {
+        int right = mainBackgroundX + mainBackgroundWidth;
+        if (navigationWidth > 0 && !navigationStacked) right = Math.max(right, navigationX() + navigationWidth);
+        int columnLeft = inventoryPosition != EnhancedStorageConfig.InventoryPosition.BOTTOM ? columnX : bottomInventoryX();
+        return Math.max(right, columnLeft + INVENTORY_WIDTH);
+    }
+
     private void setRowWidth(int width, List<LayoutEntry> entries, int limit) {
         // Shrinks to the widest row so narrow pages don't leave empty overlay; never below one default page.
         this.rowContentWidth = Math.max(packedWidth(entries, limit), cardWidth);
         this.frameWidth = rowContentWidth + contentInset * 2;
         this.mainBackgroundWidth = frameWidth + LayoutSpacing.innerPadding() * 2 + SCROLLBAR_WIDTH + LayoutSpacing.scrollbarGap();
-        this.mainBackgroundX = (width / 2) - (mainBackgroundWidth / 2);
+        this.mainBackgroundX = areaLeft + (width / 2) - (mainBackgroundWidth / 2);
     }
 
     /**
@@ -799,7 +858,7 @@ public class StorageOverlayLayout {
             if (navLeft) left += navigationWidth - NAV_MIN_WIDTH;
             else right += navigationWidth - NAV_MIN_WIDTH;
         }
-        if (whole) this.mainBackgroundX = (width - left - mainBackgroundWidth - right) / 2 + left;
+        if (whole) this.mainBackgroundX = areaLeft + (width - left - mainBackgroundWidth - right) / 2 + left;
         return true;
     }
 
@@ -829,10 +888,17 @@ public class StorageOverlayLayout {
         return mainBackground;
     }
 
+    /**
+     * X of a navigation panel that sits beside the main panel (not stacked in the inventory column).
+     */
+    private int navigationX() {
+        boolean left = EnhancedStorageConfig.navigationPanel == EnhancedStorageConfig.NavigationPanelSide.LEFT;
+        return left ? mainBackgroundX - LayoutSpacing.panelGap() - navigationWidth : mainBackgroundX + mainBackgroundWidth + LayoutSpacing.panelGap();
+    }
+
     private void buildNavigationPanel(IScreen screen, SpriteComponent mainBackground, List<LayoutEntry> entries) {
         if (navigationWidth == 0) return;
-        boolean left = EnhancedStorageConfig.navigationPanel == EnhancedStorageConfig.NavigationPanelSide.LEFT;
-        int x = left ? mainBackgroundX - LayoutSpacing.panelGap() - navigationWidth : mainBackgroundX + mainBackgroundWidth + LayoutSpacing.panelGap();
+        int x = navigationX();
         int height = mainBackground.getHeight();
         if (navigationStacked) {
             x = columnX;
@@ -1235,7 +1301,22 @@ public class StorageOverlayLayout {
         return editMode ? "" : state.getSearchQuery();
     }
 
-    private void buildBottomPanels(IScreen screen, int width, SpriteComponent mainBackground) {
+    /**
+     * X of the inventory panel when it sits below the main panel.
+     */
+    private int bottomInventoryX() {
+        int inventoryX = areaLeft + (areaWidth / 2) - (INVENTORY_WIDTH / 2);
+        // When the overview would stick out past the main panel's left edge, shift the pair right just far enough
+        // to line it up, so the inventory stays as close to the centre as it can. On a panel too narrow for that,
+        // the pair is centred under it instead.
+        if (showOverview() && inventoryX - OVERVIEW_WIDTH < mainBackgroundX) {
+            int mainCenterX = mainBackgroundX + mainBackgroundWidth / 2;
+            inventoryX = Math.min(mainBackgroundX + OVERVIEW_WIDTH, mainCenterX - (INVENTORY_WIDTH + OVERVIEW_WIDTH) / 2 + OVERVIEW_WIDTH);
+        }
+        return inventoryX;
+    }
+
+    private void buildBottomPanels(IScreen screen, SpriteComponent mainBackground) {
         boolean showOverview = showOverview();
 
         int inventoryX;
@@ -1243,17 +1324,8 @@ public class StorageOverlayLayout {
         int overviewX;
         int overviewY;
         if (inventoryPosition == EnhancedStorageConfig.InventoryPosition.BOTTOM) {
-            inventoryX = (width / 2) - (INVENTORY_WIDTH / 2);
+            inventoryX = bottomInventoryX();
             overviewX = inventoryX - OVERVIEW_WIDTH;
-
-            // When the overview would stick out past the main panel's left edge, shift the pair right just far enough
-            // to line it up, so the inventory stays as close to the centre as it can. On a panel too narrow for that,
-            // the pair is centred under it instead.
-            if (showOverview && overviewX < mainBackgroundX) {
-                int mainCenterX = mainBackgroundX + mainBackgroundWidth / 2;
-                inventoryX = Math.min(mainBackgroundX + OVERVIEW_WIDTH, mainCenterX - (INVENTORY_WIDTH + OVERVIEW_WIDTH) / 2 + OVERVIEW_WIDTH);
-                overviewX = inventoryX - OVERVIEW_WIDTH;
-            }
             inventoryY = mainBackgroundY + mainBackground.getHeight();
             overviewY = inventoryY;
         } else {

@@ -5,6 +5,7 @@ import com.daqem.uilib.gui.AbstractContainerScreen;
 import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
 import com.github.kdgaming0.enhancedstorage.compat.RRVCompat;
+import com.github.kdgaming0.enhancedstorage.compat.SkyOceanCompat;
 import com.github.kdgaming0.enhancedstorage.gui.*;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.CopyHighlight;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.ItemTotals;
@@ -58,6 +59,13 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     private boolean autoScrolledToOpenCard = false;
     private long deferredCloseAt = 0;
     private int slotsInStratum;
+    // SkyOcean's craft helper panel: which side it's on, how much of that side the overlay keeps free for it, and the
+    // recipe it was built for. Set on the first layout, then kept current by containerTick.
+    private boolean craftHelperTracked;
+    private SkyOceanCompat.Side craftHelperSide = SkyOceanCompat.Side.NONE;
+    private int craftHelperReserve;
+    private @Nullable Object craftHelperRecipe;
+    private boolean repositioning;
 
     public StorageContainerScreen(ChestMenu menu, Inventory inventory, Component title, StorageKey openKey) {
         super(menu, inventory, title);
@@ -92,6 +100,16 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
             StorageCaptureHandler.discoverRiftPages(this.getTitle());
         }
 
+        if (!craftHelperTracked) {
+            craftHelperTracked = true;
+            craftHelperSide = SkyOceanCompat.panelSide();
+            craftHelperReserve = craftHelperSide == SkyOceanCompat.Side.NONE ? 0 : SkyOceanCompat.expectedExtent();
+            craftHelperRecipe = SkyOceanCompat.recipe();
+        }
+        // Whatever panel SkyOcean adds after this layout is the one measured next tick.
+        SkyOceanCompat.forgetPanel();
+        layout.setReservedSides(craftHelperSide == SkyOceanCompat.Side.LEFT ? craftHelperReserve : 0,
+                craftHelperSide == SkyOceanCompat.Side.RIGHT ? craftHelperReserve : 0);
         layout.build(this, this.font, this.width, this.height, state, openKey, this.menu.getRowCount(), actions);
 
         // Repeated for every layout until the first frame: Better Screens resizes the screen once more before it.
@@ -315,7 +333,42 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
             return;
         }
         layout.tick();
-        if (layout.modWidgetSpaceChanged()) rebuildWidgets();
+        if (craftHelperSpaceChanged() | layout.modWidgetSpaceChanged()) rebuildWidgets();
+    }
+
+    /**
+     * Follows SkyOcean's craft helper panel: a recipe set or removed while the screen is open, a changed position
+     * setting, or the panel growing or shrinking (expanding its tree, finishing ingredients). Returns true when the
+     * screen has to be laid out again.
+     */
+    private boolean craftHelperSpaceChanged() {
+        // A recipe set or removed while the screen is open. SkyOcean only rebuilds its panel when a screen initialises,
+        // so lay out again (which has it build the panel for the new recipe, or none); the next tick measures it.
+        Object recipe = SkyOceanCompat.recipe();
+        if (recipe != craftHelperRecipe) {
+            craftHelperRecipe = recipe;
+            return true;
+        }
+        SkyOceanCompat.Side side = SkyOceanCompat.panelSide();
+        int reserve = side == SkyOceanCompat.Side.NONE ? 0 : SkyOceanCompat.measuredExtent();
+        if (side == craftHelperSide && reserve == craftHelperReserve) return false;
+        craftHelperSide = side;
+        craftHelperReserve = reserve;
+        return true;
+    }
+
+    /**
+     * A window resize rebuilds through here and then fires Fabric's after-init event, which has SkyOcean add its
+     * panel itself; {@link #rebuildWidgets} must not add a second one.
+     */
+    @Override
+    protected void repositionElements() {
+        repositioning = true;
+        try {
+            super.repositionElements();
+        } finally {
+            repositioning = false;
+        }
     }
 
     /**
@@ -329,6 +382,8 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         refocusRrvSearchBar |= RRVCompat.isSearchBarFocused(this);
 
         super.rebuildWidgets();
+        // Our own relayouts don't fire Fabric's after-init event, so SkyOcean wouldn't put its panel back.
+        if (!repositioning && craftHelperSide != SkyOceanCompat.Side.NONE) SkyOceanCompat.addPanel(this);
 
         var box = layout.getSearchBox();
         if (refocus && box != null) SearchAutofocus.focus(this, box);

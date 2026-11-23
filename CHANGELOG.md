@@ -1,4 +1,7 @@
-## Update 2.0.1
+## Update 2.1.0
+
+### Improvements
+- Added support for SkyOcean's Craft Helper. When you have a recipe set, the storage overlay now moves aside to make room for the Craft Helper panel instead of covering it, so the panel is no longer cut off and doesn't hide your pages.
 
 ### Other Changes
 - Cleaned up the mod's code behind the scenes. Nothing should look or work differently, but let me know if something does.

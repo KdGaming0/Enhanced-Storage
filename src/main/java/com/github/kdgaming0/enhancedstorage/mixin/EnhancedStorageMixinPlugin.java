@@ -44,7 +44,8 @@ public class EnhancedStorageMixinPlugin implements IMixinConfigPlugin {
             "SkyblockerQuickNavButtonMixin", List.of("updateCoordinates"),
             "SkyHanniChestValueMixin", List.of("isValidStorage"),
             "SkyHanniInventoryUtilsMixin", List.of("getItemsInOpenChestWithNull", "inInventory"),
-            "SkyHanniRenderDataMixin", List.of("onBackgroundDraw")
+            "SkyHanniRenderDataMixin", List.of("onBackgroundDraw"),
+            "SkyOceanCraftHelperDisplayMixin", List.of("onScreenInit")
     );
 
     /**

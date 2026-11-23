@@ -15,7 +15,8 @@
     "compat.skyblocker.SkyblockerQuickNavButtonMixin",
     "compat.skyhanni.SkyHanniChestValueMixin",
     "compat.skyhanni.SkyHanniInventoryUtilsMixin",
-    "compat.skyhanni.SkyHanniRenderDataMixin"
+    "compat.skyhanni.SkyHanniRenderDataMixin",
+    "compat.skyocean.SkyOceanCraftHelperDisplayMixin"
   ],
   "injectors": {
     "defaultRequire": 1
