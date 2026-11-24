@@ -261,6 +261,20 @@ public class EnhancedStorageConfig extends MidnightConfig {
     @Entry(category = CATEGORY_MISC)
     public static boolean cachePageRendering = true;
 
+    @Comment(category = CATEGORY_MISC)
+    public static Comment spacerOtherMods;
+
+    @Comment(category = CATEGORY_MISC, centered = true)
+    public static Comment sectionOtherMods;
+
+    @Condition(requiredModId = "skyblocker", visibleButLocked = true)
+    @Entry(category = CATEGORY_MISC)
+    public static boolean showPageValueButton = true;
+
+    @Condition(requiredModId = "skyhanni", visibleButLocked = true)
+    @Entry(category = CATEGORY_MISC)
+    public static SkyHanniChestValuePosition skyHanniChestValuePosition = SkyHanniChestValuePosition.BESIDE_PAGES;
+
     /**
      * Sets Page Titles from code while the config screen may be open: updates the screen's pending value too (the
      * screen writes it back to the field every tick) and rebuilds the list so the button shows the new style.
@@ -333,6 +347,10 @@ public class EnhancedStorageConfig extends MidnightConfig {
 
     public enum ModWidgetSpacing {
         AUTOMATIC, MANUAL
+    }
+
+    public enum SkyHanniChestValuePosition {
+        BESIDE_PAGES, SKYHANNI, HIDDEN
     }
 
     public enum SearchMode {

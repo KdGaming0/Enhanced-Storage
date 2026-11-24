@@ -5,12 +5,16 @@ import com.daqem.uilib.gui.AbstractContainerScreen;
 import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.github.kdgaming0.enhancedstorage.EnhancedStorage;
 import com.github.kdgaming0.enhancedstorage.compat.RRVCompat;
+import com.github.kdgaming0.enhancedstorage.config.LayoutSpacing;
+import com.github.kdgaming0.enhancedstorage.compat.SkyHanniCompat;
 import com.github.kdgaming0.enhancedstorage.compat.SkyOceanCompat;
 import com.github.kdgaming0.enhancedstorage.gui.*;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.CopyHighlight;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.ItemTotals;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.SearchHighlight;
 import com.github.kdgaming0.enhancedstorage.gui.layout.IndexGrid;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle;
+import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle.Sprite;
 import com.github.kdgaming0.enhancedstorage.gui.layout.Rect;
 import com.github.kdgaming0.enhancedstorage.mixin.AbstractContainerScreenAccessor;
 import com.github.kdgaming0.enhancedstorage.storage.capture.ContainerContentTracker;
@@ -19,6 +23,7 @@ import com.github.kdgaming0.enhancedstorage.storage.capture.StorageCaptureHandle
 import com.github.kdgaming0.enhancedstorage.storage.data.PageCache;
 import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
 import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Renderable;
@@ -66,6 +71,9 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     private SkyOceanCompat.Side craftHelperSide = SkyOceanCompat.Side.NONE;
     private int craftHelperReserve;
     private @Nullable Object craftHelperRecipe;
+    // Room kept on the left for SkyHanni's Chest Value list while it shows (see SkyHanniCompat), right of SkyOcean's
+    // panel when that is on the left too. Starts from the last screen's so switching pages doesn't jump.
+    private int chestValueReserve = SkyHanniCompat.chestValueExtent();
     private boolean repositioning;
 
     public StorageContainerScreen(ChestMenu menu, Inventory inventory, Component title, StorageKey openKey) {
@@ -109,9 +117,12 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         }
         // Whatever panel SkyOcean adds after this layout is the one measured next tick.
         SkyOceanCompat.forgetPanel();
-        layout.setReservedSides(craftHelperSide == SkyOceanCompat.Side.LEFT ? craftHelperReserve : 0,
+        int craftHelperLeft = craftHelperSide == SkyOceanCompat.Side.LEFT ? craftHelperReserve : 0;
+        layout.setReservedSides(craftHelperLeft + chestValueReserve,
                 craftHelperSide == SkyOceanCompat.Side.RIGHT ? craftHelperReserve : 0);
         layout.build(this, this.font, this.width, this.height, state, openKey, this.menu.getRowCount(), actions);
+        SkyHanniCompat.placeChestValue(craftHelperLeft, layout.getOverlayLeft() - LayoutSpacing.panelGap(),
+                layout.getMainBackgroundY(), this.height);
 
         // Repeated for every layout until the first frame: Better Screens resizes the screen once more before it.
         if (!autoScrolledToOpenCard) {
@@ -176,6 +187,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     @Override
     public void removed() {
         super.removed();
+        if (!state.isNavigating()) SkyHanniCompat.onStorageScreenClosed();
         state.onStorageScreenClosed();
         OverlayScale.restoreGameScale(Minecraft.getInstance());
     }
@@ -253,6 +265,18 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         if (RRVCompat.isLoaded() && !rrvDrawnInBackground) {
             drawRrvBelow(guiGraphics, mouseX, mouseY, partialTick);
         }
+        // SkyHanni's Chest Value list draws right after the background pass, so its panel goes here, under it.
+        Rect chestValue = SkyHanniCompat.chestValuePanel();
+        if (chestValue != null) {
+            guiGraphics.blitSprite(RenderPipelines.GUI_TEXTURED, Sprite.PAGE_CARD_IDLE.id(),
+                    chestValue.x(), chestValue.y(), chestValue.width(), chestValue.height());
+            String empty = SkyHanniCompat.chestValueEmptyText();
+            if (empty != null) {
+                int padding = SkyHanniCompat.chestValuePadding();
+                guiGraphics.text(this.font, empty, chestValue.x() + padding, chestValue.y() + padding,
+                        OverlayStyle.secondaryTextColor(), OverlayStyle.titleShadow());
+            }
+        }
     }
 
     /**
@@ -302,7 +326,9 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         return Rect.contains(layout.getPageOverviewBounds(), mx, my)
                 || Rect.contains(layout.getInventoryBounds(), mx, my)
                 || Rect.contains(layout.getOverviewBounds(), mx, my)
-                || Rect.contains(layout.getNavigationBounds(), mx, my);
+                || Rect.contains(layout.getNavigationBounds(), mx, my)
+                // Clicks on SkyHanni's Chest Value list must not count as outside, or a held item gets thrown.
+                || Rect.contains(SkyHanniCompat.chestValuePanel(), mx, my);
     }
 
     /**
@@ -339,7 +365,7 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
             return;
         }
         layout.tick();
-        if (craftHelperSpaceChanged() | layout.modWidgetSpaceChanged()) rebuildWidgets();
+        if (craftHelperSpaceChanged() | chestValueSpaceChanged() | layout.modWidgetSpaceChanged()) rebuildWidgets();
     }
 
     /**
@@ -360,6 +386,17 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         if (side == craftHelperSide && reserve == craftHelperReserve) return false;
         craftHelperSide = side;
         craftHelperReserve = reserve;
+        return true;
+    }
+
+    /**
+     * Follows SkyHanni's Chest Value list appearing, growing or going away. Returns true when the screen has to be laid
+     * out again.
+     */
+    private boolean chestValueSpaceChanged() {
+        int reserve = SkyHanniCompat.chestValueExtent();
+        if (reserve == chestValueReserve) return false;
+        chestValueReserve = reserve;
         return true;
     }
 

@@ -13,6 +13,7 @@
   "enhanced_storage.midnightconfig.sectionModCompat": "§lMod Compatibility",
   "enhanced_storage.midnightconfig.sectionCopies": "§lItem Copies",
   "enhanced_storage.midnightconfig.sectionPerformance": "§lPerformance",
+  "enhanced_storage.midnightconfig.sectionOtherMods": "§lCompatibility with Other Mods",
 
   "enhanced_storage.midnightconfig.enableOverlay": "Enable Storage Overlay",
   "enhanced_storage.midnightconfig.enableOverlay.tooltip": "Toggle the unified storage overlay on or off. When disabled, the vanilla chest GUI is shown.",
@@ -51,6 +52,8 @@
 
   "enhanced_storage.midnightconfig.showEmptySlotCount": "Show Empty Slot Count",
   "enhanced_storage.midnightconfig.showEmptySlotCount.tooltip": "Show how many slots without items each page has, for example \"6 empty\", next to the page title. Section headers and the navigation panel tooltip always show the count.",
+  "enhanced_storage.midnightconfig.showPageValueButton": "Show Page Value Button",
+  "enhanced_storage.midnightconfig.showPageValueButton.tooltip": "Needs Skyblocker installed. Adds a $ button next to each page title. Click it to see what the items in that page are worth, using Skyblocker's prices. Click it again to hide the value.",
 
   "enhanced_storage.midnightconfig.hideEnchantGlintOnCachedItems": "Hide Enchant Glint on Cached Pages",
   "enhanced_storage.midnightconfig.hideEnchantGlintOnCachedItems.tooltip": "Remove the enchant shimmer from items on pages that are not open. The page you have open still shows it.",
@@ -99,6 +102,8 @@
 
   "enhanced_storage.midnightconfig.modWidgetSpacing": "Room for Other Mods",
   "enhanced_storage.midnightconfig.modWidgetSpacing.tooltip": "How much room the overlay leaves for Skyblocker's Quick Nav tabs and RRV's search bar. \n\nAutomatic leaves just enough room for the ones you have turned on, using the margins above where it can. \n\nManual lets you set the extra room yourself with the sliders below.",
+  "enhanced_storage.midnightconfig.skyHanniChestValuePosition": "SkyHanni Chest Value Position",
+  "enhanced_storage.midnightconfig.skyHanniChestValuePosition.tooltip": "Needs SkyHanni installed, with its Chest Value turned on. Where its list shows while the storage overlay is open. \n\nBeside Pages puts it in a panel on the left of your pages. \n\nSkyHanni's Own Position uses the spot you set in SkyHanni, which may overlap the overlay. \n\nHidden doesn't show it in the storage overlay.",
 
   "enhanced_storage.midnightconfig.extraTopAndBottomMarginForQuickNav": "Extra Margin for Quick Nav",
   "enhanced_storage.midnightconfig.extraTopAndBottomMarginForQuickNav.tooltip": "Extra top/bottom margin (px) to leave room for Skyblocker quick-nav buttons.",
@@ -215,6 +220,9 @@
 
   "enhanced_storage.midnightconfig.enum.ModWidgetSpacing.AUTOMATIC": "Automatic",
   "enhanced_storage.midnightconfig.enum.ModWidgetSpacing.MANUAL": "Manual",
+  "enhanced_storage.midnightconfig.enum.SkyHanniChestValuePosition.BESIDE_PAGES": "Beside Pages",
+  "enhanced_storage.midnightconfig.enum.SkyHanniChestValuePosition.SKYHANNI": "SkyHanni's Own Position",
+  "enhanced_storage.midnightconfig.enum.SkyHanniChestValuePosition.HIDDEN": "Hidden",
 
   "enhanced_storage.midnightconfig.enum.SearchMode.FILTER": "Filter",
   "enhanced_storage.midnightconfig.enum.SearchMode.DIM": "Dim",

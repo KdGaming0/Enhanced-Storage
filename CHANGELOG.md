@@ -2,6 +2,8 @@
 
 ### Improvements
 - Added support for SkyOcean's Craft Helper. When you have a recipe set, the storage overlay now moves aside to make room for the Craft Helper panel instead of covering it, so the panel is no longer cut off and doesn't hide your pages.
+- With Skyblocker installed, each page now has a **$** button next to its title. Click it to see what the items in that page are worth, using Skyblocker's prices.
+- With SkyHanni's Chest Value turned on, its list now shows in a panel to the left of your pages instead of floating over the screen.
 
 ### Bug Fixes
 - Fixed items you just put into a page sometimes not showing on that page after switching to another page.

@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.injection.At;
  * ChestValue.isValidStorage() rejects any screen that is not the vanilla
  * ContainerScreen before its title/bazaar/minion checks even run. Widen that
  * one check to also accept our storage screen; all other validity rules stay
- * SkyHanni's. require = 0 so a SkyHanni refactor skips the injection instead
+ * SkyHanni's, and our "Hidden" setting leaves it off. require = 0 so a SkyHanni refactor skips the injection instead
  * of crashing.
  */
 @Pseudo
@@ -23,6 +23,6 @@ public class SkyHanniChestValueMixin {
             require = 0
     )
     private boolean enhancedstorage$treatStorageScreenAsChest(boolean original) {
-        return original || SkyHanniCompat.isStorageScreenOpen();
+        return original || SkyHanniCompat.chestValueAllowed() && SkyHanniCompat.isStorageScreenOpen();
     }
 }

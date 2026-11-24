@@ -14,6 +14,9 @@
     "compat.rrv.RRVSearchBarMixin",
     "compat.skyblocker.SkyblockerQuickNavButtonMixin",
     "compat.skyhanni.SkyHanniChestValueMixin",
+    "compat.skyhanni.SkyHanniChestValuePositionMixin",
+    "compat.skyhanni.SkyHanniGuiEditManagerMixin",
+    "compat.skyhanni.SkyHanniGuiEditorHotkeyMixin",
     "compat.skyhanni.SkyHanniInventoryUtilsMixin",
     "compat.skyhanni.SkyHanniRenderDataMixin",
     "compat.skyocean.SkyOceanCraftHelperDisplayMixin"

@@ -9,6 +9,7 @@ import com.daqem.uilib.gui.component.text.TextComponent;
 import com.daqem.uilib.gui.component.text.TruncatedTextComponent;
 import com.daqem.uilib.gui.widget.EditBoxWidget;
 import com.github.kdgaming0.enhancedstorage.compat.ModWidgetSpace;
+import com.github.kdgaming0.enhancedstorage.compat.SkyblockerCompat;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.config.LayoutSpacing;
 import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle.Sprite;
@@ -31,6 +32,7 @@ import com.github.kdgaming0.enhancedstorage.util.ItemModels;
 import com.github.kdgaming0.enhancedstorage.util.ItemSearch;
 import com.github.kdgaming0.enhancedstorage.util.TextUtils;
 import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.blaze3d.platform.cursor.CursorTypes;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -749,6 +751,13 @@ public class StorageOverlayLayout {
     }
 
     /**
+     * Left edge of everything the overlay draws, from the last build's geometry.
+     */
+    public int getOverlayLeft() {
+        return overlayLeft();
+    }
+
+    /**
      * Left edge of everything the overlay draws, from the computed geometry (before the panels are built).
      */
     private int overlayLeft() {
@@ -1285,7 +1294,7 @@ public class StorageOverlayLayout {
         mainBackground.addWidget(viewport);
         viewport.setBackgroundPainter(this::paintSectionFrames);
         viewport.setPageLayer(this::pageLayerEnabled,
-                () -> new PageLayerInputs(state.getOpenKey(), CopyHighlight.target()));
+                () -> new PageLayerInputs(state.getOpenKey(), CopyHighlight.target(), state.valueShownKeys()));
         this.pageOverview = viewport;
 
         reflowRows(activeQuery());
@@ -1546,6 +1555,12 @@ public class StorageOverlayLayout {
             return true;
         }
         if (button != InputConstants.MOUSE_BUTTON_LEFT) return false;
+
+        PageCardComponent valueCard = valueButtonAt(x, y);
+        if (valueCard != null) {
+            state.toggleValueShown(valueCard.getKey());
+            return true;
+        }
 
         // Only edit mode builds these, so the live screen never reaches its no-op actions.
         OverlayActions.EditActions edit = actions.edit();
@@ -1936,6 +1951,12 @@ public class StorageOverlayLayout {
     }
 
     public void extractOverlayTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        PageCardComponent valueCard = valueButtonAt(mouseX, mouseY);
+        if (valueCard != null) {
+            graphics.requestCursor(CursorTypes.POINTING_HAND);
+            graphics.setComponentTooltipForNextFrame(font, valueTooltip(valueCard.getKey()), mouseX, mouseY);
+            return;
+        }
         if (navigationTitle != null && navigationTitle.isOverToggle(mouseX, mouseY)) {
             boolean collapse = anySectionOpen(currentEntries());
             graphics.setComponentTooltipForNextFrame(font, List.of(
@@ -1988,6 +2009,33 @@ public class StorageOverlayLayout {
             if (lines.size() > 1) graphics.setComponentTooltipForNextFrame(font, lines, mouseX, mouseY);
             return;
         }
+    }
+
+    private @Nullable PageCardComponent valueButtonAt(double x, double y) {
+        if (!Rect.contains(getPageOverviewBounds(), x, y)) return null;
+        for (PageCardComponent card : visibleCards) {
+            if (card.isOverValueButton(x, y)) return card;
+        }
+        return null;
+    }
+
+    private List<Component> valueTooltip(StorageKey key) {
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.literal("Page Value"));
+        boolean shown = state.isValueShown(key);
+        if (shown) {
+            SkyblockerCompat.pageValue(key).ifPresent(value -> {
+                lines.add(SkyblockerCompat.fullText(value));
+                if (value.incomplete()) {
+                    lines.add(Component.literal("Some items have no price, so the real value may be higher.")
+                            .withStyle(ChatFormatting.GRAY));
+                }
+            });
+        }
+        lines.add(Component.literal(shown ? "Click to hide the value." : "Click to show what this page is worth.")
+                .withStyle(ChatFormatting.GRAY));
+        lines.add(Component.literal("Prices from Skyblocker.").withStyle(ChatFormatting.DARK_GRAY));
+        return lines;
     }
 
     public ItemStack hoveredCachedStack(double x, double y) {
@@ -2189,7 +2237,7 @@ public class StorageOverlayLayout {
     public record EditNotice(String title, String detail) {
     }
 
-    private record PageLayerInputs(@Nullable StorageKey openKey, ItemStack copyTarget) {
+    private record PageLayerInputs(@Nullable StorageKey openKey, ItemStack copyTarget, Set<StorageKey> valueShown) {
     }
 
     record SectionSlot(int index, int x, int lineY, int width) {

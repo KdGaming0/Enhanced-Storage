@@ -35,17 +35,20 @@ public class EnhancedStorageMixinPlugin implements IMixinConfigPlugin {
      * itself, which is all a {@link ClassNode} exposes. Methods merely *called* from our code (e.g.
      * {@code SearchBar.isMouseOver}) may be inherited and must not be listed.
      */
-    private static final Map<String, List<String>> REQUIRED_TARGET_METHODS = Map.of(
-            "BetterScreensContainerScaleMixin", List.of("shouldScale"),
-            "RRVItemViewOverlayMixin", List.of("renderItemHighlighting"),
-            "RRVOverlayManagerMixin", List.of("renderAll"),
-            "RRVOverlayManagerBackgroundMixin", List.of("renderAllBackground"),
-            "RRVSearchBarMixin", List.of("mouseClicked"),
-            "SkyblockerQuickNavButtonMixin", List.of("updateCoordinates"),
-            "SkyHanniChestValueMixin", List.of("isValidStorage"),
-            "SkyHanniInventoryUtilsMixin", List.of("getItemsInOpenChestWithNull", "inInventory"),
-            "SkyHanniRenderDataMixin", List.of("onBackgroundDraw"),
-            "SkyOceanCraftHelperDisplayMixin", List.of("onScreenInit")
+    private static final Map<String, List<String>> REQUIRED_TARGET_METHODS = Map.ofEntries(
+            Map.entry("BetterScreensContainerScaleMixin", List.of("shouldScale")),
+            Map.entry("RRVItemViewOverlayMixin", List.of("renderItemHighlighting")),
+            Map.entry("RRVOverlayManagerMixin", List.of("renderAll")),
+            Map.entry("RRVOverlayManagerBackgroundMixin", List.of("renderAllBackground")),
+            Map.entry("RRVSearchBarMixin", List.of("mouseClicked")),
+            Map.entry("SkyblockerQuickNavButtonMixin", List.of("updateCoordinates")),
+            Map.entry("SkyHanniChestValueMixin", List.of("isValidStorage")),
+            Map.entry("SkyHanniChestValuePositionMixin", List.of("onChestGuiRender")),
+            Map.entry("SkyHanniGuiEditManagerMixin", List.of("getAbsX", "getAbsY")),
+            Map.entry("SkyHanniGuiEditorHotkeyMixin", List.of("onKeyPress")),
+            Map.entry("SkyHanniInventoryUtilsMixin", List.of("getItemsInOpenChestWithNull", "inInventory")),
+            Map.entry("SkyHanniRenderDataMixin", List.of("onBackgroundDraw")),
+            Map.entry("SkyOceanCraftHelperDisplayMixin", List.of("onScreenInit"))
     );
 
     /**

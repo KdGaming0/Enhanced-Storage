@@ -4,6 +4,9 @@ import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.storage.data.StorageKey;
 import org.jspecify.annotations.Nullable;
 
+import java.util.HashSet;
+import java.util.Set;
+
 public class StorageOverlayState {
 
     private static final StorageOverlayState SESSION = new StorageOverlayState();
@@ -14,9 +17,22 @@ public class StorageOverlayState {
     private @Nullable Double scrollBeforeCopyFilter;
     // Used to tell page switch from closing the menu and reopening it
     private long navigatingUntil = 0;
+    private final Set<StorageKey> valueShown = new HashSet<>();
 
     public static StorageOverlayState session() {
         return SESSION;
+    }
+
+    public boolean isValueShown(StorageKey key) {
+        return valueShown.contains(key);
+    }
+
+    public void toggleValueShown(StorageKey key) {
+        if (!valueShown.remove(key)) valueShown.add(key);
+    }
+
+    public Set<StorageKey> valueShownKeys() {
+        return Set.copyOf(valueShown);
     }
 
     public double getScrollAmount() {
@@ -61,6 +77,8 @@ public class StorageOverlayState {
         }
         openKey = null;
         scrollBeforeCopyFilter = null;
+        // Page values stay on across page switches, but not once the menu is closed.
+        valueShown.clear();
         if (!EnhancedStorageConfig.rememberSearchOnReopen) {
             searchQuery = "";
         }

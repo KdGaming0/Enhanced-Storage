@@ -5,6 +5,7 @@ import com.daqem.uilib.api.widget.IWidget;
 import com.daqem.uilib.gui.component.sprite.SpriteComponent;
 import com.daqem.uilib.gui.component.text.TextComponent;
 import com.daqem.uilib.gui.widget.EditBoxWidget;
+import com.github.kdgaming0.enhancedstorage.compat.SkyblockerCompat;
 import com.github.kdgaming0.enhancedstorage.config.EnhancedStorageConfig;
 import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle;
 import com.github.kdgaming0.enhancedstorage.gui.OverlayStyle.Sprite;
@@ -46,7 +47,9 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
     private static final int COMPACT_TITLE_Y = 1;
     private static final int EMPTY_LABEL_GAP = 6;
     private static final String FULL_TEXT = "Full";
+    private static final String VALUE_BUTTON_TEXT = "$";
     private final StorageKey key;
+    private final StorageOverlayState state;
     private final int titleLocalX;
     private final int titleLocalY;
     private final int titleLocalWidth;
@@ -63,7 +66,9 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
     private final @Nullable PageCardButtonWidget button;
     private @Nullable EditBoxWidget titleEditor;
     private @Nullable TextComponent emptyLabel;
-    private @Nullable String shownEmptyText;
+    private @Nullable Component shownLabel;
+    // The $ button (Skyblocker page value), in card-local coordinates; null when the card has none.
+    private final @Nullable Rect valueButton;
     private PageCache.@Nullable CachedPage countedPage;
     private int countedEmpty;
 
@@ -81,6 +86,7 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
         this.slotGridX = cardBorder;
         this.slotGridY = slotGridTop(titleStyle, cardBorder, Minecraft.getInstance().font.lineHeight);
         this.key = key;
+        this.state = state;
         this.cached = cached;
         this.live = live;
         this.items = items;
@@ -114,15 +120,23 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
         int titleX = 3;
         int titleY = titleStyle == EnhancedStorageConfig.PageTitleStyle.COMPACT ? COMPACT_TITLE_Y : 3;
         var font = Minecraft.getInstance().font;
+        // Not in Edit Mode, where a title click renames the page.
+        if (showTitle && cached && clickable && SkyblockerCompat.pageValueEnabled()) {
+            int buttonWidth = font.width(VALUE_BUTTON_TEXT);
+            this.valueButton = new Rect(width - titleX - buttonWidth, titleY, buttonWidth, font.lineHeight);
+        } else {
+            this.valueButton = null;
+        }
+        int titleRight = valueButton != null ? valueButton.x() - EMPTY_LABEL_GAP : width - titleX;
         // Truncate long titles to fit the card width.
-        String shownTitle = showTitle ? truncate(font, displayName, width - titleX * 2) : "";
+        String shownTitle = showTitle ? truncate(font, displayName, titleRight - titleX) : "";
         this.pageTitle = new TextComponent(titleX, titleY, Component.literal(shownTitle), OverlayStyle.titleColor());
         pageTitle.setDrawShadow(OverlayStyle.titleShadow());
 
         int textWidth = font.width(shownTitle);
         this.titleLocalX = titleX;
         this.titleLocalY = titleY;
-        this.titleLocalWidth = Math.min(textWidth, width - titleX * 2);
+        this.titleLocalWidth = Math.min(textWidth, titleRight - titleX);
         this.titleLocalHeight = showTitle ? font.lineHeight : 0;
 
         if (cached) {
@@ -148,8 +162,8 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
                 this.addComponent(slotComponent);
             }
 
-            if (EnhancedStorageConfig.showEmptySlotCount && showTitle) {
-                this.emptyLabel = new TextComponent(width - titleX, titleY, Component.empty(), OverlayStyle.secondaryTextColor());
+            if ((EnhancedStorageConfig.showEmptySlotCount || valueButton != null) && showTitle) {
+                this.emptyLabel = new TextComponent(titleRight, titleY, Component.empty(), OverlayStyle.secondaryTextColor());
                 emptyLabel.setDrawShadow(OverlayStyle.titleShadow());
                 this.addComponent(emptyLabel);
             }
@@ -226,7 +240,23 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
         for (StorageSlotComponent slot : slots) {
             if (slot.contains(mouseX, mouseY)) return slot.hoverBounds();
         }
+        Rect value = valueButtonBounds();
+        if (value != null && value.contains(mouseX, mouseY)) return value;
         return null;
+    }
+
+    /**
+     * Screen bounds of the $ button, or null when this card has none (or pricing has failed since it was built).
+     */
+    public @Nullable Rect valueButtonBounds() {
+        if (valueButton == null || !SkyblockerCompat.pageValueEnabled()) return null;
+        return new Rect(getTotalX() + valueButton.x(), getTotalY() + valueButton.y(),
+                valueButton.width(), valueButton.height());
+    }
+
+    public boolean isOverValueButton(double screenX, double screenY) {
+        Rect bounds = valueButtonBounds();
+        return bounds != null && bounds.contains(screenX, screenY);
     }
 
     @Override
@@ -278,21 +308,32 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
     }
 
     // Re-read every frame: the live page's cache follows the player's clicks, and renaming hides the label.
+    // A shown page value takes the empty count's place.
     private void updateEmptyLabel() {
         if (emptyLabel == null) return;
-        String text = titleEditor != null ? "" : PageCache.getInstance().get(key)
-                .map(page -> emptyText(emptySlots(page)))
-                .orElse("");
-        if (text.equals(shownEmptyText)) return;
-        shownEmptyText = text;
+        Component label = titleEditor != null ? Component.empty() : titleLabel();
+        if (label.equals(shownLabel)) return;
+        shownLabel = label;
 
-        int labelX = getWidth() - titleLocalX - Minecraft.getInstance().font.width(text);
-        // A long custom title wins; the navigation panel's tooltip still shows the count.
+        int right = valueButton != null ? valueButton.x() - EMPTY_LABEL_GAP : getWidth() - titleLocalX;
+        int labelX = right - Minecraft.getInstance().font.width(label);
+        // A long custom title wins; the navigation panel's tooltip still shows the count, the $ tooltip the value.
         boolean fits = titleLocalX + titleLocalWidth + EMPTY_LABEL_GAP <= labelX;
-        MutableComponent label = Component.literal(text);
-        if (text.equals(FULL_TEXT)) label = label.withColor(OverlayStyle.fullTextColor() & 0xFFFFFF);
         emptyLabel.setText(fits ? label : Component.empty());
         emptyLabel.setX(labelX);
+    }
+
+    private Component titleLabel() {
+        if (valueButton != null && SkyblockerCompat.pageValueEnabled() && state.isValueShown(key)) {
+            return SkyblockerCompat.pageValue(key).map(SkyblockerCompat::shortText).orElse(Component.empty());
+        }
+        if (!EnhancedStorageConfig.showEmptySlotCount) return Component.empty();
+        String text = PageCache.getInstance().get(key)
+                .map(page -> emptyText(emptySlots(page)))
+                .orElse("");
+        MutableComponent label = Component.literal(text);
+        if (text.equals(FULL_TEXT)) label = label.withColor(OverlayStyle.fullTextColor() & 0xFFFFFF);
+        return label;
     }
 
     // A page snapshot never changes (a capture stores a new one), so count each snapshot's empty slots once.
@@ -346,6 +387,14 @@ public class PageCardComponent extends GridCellComponent implements LiveCell, Pa
         // Then the slots and their items
         for (IComponent component : getComponents()) {
             component.extractRenderStateBase(guiGraphics, mouseX, mouseY, partialTick, getWidth(), getHeight());
+        }
+
+        Rect value = valueButtonBounds();
+        if (value != null && titleEditor == null) {
+            boolean hovered = value.contains(mouseX, mouseY);
+            int color = hovered || state.isValueShown(key) ? OverlayStyle.titleColor() : OverlayStyle.secondaryTextColor();
+            guiGraphics.text(Minecraft.getInstance().font, VALUE_BUTTON_TEXT, value.x(), value.y(), color,
+                    OverlayStyle.titleShadow());
         }
     }
 
