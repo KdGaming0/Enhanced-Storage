@@ -32,6 +32,9 @@ import java.util.List;
  * <p>The list adds its panels in Fabric's after-init event, which our relayouts don't fire, so the screen hands them
  * back with {@link #panelsOn}/{@link #restorePanels} around a rebuild. Its settings are internal classes rather than
  * API, so any linkage error turns the integration off quietly instead of crashing.
+ *
+ * <p>Everything that names a SkyBlock Item List type lives in {@link Sbil}, reached only after {@link #isLoaded()}:
+ * the verifier loads the types this class's own methods use when the class loads, which fails without the mod.
  */
 public final class SkyblockItemListCompat {
 
@@ -82,11 +85,7 @@ public final class SkyblockItemListCompat {
     public static int[] reservedSides() {
         if (!isLoaded() || !EnhancedStorageConfig.roomForItemList) return new int[]{0, 0};
         try {
-            Settings.GeneralSettings general = ConfigManager.INSTANCE.get().getGeneral();
-            if (!general.getEnabled()) return new int[]{0, 0};
-            int list = EnhancedStorageConfig.itemListWidth;
-            int favorites = showsFavorites() ? EnhancedStorageConfig.itemListFavoritesWidth : 0;
-            return general.getListSide() == ItemListSide.RIGHT ? new int[]{favorites, list} : new int[]{list, favorites};
+            return Sbil.reservedSides();
         } catch (LinkageError e) {
             fail(e);
             return new int[]{0, 0};
@@ -102,11 +101,7 @@ public final class SkyblockItemListCompat {
             return false;
         }
         try {
-            Settings settings = ConfigManager.INSTANCE.get();
-            if (!settings.getGeneral().getEnabled() || !settings.getFavoritesList().getEnableFavorites()) return false;
-            Favorites favorites = FavoritesManager.INSTANCE.getFavorites();
-            return !favorites.getFavoriteItems().isEmpty() || !favorites.getFavoriteRecipes().isEmpty()
-                    || !favorites.getFavoriteMobs().isEmpty() || favorites.getPinnedRecipe().isPresent();
+            return Sbil.hasFavoritesToShow();
         } catch (LinkageError e) {
             fail(e);
             return false;
@@ -119,13 +114,7 @@ public final class SkyblockItemListCompat {
     public static List<GuiEventListener> panelsOn(Screen screen) {
         if (!isLoaded()) return List.of();
         try {
-            List<GuiEventListener> panels = new ArrayList<>(2);
-            List<? extends GuiEventListener> children = screen.children();
-            AbstractItemPanel list = SkyBlockItemList.INSTANCE.getInstance();
-            AbstractItemPanel favorites = SkyBlockItemList.INSTANCE.getFavoriteInstance();
-            if (list != null && children.contains(list)) panels.add(list);
-            if (favorites != null && children.contains(favorites)) panels.add(favorites);
-            return panels;
+            return Sbil.panelsOn(screen);
         } catch (LinkageError e) {
             fail(e);
             return List.of();
@@ -138,6 +127,51 @@ public final class SkyblockItemListCompat {
     public static void restorePanels(Screen screen, List<GuiEventListener> panels) {
         if (panels.isEmpty() || !isLoaded()) return;
         try {
+            Sbil.restorePanels(screen, panels);
+        } catch (LinkageError e) {
+            fail(e);
+        }
+    }
+
+    private static void fail(LinkageError e) {
+        if (failed) return;
+        failed = true;
+        EnhancedStorage.LOGGER.warn("SkyBlock Item List has changed in a way Enhanced Storage doesn't recognise; "
+                + "its integration with the storage overlay is turned off.", e);
+    }
+
+    /**
+     * The calls that name SkyBlock Item List's types. Loaded only when one of them first runs.
+     */
+    private static final class Sbil {
+
+        static int[] reservedSides() {
+            Settings.GeneralSettings general = ConfigManager.INSTANCE.get().getGeneral();
+            if (!general.getEnabled()) return new int[]{0, 0};
+            int list = EnhancedStorageConfig.itemListWidth;
+            int favorites = showsFavorites() ? EnhancedStorageConfig.itemListFavoritesWidth : 0;
+            return general.getListSide() == ItemListSide.RIGHT ? new int[]{favorites, list} : new int[]{list, favorites};
+        }
+
+        static boolean hasFavoritesToShow() {
+            Settings settings = ConfigManager.INSTANCE.get();
+            if (!settings.getGeneral().getEnabled() || !settings.getFavoritesList().getEnableFavorites()) return false;
+            Favorites favorites = FavoritesManager.INSTANCE.getFavorites();
+            return !favorites.getFavoriteItems().isEmpty() || !favorites.getFavoriteRecipes().isEmpty()
+                    || !favorites.getFavoriteMobs().isEmpty() || favorites.getPinnedRecipe().isPresent();
+        }
+
+        static List<GuiEventListener> panelsOn(Screen screen) {
+            List<GuiEventListener> panels = new ArrayList<>(2);
+            List<? extends GuiEventListener> children = screen.children();
+            AbstractItemPanel list = SkyBlockItemList.INSTANCE.getInstance();
+            AbstractItemPanel favorites = SkyBlockItemList.INSTANCE.getFavoriteInstance();
+            if (list != null && children.contains(list)) panels.add(list);
+            if (favorites != null && children.contains(favorites)) panels.add(favorites);
+            return panels;
+        }
+
+        static void restorePanels(Screen screen, List<GuiEventListener> panels) {
             AbstractItemPanel list = SkyBlockItemList.INSTANCE.getInstance();
             for (GuiEventListener panel : panels) {
                 if (screen.children().contains(panel)) continue;
@@ -152,15 +186,6 @@ public final class SkyblockItemListCompat {
                             && itemPanel.getWidth() >= MIN_PANEL_WIDTH;
                 }
             }
-        } catch (LinkageError e) {
-            fail(e);
         }
-    }
-
-    private static void fail(LinkageError e) {
-        if (failed) return;
-        failed = true;
-        EnhancedStorage.LOGGER.warn("SkyBlock Item List has changed in a way Enhanced Storage doesn't recognise; "
-                + "its integration with the storage overlay is turned off.", e);
     }
 }

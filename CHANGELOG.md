@@ -6,6 +6,7 @@
 - With SkyHanni's Chest Value turned on, its list now shows in a panel to the left of your pages instead of floating over the screen.
 - Added support for SkyBlock Item List. Its item list now shows beside your pages. You can change how wide they are, or turn them off, under Layout in the settings.
 - With SkyBlock Item List, you can now look up recipes and uses of items on any page, not just the one you have open, and add them to your favorites.
+- With RRV, the recipe and usage keys now work on items in cached pages, not just the one you have open.
 
 ### Bug Fixes
 - Fixed items you just put into a page sometimes not showing on that page after switching to another page.

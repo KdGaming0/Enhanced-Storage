@@ -362,6 +362,14 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         ContainerContentTracker.markLocalChange(this.menu);
     }
 
+    /**
+     * Overrides the method RRV adds to every container screen to find the item its recipe and usage keys act on.
+     */
+    @SuppressWarnings("unused")
+    public ItemStack rrv$hoveredStack() {
+        return CopyHighlight.hovered();
+    }
+
     @Override
     protected void containerTick() {
         super.containerTick();
