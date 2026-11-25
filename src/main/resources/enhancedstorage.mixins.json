@@ -19,6 +19,8 @@
     "compat.skyhanni.SkyHanniGuiEditorHotkeyMixin",
     "compat.skyhanni.SkyHanniInventoryUtilsMixin",
     "compat.skyhanni.SkyHanniRenderDataMixin",
+    "compat.skyblockitemlist.SkyblockItemListPanelMixin",
+    "compat.skyblockitemlist.SkyblockItemListWidthMixin",
     "compat.skyocean.SkyOceanCraftHelperDisplayMixin"
   ],
   "injectors": {

@@ -8,6 +8,7 @@ import com.github.kdgaming0.enhancedstorage.compat.RRVCompat;
 import com.github.kdgaming0.enhancedstorage.config.LayoutSpacing;
 import com.github.kdgaming0.enhancedstorage.compat.SkyHanniCompat;
 import com.github.kdgaming0.enhancedstorage.compat.SkyOceanCompat;
+import com.github.kdgaming0.enhancedstorage.compat.SkyblockItemListCompat;
 import com.github.kdgaming0.enhancedstorage.gui.*;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.CopyHighlight;
 import com.github.kdgaming0.enhancedstorage.gui.highlight.ItemTotals;
@@ -41,6 +42,7 @@ import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -74,6 +76,8 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
     // Room kept on the left for SkyHanni's Chest Value list while it shows (see SkyHanniCompat), right of SkyOcean's
     // panel when that is on the left too. Starts from the last screen's so switching pages doesn't jump.
     private int chestValueReserve = SkyHanniCompat.chestValueExtent();
+    // Room kept at the [left, right] edge for SkyBlock Item List's panels (see SkyblockItemListCompat).
+    private int[] itemListReserve = {0, 0};
     private boolean repositioning;
 
     public StorageContainerScreen(ChestMenu menu, Inventory inventory, Component title, StorageKey openKey) {
@@ -117,11 +121,13 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         }
         // Whatever panel SkyOcean adds after this layout is the one measured next tick.
         SkyOceanCompat.forgetPanel();
-        int craftHelperLeft = craftHelperSide == SkyOceanCompat.Side.LEFT ? craftHelperReserve : 0;
-        layout.setReservedSides(craftHelperLeft + chestValueReserve,
-                craftHelperSide == SkyOceanCompat.Side.RIGHT ? craftHelperReserve : 0);
+        itemListReserve = SkyblockItemListCompat.reservedSides();
+        int sidePanelsLeft = itemListReserve[0]
+                + (craftHelperSide == SkyOceanCompat.Side.LEFT ? craftHelperReserve : 0);
+        layout.setReservedSides(sidePanelsLeft + chestValueReserve,
+                itemListReserve[1] + (craftHelperSide == SkyOceanCompat.Side.RIGHT ? craftHelperReserve : 0));
         layout.build(this, this.font, this.width, this.height, state, openKey, this.menu.getRowCount(), actions);
-        SkyHanniCompat.placeChestValue(craftHelperLeft, layout.getOverlayLeft() - LayoutSpacing.panelGap(),
+        SkyHanniCompat.placeChestValue(sidePanelsLeft, layout.getOverlayLeft() - LayoutSpacing.panelGap(),
                 layout.getMainBackgroundY(), this.height);
 
         // Repeated for every layout until the first frame: Better Screens resizes the screen once more before it.
@@ -365,7 +371,16 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
             return;
         }
         layout.tick();
-        if (craftHelperSpaceChanged() | chestValueSpaceChanged() | layout.modWidgetSpaceChanged()) rebuildWidgets();
+        if (craftHelperSpaceChanged() | chestValueSpaceChanged() | itemListSpaceChanged()
+                | layout.modWidgetSpaceChanged()) rebuildWidgets();
+    }
+
+    /**
+     * Follows SkyBlock Item List's columns: switching its side, turning it off, changing a width option, or the first
+     * favorite added / last one removed. Returns true when the screen has to be laid out again.
+     */
+    private boolean itemListSpaceChanged() {
+        return !Arrays.equals(SkyblockItemListCompat.reservedSides(), itemListReserve);
     }
 
     /**
@@ -424,9 +439,13 @@ public class StorageContainerScreen extends AbstractContainerScreen<ChestMenu> i
         boolean refocus = SearchAutofocus.isFocused(this, layout.getSearchBox());
         refocusRrvSearchBar |= RRVCompat.isSearchBarFocused(this);
 
+        var itemListPanels = SkyblockItemListCompat.panelsOn(this);
+
         super.rebuildWidgets();
-        // Our own relayouts don't fire Fabric's after-init event, so SkyOcean wouldn't put its panel back.
+        // Our own relayouts don't fire Fabric's after-init event, so SkyOcean and SkyBlock Item List wouldn't put
+        // their panels back.
         if (!repositioning && craftHelperSide != SkyOceanCompat.Side.NONE) SkyOceanCompat.addPanel(this);
+        if (!repositioning) SkyblockItemListCompat.restorePanels(this, itemListPanels);
 
         var box = layout.getSearchBox();
         if (refocus && box != null) SearchAutofocus.focus(this, box);

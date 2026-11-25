@@ -111,6 +111,15 @@
   "enhanced_storage.midnightconfig.extraBottomMarginForRecipeSearchBar": "Extra Margin for RRV Search Bar",
   "enhanced_storage.midnightconfig.extraBottomMarginForRecipeSearchBar.tooltip": "Extra bottom margin (px) to leave room for the RRV search bar.",
 
+  "enhanced_storage.midnightconfig.roomForItemList": "Make Room for SkyBlock Item List",
+  "enhanced_storage.midnightconfig.roomForItemList.tooltip": "Needs SkyBlock Item List installed. Makes the storage overlay a little narrower so the item list fits beside it. \n\nWhen this is off, the item list only shows if the overlay leaves enough space at the side.",
+  "enhanced_storage.midnightconfig.itemListWidth": "Item List Width",
+  "enhanced_storage.midnightconfig.itemListWidth.tooltip": "How wide (px) the item list is next to the storage overlay.",
+  "enhanced_storage.midnightconfig.roomForItemListFavorites": "Make Room for Item List Favorites",
+  "enhanced_storage.midnightconfig.roomForItemListFavorites.tooltip": "Also keeps room on the other side for the item list's favorites, but only while you have favorites. \n\nWhen this is off, favorites aren't shown on the storage overlay.",
+  "enhanced_storage.midnightconfig.itemListFavoritesWidth": "Item List Favorites Width",
+  "enhanced_storage.midnightconfig.itemListFavoritesWidth.tooltip": "How wide (px) the favorites list is next to the storage overlay. 48 fits two columns of favorites.",
+
   "enhanced_storage.midnightconfig.rememberSearchOnReopen": "Remember Search on Reopen",
   "enhanced_storage.midnightconfig.rememberSearchOnReopen.tooltip": "Keep the previous search term when the overlay is reopened.",
 

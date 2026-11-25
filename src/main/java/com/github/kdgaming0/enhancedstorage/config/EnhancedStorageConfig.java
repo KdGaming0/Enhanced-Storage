@@ -177,6 +177,23 @@ public class EnhancedStorageConfig extends MidnightConfig {
     @Entry(category = CATEGORY_LAYOUT, isSlider = true, min = 0, max = 50, precision = 1)
     public static int extraBottomMarginForRecipeSearchBar = 35;
 
+    @Condition(requiredModId = "skyblock-item-list", visibleButLocked = true)
+    @Entry(category = CATEGORY_LAYOUT)
+    public static boolean roomForItemList = true;
+
+    @Condition(requiredOption = "roomForItemList", requiredValue = "true")
+    @Entry(category = CATEGORY_LAYOUT, isSlider = true, min = 20, max = 300, precision = 1)
+    public static int itemListWidth = 100;
+
+    @Condition(requiredOption = "roomForItemList", requiredValue = "true")
+    @Entry(category = CATEGORY_LAYOUT)
+    public static boolean roomForItemListFavorites = true;
+
+    @Condition(requiredOption = "roomForItemList", requiredValue = "true")
+    @Condition(requiredOption = "roomForItemListFavorites", requiredValue = "true")
+    @Entry(category = CATEGORY_LAYOUT, isSlider = true, min = 20, max = 200, precision = 1)
+    public static int itemListFavoritesWidth = 48;
+
     // --- Search ---
 
     @Entry(category = CATEGORY_SEARCH)

@@ -1,6 +1,7 @@
 package com.github.kdgaming0.enhancedstorage.mixin;
 
 import net.fabricmc.loader.api.FabricLoader;
+import org.jspecify.annotations.Nullable;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.slf4j.Logger;
@@ -21,6 +22,13 @@ public class EnhancedStorageMixinPlugin implements IMixinConfigPlugin {
      * Compat mixins live in {@code mixin.compat.<mod id>} and only apply when that mod is loaded.
      */
     private static final String COMPAT_PACKAGE = ".mixin.compat.";
+
+    /**
+     * Mod ids that aren't valid package names, keyed by the package their compat mixins live in.
+     */
+    private static final Map<String, String> PACKAGE_MOD_IDS = Map.of(
+            "skyblockitemlist", "skyblock-item-list"
+    );
 
     /**
      * Method names each compat mixin injects into, keyed by simple mixin class name.
@@ -48,6 +56,8 @@ public class EnhancedStorageMixinPlugin implements IMixinConfigPlugin {
             Map.entry("SkyHanniGuiEditorHotkeyMixin", List.of("onKeyPress")),
             Map.entry("SkyHanniInventoryUtilsMixin", List.of("getItemsInOpenChestWithNull", "inInventory")),
             Map.entry("SkyHanniRenderDataMixin", List.of("onBackgroundDraw")),
+            Map.entry("SkyblockItemListPanelMixin", List.of("addItemListWidget")),
+            Map.entry("SkyblockItemListWidthMixin", List.of("updateWidth")),
             Map.entry("SkyOceanCraftHelperDisplayMixin", List.of("onScreenInit"))
     );
 
@@ -92,8 +102,10 @@ public class EnhancedStorageMixinPlugin implements IMixinConfigPlugin {
     }
 
     @Override
-    public String getRefMapperConfig() {
-        return "";
+    public @Nullable String getRefMapperConfig() {
+        // null keeps the config's own (absent) refmap; "" made Mixin try to read a refmap with an empty name and log
+        // an error and a warning on every launch.
+        return null;
     }
 
     @Override
@@ -106,7 +118,8 @@ public class EnhancedStorageMixinPlugin implements IMixinConfigPlugin {
         // A mixin directly in mixin.compat has no mod to gate on; refuse it rather than apply it unconditionally.
         if (idEnd < 0) return false;
 
-        String modId = mixinClassName.substring(idStart, idEnd);
+        String packageName = mixinClassName.substring(idStart, idEnd);
+        String modId = PACKAGE_MOD_IDS.getOrDefault(packageName, packageName);
         return FabricLoader.getInstance().isModLoaded(modId)
                 && hasRequiredMethods(targetClassName, mixinClassName);
     }

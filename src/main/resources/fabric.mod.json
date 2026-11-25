@@ -21,6 +21,9 @@
     ],
     "oneconfig:toggle": [
       "com.github.kdgaming0.enhancedstorage.compat.OneConfigModToggle"
+    ],
+    "skyblock-item-list": [
+      "com.github.kdgaming0.enhancedstorage.compat.SkyblockItemListPlugin"
     ]
   },
   "mixins": [

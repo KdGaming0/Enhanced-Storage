@@ -105,6 +105,7 @@ dependencies {
 
     modCompileOnly("maven.modrinth:skyblocker-liap:${property("deps.skyblocker_version")}")
     modCompileOnly("maven.modrinth:rrv:${property("deps.rrv_version")}")
+    modCompileOnly("maven.modrinth:skyblock-item-list:${property("deps.sbil_version")}")
     compileOnly("org.polyfrost.oneconfig:mod-toggles:${property("deps.oneconfig_toggles")}")
 
     modRuntimeOnly("maven.modrinth:resourcepackcached:${property("deps.rpc_version")}")
